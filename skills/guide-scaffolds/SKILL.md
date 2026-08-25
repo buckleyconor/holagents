@@ -1,0 +1,58 @@
+---
+name: guide-scaffolds
+description: Authoring templates for holagent guides and research profiles. Use when starting a new guide, module plan, lab-prep handoff, company/product research output, or style guide — copy the template into place, fill the "<< FILL: ... >>" markers, and validate.
+---
+
+# Guide Scaffolds
+
+Templates for every holagent artifact. Each template is **copy-then-fill**: copy
+the file to its target location, replace every `<< FILL: ... >>` marker with
+real content, and validate before proceeding to the next stage.
+
+| Template            | Copies to                                                       | Purpose                                                                       |
+| ------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `guide-plan.md`     | `guides/<slug>/.holagent/plan.md`                               | Guide plan — frontmatter is the machine-readable source of truth              |
+| `module-plan.md`    | `guides/<slug>/.holagent/<NN-slug>/plan.md`                     | Per-module plan — steps, environment delta, image checklist, success criteria |
+| `lab-prep.md`       | `guides/<slug>/lab-prep.md`                                     | Handoff artifact for the (out-of-scope) environment provisioning team         |
+| `company.md`        | `~/.holagent/companies/<company-slug>/company.md`               | Company research output                                                       |
+| `product.md`        | `~/.holagent/products/<company-slug>/<product-slug>/product.md` | Product research output                                                       |
+| `style-guide.md`    | `~/.holagent/companies/<company-slug>/style-guide.md`           | Writing style distilled from scraped documentation                            |
+| `guide-scaffold.md` | `guides/<slug>/guide.md`                                        | Minimal valid guide body                                                      |
+
+## Frontmatter subset rule
+
+`plan.md` and module plans are parsed by the holagent frontmatter parser, which
+implements a **minimal YAML subset** (`extensions/frontmatter.ts`). Stay inside
+it or the file is "unparseable":
+
+- top-level `key: value` scalars — quote strings with special characters
+  (`title: "Setup the Cluster"`); keep numbers bare (`n: 1`)
+- block lists — `key:` followed by indented `  - item` lines
+- flow lists — `depends_on: [1]`
+- flow maps, **one line each** —
+  `  - { n: 1, slug: create-collections, title: "Create Collections", goal: "...", est_minutes: 10 }`
+- one level of nested maps (e.g. `environment:` with indented keys)
+
+Do **not** use: multi-line flow collections (a `{ ... }` or `[ ... ]` split
+across lines), trailing inline comments after a value, anchors/aliases, or any
+other YAML feature. If a value needs more than one line, use a block list or
+keep the value on one line.
+
+## Golden rule
+
+1. A filled `plan.md` or module plan must **parse** with the holagent
+   frontmatter parser (no "unparseable frontmatter" from the tools).
+2. A filled `guide-scaffold` must pass `hol_validate` with **zero errors**.
+   After filling the `## Module 1:` title, regenerate its TOC anchor from the
+   new heading text (GitHub rules: lowercase, punctuation stripped, spaces to
+   hyphens) — L004 catches stale anchors.
+3. Markers are `<< FILL: ... >>` — never unfinished-marker tokens in any
+   template or in a filled guide (W008 forbids the three standard ones).
+
+## Fill order for a new guide
+
+1. `guide-plan.md` → `.holagent/plan.md` (id, title, slug, modules)
+2. `lab-prep.md` → `lab-prep.md` (environment handoff)
+3. `module-plan.md` → `.holagent/<NN-slug>/plan.md`, one per module
+4. `guide-scaffold.md` → `guide.md`, then expand Module 1 and add the rest
+5. Run `/hol-validate` — errors block, warnings advise

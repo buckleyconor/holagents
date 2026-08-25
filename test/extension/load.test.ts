@@ -161,29 +161,27 @@ test('tool executes end-to-end against a scratch guide', async () => {
 
     // invalid merge → error (pi sets isError when execute throws)
     await assert.rejects(async () => {
-      await byName
-        .get('hol_scores')!
-        .execute(
-          'tc6',
-          {
-            action: 'merge',
-            entries: [
-              {
-                scope: 'nope',
-                rubric: 'x',
-                kind: 'analytic',
-                status: 'passed',
-                score: 3,
-                rounds: 0,
-                findings: [],
-                updated_at: new Date().toISOString(),
-              },
-            ],
-          },
-          undefined,
-          undefined,
-          ctx,
-        );
+      await byName.get('hol_scores')!.execute(
+        'tc6',
+        {
+          action: 'merge',
+          entries: [
+            {
+              scope: 'nope',
+              rubric: 'x',
+              kind: 'analytic',
+              status: 'passed',
+              score: 3,
+              rounds: 0,
+              findings: [],
+              updated_at: new Date().toISOString(),
+            },
+          ],
+        },
+        undefined,
+        undefined,
+        ctx,
+      );
     }, /E-ARG/);
 
     // path escape via the tool surface → E-PATH error

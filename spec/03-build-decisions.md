@@ -2,29 +2,29 @@
 
 ## 1. Language, framework, libraries
 
-| Choice | Decision | Rationale (one line) | Alternative considered |
-|---|---|---|---|
-| Extension + linter language | **TypeScript 5.x, erasable-syntax-only** | pi loads extensions via jiti (no build step), and Node 22 type-stripping runs the linter CLI and tests without compilation | Plain JS (rejected: the schema-heavy linter/tool code benefits from types; zero runtime cost) |
-| Runtime | **Node 22** (the Node pi bundles: 22.22.3) | `--experimental-strip-types` + `node:test` cover tooling with no extra installs | A build step (esbuild/tsc emit) — rejected: nothing consumes compiled output |
-| Prompt templates / skills / agents | **Markdown** | These *are* the product surface; pi's native formats | n/a |
-| Markdown parsing (linter) | **Hand-rolled line scanner, stdlib only** | We own the format; line-based rules are trivially debuggable and keep the dependency graph empty | `markdown-it` / `marked` (kept as fallback if line-based rules prove insufficient for nested structures) |
-| Process invocation (shellcheck) | **`child_process.execFile`** | No shell interpolation, arg-array safe | `exec` with string building (rejected: injection surface) |
-| JSON/atomic writes | **`fs` stdlib (write temp + `rename`)** | Same-directory rename is atomic on POSIX | `fs-extra` (rejected: stdlib suffices) |
-| Schemas for tool params | **TypeBox** (`Type.Object`, `StringEnum` from `@earendil-works/pi-ai`) | pi's own tool-registration API is TypeBox-shaped; bundled by pi | zod (rejected: type mismatch with pi's API) |
-| Package manager | **npm** | pi's package installer runs `npm install --omit=dev`; team default | pnpm/yarn (rejected: would conflict with pi's install flow) |
+| Choice                             | Decision                                                               | Rationale (one line)                                                                                                       | Alternative considered                                                                                   |
+| ---------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Extension + linter language        | **TypeScript 5.x, erasable-syntax-only**                               | pi loads extensions via jiti (no build step), and Node 22 type-stripping runs the linter CLI and tests without compilation | Plain JS (rejected: the schema-heavy linter/tool code benefits from types; zero runtime cost)            |
+| Runtime                            | **Node 22** (the Node pi bundles: 22.22.3)                             | `--experimental-strip-types` + `node:test` cover tooling with no extra installs                                            | A build step (esbuild/tsc emit) — rejected: nothing consumes compiled output                             |
+| Prompt templates / skills / agents | **Markdown**                                                           | These _are_ the product surface; pi's native formats                                                                       | n/a                                                                                                      |
+| Markdown parsing (linter)          | **Hand-rolled line scanner, stdlib only**                              | We own the format; line-based rules are trivially debuggable and keep the dependency graph empty                           | `markdown-it` / `marked` (kept as fallback if line-based rules prove insufficient for nested structures) |
+| Process invocation (shellcheck)    | **`child_process.execFile`**                                           | No shell interpolation, arg-array safe                                                                                     | `exec` with string building (rejected: injection surface)                                                |
+| JSON/atomic writes                 | **`fs` stdlib (write temp + `rename`)**                                | Same-directory rename is atomic on POSIX                                                                                   | `fs-extra` (rejected: stdlib suffices)                                                                   |
+| Schemas for tool params            | **TypeBox** (`Type.Object`, `StringEnum` from `@earendil-works/pi-ai`) | pi's own tool-registration API is TypeBox-shaped; bundled by pi                                                            | zod (rejected: type mismatch with pi's API)                                                              |
+| Package manager                    | **npm**                                                                | pi's package installer runs `npm install --omit=dev`; team default                                                         | pnpm/yarn (rejected: would conflict with pi's install flow)                                              |
 
 **Dependency policy: zero runtime dependencies.** The extension imports only Node
 stdlib + pi core (peer, bundled). The linter imports only Node stdlib. Dev
 dependencies only: `typescript`, `@types/node`, `prettier`.
 
-| Dependency | Where | Why it earns its place |
-|---|---|---|
-| `typebox` | peer `"*"` | Required by pi's `registerTool` parameter schemas; pi bundles it |
-| `@earendil-works/pi-ai` | peer `"*"` | `StringEnum` helper + pi type surface; pi bundles it |
-| `@earendil-works/pi-coding-agent` | peer `"*"` (types only) | `ExtensionAPI` types for the extension |
-| `typescript` (dev) | dev | `tsc --noEmit` typecheck |
-| `@types/node` (dev) | dev | stdlib typings |
-| `prettier` (dev) | dev | single formatter, deterministic diffs |
+| Dependency                        | Where                   | Why it earns its place                                           |
+| --------------------------------- | ----------------------- | ---------------------------------------------------------------- |
+| `typebox`                         | peer `"*"`              | Required by pi's `registerTool` parameter schemas; pi bundles it |
+| `@earendil-works/pi-ai`           | peer `"*"`              | `StringEnum` helper + pi type surface; pi bundles it             |
+| `@earendil-works/pi-coding-agent` | peer `"*"` (types only) | `ExtensionAPI` types for the extension                           |
+| `typescript` (dev)                | dev                     | `tsc --noEmit` typecheck                                         |
+| `@types/node` (dev)               | dev                     | stdlib typings                                                   |
+| `prettier` (dev)                  | dev                     | single formatter, deterministic diffs                            |
 
 ## 2. Project / folder structure
 
@@ -88,15 +88,15 @@ holagent-lab-guides/
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-ai": "*",
-    "typebox": "*"
+    "typebox": "*",
   },
   "devDependencies": { "typescript": "^5", "@types/node": "^22", "prettier": "^3" },
   "pi": {
     "extensions": ["./extensions/hol.ts"],
     "skills": ["./skills"],
-    "prompts": ["./prompts"]
+    "prompts": ["./prompts"],
   },
-  "pi-subagents": { "agents": ["./agents"] }
+  "pi-subagents": { "agents": ["./agents"] },
 }
 ```
 
@@ -106,14 +106,14 @@ pi-subagents; we use the `pi-subagents` key. Scripts: `test`, `typecheck`,
 
 ## 3. Tooling
 
-| Concern | Choice | Notes |
-|---|---|---|
-| Typecheck | `tsc --noEmit` (strict) | Also the guardrail keeping the linter erasable-TS (no enums/param properties) |
-| Formatter | Prettier (single config, `prettier --check` in CI) | Applies to TS + MD |
-| Linter (code) | none in v1 | ~1–2k lines of TS; tsc + review is proportionate. Revisit if the linter grows rule groups |
-| Tests | `node --experimental-strip-types --test test/**/*.test.ts` (node:test, no framework) | Same approach pi-subagents uses; no transpilation |
-| CI | GitHub Actions, `ubuntu-latest`, Node 22 | No Docker, no matrix (single target arch) |
-| Release | git tags; `npm pack` in CI for tarball validation | npm publish is a later decision (open question Q3) |
+| Concern       | Choice                                                                               | Notes                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Typecheck     | `tsc --noEmit` (strict)                                                              | Also the guardrail keeping the linter erasable-TS (no enums/param properties)             |
+| Formatter     | Prettier (single config, `prettier --check` in CI)                                   | Applies to TS + MD                                                                        |
+| Linter (code) | none in v1                                                                           | ~1–2k lines of TS; tsc + review is proportionate. Revisit if the linter grows rule groups |
+| Tests         | `node --experimental-strip-types --test test/**/*.test.ts` (node:test, no framework) | Same approach pi-subagents uses; no transpilation                                         |
+| CI            | GitHub Actions, `ubuntu-latest`, Node 22                                             | No Docker, no matrix (single target arch)                                                 |
+| Release       | git tags; `npm pack` in CI for tarball validation                                    | npm publish is a later decision (open question Q3)                                        |
 
 ### CI jobs (`ci.yml`)
 

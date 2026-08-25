@@ -9,9 +9,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const format = JSON.parse(
-  readFileSync(join(root, 'skills/guide-format/format.json'), 'utf8'),
-);
+const format = JSON.parse(readFileSync(join(root, 'skills/guide-format/format.json'), 'utf8'));
 
 const lines = [
   '# Linter rules',

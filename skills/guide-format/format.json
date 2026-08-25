@@ -6,7 +6,7 @@
   "platformNoticeWithinFirstNonEmptyLines": 3,
   "toc": {
     "heading": "## Table of Contents",
-    "entryPattern": "^\\s*[-*] \\[(\\d+)\\. (.+)\\]\\(([^)]+)\\)\\s*$"
+    "entryPattern": "^\\s*[-*] \\[(?:(\\d+)\\. )?(.+)\\]\\(([^)]+)\\)\\s*$"
   },
   "blocks": {
     "credentials": {
@@ -43,7 +43,14 @@
     "placeholderPattern": "^<< INSERT SCREENSHOT: (.+) >>\\s*$"
   },
   "callouts": {
-    "standard": ["**Tip:**", "**Note:**", "**Important:**", "**Use Case:**", "> ✅ **Checkpoint:**", "> 💡"],
+    "standard": [
+      "**Tip:**",
+      "**Note:**",
+      "**Important:**",
+      "**Use Case:**",
+      "> ✅ **Checkpoint:**",
+      "> 💡"
+    ],
     "nonStandard": ["**Tip!**", "**Use Case!**", "**Lab Tip:**", "**Note!**", "**Important!**"]
   },
   "commandExtraction": {

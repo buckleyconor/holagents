@@ -25,7 +25,7 @@ Required sections (in order):
 8. **Data layout** — the §02 §3.1 tree, short.
 9. **Troubleshooting** — table: symptom → cause → fix (scraper missing; shellcheck
    missing; `E-PATH`; scorer JSON parse retry; pi-subagents not loaded; `grep -ri
-   instruqt`-style confusion about provenance).
+instruqt`-style confusion about provenance).
 10. **Provenance & license** — architecture derived from an existing Claude Code
     plugin (credit line), content/format standard is the team's own; license of the
     package.
@@ -41,7 +41,7 @@ Required sections (in order):
   (`npm run docs:rules`; CI job checks it's in sync — drift fails the build).
   Rule ID, severity, one-line description, example fix. No hand-maintained rule
   docs.
-- **Commands:** self-documenting — the prompt template body *is* the command doc
+- **Commands:** self-documenting — the prompt template body _is_ the command doc
   (argument table, workflow, error handling table), consistent with how pi prompt
   templates are consumed. The README command table links to each template.
 - **Scoring contract:** `skills/evaluation/scorer-prompts.md` (task templates +
@@ -67,15 +67,15 @@ Required sections (in order):
 
 ## 4. Architecture Decision Records (kept in `docs/adr/`)
 
-| ADR | Decision | One-line why |
-|---|---|---|
-| 001 | Parent session owns scorer fanout and fix loops (children don't spawn children) | pi-subagents policy; parallel `runs.all` with stable keys + read-only scorers beats grandchild dispatch |
-| 002 | Knowledge (format spec, rubrics, templates, style corpus) bundled inside skill directories | Pi resolves skill-relative paths; a package's install path varies, so skill dirs are the only stable base |
-| 003 | No lifecycle-script layer (setup/check/solve/cleanup); inline commands only | holagent lab environments are pre-provisioned; the deliverable is the guide document, not sandbox state |
-| 004 | Line-based linter, no Markdown AST dependency, erasable-TS only, no build step | We own the format; stdlib-only keeps supply chain empty and Node strip-types runs everything |
-| 005 | `guide.md` is canonical during the pipeline; rename to `<ID>-<Title>.md` only after a passing `/hol-review-guide`, user-confirmed | Keeps tooling paths stable; final name is an authoring decision, not a tooling one |
-| 006 | Scorer output = single trailing fenced JSON block (no per-workflow-item `outputSchema` reliance) | `workflowScript` item options don't guarantee structured-output schemas; trailing-block + parse-retry is robust and testable |
-| 007 | `/hol-validate` and `/hol-status` are extension commands (LLM-bypass), all other commands are prompt templates | Determinism for deterministic ops; model orchestration for judgment ops |
+| ADR | Decision                                                                                                                          | One-line why                                                                                                                 |
+| --- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 001 | Parent session owns scorer fanout and fix loops (children don't spawn children)                                                   | pi-subagents policy; parallel `runs.all` with stable keys + read-only scorers beats grandchild dispatch                      |
+| 002 | Knowledge (format spec, rubrics, templates, style corpus) bundled inside skill directories                                        | Pi resolves skill-relative paths; a package's install path varies, so skill dirs are the only stable base                    |
+| 003 | No lifecycle-script layer (setup/check/solve/cleanup); inline commands only                                                       | holagent lab environments are pre-provisioned; the deliverable is the guide document, not sandbox state                      |
+| 004 | Line-based linter, no Markdown AST dependency, erasable-TS only, no build step                                                    | We own the format; stdlib-only keeps supply chain empty and Node strip-types runs everything                                 |
+| 005 | `guide.md` is canonical during the pipeline; rename to `<ID>-<Title>.md` only after a passing `/hol-review-guide`, user-confirmed | Keeps tooling paths stable; final name is an authoring decision, not a tooling one                                           |
+| 006 | Scorer output = single trailing fenced JSON block (no per-workflow-item `outputSchema` reliance)                                  | `workflowScript` item options don't guarantee structured-output schemas; trailing-block + parse-retry is robust and testable |
+| 007 | `/hol-validate` and `/hol-status` are extension commands (LLM-bypass), all other commands are prompt templates                    | Determinism for deterministic ops; model orchestration for judgment ops                                                      |
 
 ADRs are short (context / decision / consequences), immutable once accepted —
 superseded by a new ADR that references the old one.

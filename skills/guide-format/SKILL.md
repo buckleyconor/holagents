@@ -53,6 +53,7 @@ the arbiter and its rules are configured in this skill's `format.json`.
   ```
 
   Prose in backticks (capital-start, no shell tokens) is not treated as a command.
+
 - **Expected results**: state them after each command/action ("200 returned is a
   successful result"). Never leave a step without an observable outcome.
 - **Checkpoints**: `> ✅ **Checkpoint:** <verifiable end state>` — at least one per
@@ -62,24 +63,24 @@ the arbiter and its rules are configured in this skill's `format.json`.
 - **Images**: exactly one of
   - uploaded: `![Image](/ImageProxy?filename=<uuid>/<file>.png "Click to enlarge"){data-modal=true}`
   - pending: `<< INSERT SCREENSHOT: <what the reader should see> >>`
-  (W005 cross-checks the module plan's image checklist against actual images.)
+    (W005 cross-checks the module plan's image checklist against actual images.)
 
 ## Known drift classes (what NOT to emit)
 
-| Drift | Fix |
-|---|---|
-| Missing H1/ID, or `# Lab Guide: <title>` | `# HOL-XXXX-NN <Title>` first line |
-| TOC with duplicate or skipped numbers | Renumber 1..N consecutively |
-| Stale anchors (TOC text ≠ heading text) | Regenerate anchors from headings |
-| `## Phase N - …` / `## Lesson N` sections | `## Module N: …` |
-| `## Lab Credentials:` (h2) | `### Lab Credentials:` (h3) |
-| `### 1.1 Target Audience` | `### Target Audience` |
-| `## Introduction Overview` / `## Orientation` | `## Introduction` |
-| `## Module N: Summary` | Standalone `## Summary` after last module |
-| `**Tip!**`, `**Use Case!**` | `**Tip:**`, `**Use Case:**` |
-| Bare `![](x.png)` / missing `{data-modal=true}` | Full ImageProxy form or placeholder |
-| Raw HTML (`<script>`, `<img src=`, `onerror=`) | Remove; use image syntax (W007) |
-| `TODO`/`TBD`/`FIXME` markers | Resolve before publish (W008) |
+| Drift                                           | Fix                                       |
+| ----------------------------------------------- | ----------------------------------------- |
+| Missing H1/ID, or `# Lab Guide: <title>`        | `# HOL-XXXX-NN <Title>` first line        |
+| TOC with duplicate or skipped numbers           | Renumber 1..N consecutively               |
+| Stale anchors (TOC text ≠ heading text)         | Regenerate anchors from headings          |
+| `## Phase N - …` / `## Lesson N` sections       | `## Module N: …`                          |
+| `## Lab Credentials:` (h2)                      | `### Lab Credentials:` (h3)               |
+| `### 1.1 Target Audience`                       | `### Target Audience`                     |
+| `## Introduction Overview` / `## Orientation`   | `## Introduction`                         |
+| `## Module N: Summary`                          | Standalone `## Summary` after last module |
+| `**Tip!**`, `**Use Case!**`                     | `**Tip:**`, `**Use Case:**`               |
+| Bare `![](x.png)` / missing `{data-modal=true}` | Full ImageProxy form or placeholder       |
+| Raw HTML (`<script>`, `<img src=`, `onerror=`)  | Remove; use image syntax (W007)           |
+| `TODO`/`TBD`/`FIXME` markers                    | Resolve before publish (W008)             |
 
 ## Linter
 

@@ -3,15 +3,28 @@
   "version": "0.1.0",
   "type": "module",
   "description": "holagent: Pi agent package that produces hands-on lab guides end-to-end (research, plan, generate, validate, score)",
-  "keywords": ["pi-package", "pi", "agent", "lab-guides"],
+  "keywords": [
+    "pi-package",
+    "pi",
+    "agent",
+    "lab-guides"
+  ],
   "license": "UNLICENSED",
   "pi": {
-    "extensions": ["./extensions/hol.ts"],
-    "skills": ["./skills"],
-    "prompts": ["./prompts"]
+    "extensions": [
+      "./extensions/hol.ts"
+    ],
+    "skills": [
+      "./skills"
+    ],
+    "prompts": [
+      "./prompts"
+    ]
   },
   "pi-subagents": {
-    "agents": ["./agents"]
+    "agents": [
+      "./agents"
+    ]
   },
   "files": [
     "prompts",

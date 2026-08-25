@@ -36,14 +36,14 @@ reference only**. All branding, format, and domain content is holagent's own.
 
 ## Goals
 
-| # | Goal | Measurable as |
-|---|------|---------------|
-| G1 | **Plan** — `/hol-plan` interviews the user (guide ID up front, audience, objectives, environment) and produces `.holagent/plan.md` + `lab-prep.md`, scored and approved before generation | Plan file parses; checklist rubric 100%; user approval recorded |
-| G2 | **Generate** — `/hol-generate-module <slug>` authors one `## Module N:` section into `guide.md` that is format-conformant | Linter: 0 errors on the guide after each module |
-| G3 | **Validate** — `/hol-validate` gives a deterministic pass/fail with stable rule IDs, including shellcheck on extracted inline commands | Reproducible report; rule IDs stable across runs; exit codes per `02-architecture.md` §Interfaces |
-| G4 | **Score** — rubric scoring (checklist 0/1, analytic 1–5, holistic 1–5) with parent-owned parallel fanout and bounded fix loops | Every scorer returns strict JSON; scores persisted to `.holagent/scores.json`; fix loops capped (analytic 3 rounds, checklist escalation at 5) |
-| G5 | **Research** — vendor site scrape → reusable company profile + style guide; product research → product profile, cached in `~/.holagent/` | Research done once per company/product; reused by later guides |
-| G6 | **State** — `/hol-status` renders pipeline state; `/hol-generate-all` is idempotent and resumable | Re-running any command never corrupts or duplicates state |
+| #   | Goal                                                                                                                                                                                      | Measurable as                                                                                                                                  |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| G1  | **Plan** — `/hol-plan` interviews the user (guide ID up front, audience, objectives, environment) and produces `.holagent/plan.md` + `lab-prep.md`, scored and approved before generation | Plan file parses; checklist rubric 100%; user approval recorded                                                                                |
+| G2  | **Generate** — `/hol-generate-module <slug>` authors one `## Module N:` section into `guide.md` that is format-conformant                                                                 | Linter: 0 errors on the guide after each module                                                                                                |
+| G3  | **Validate** — `/hol-validate` gives a deterministic pass/fail with stable rule IDs, including shellcheck on extracted inline commands                                                    | Reproducible report; rule IDs stable across runs; exit codes per `02-architecture.md` §Interfaces                                              |
+| G4  | **Score** — rubric scoring (checklist 0/1, analytic 1–5, holistic 1–5) with parent-owned parallel fanout and bounded fix loops                                                            | Every scorer returns strict JSON; scores persisted to `.holagent/scores.json`; fix loops capped (analytic 3 rounds, checklist escalation at 5) |
+| G5  | **Research** — vendor site scrape → reusable company profile + style guide; product research → product profile, cached in `~/.holagent/`                                                  | Research done once per company/product; reused by later guides                                                                                 |
+| G6  | **State** — `/hol-status` renders pipeline state; `/hol-generate-all` is idempotent and resumable                                                                                         | Re-running any command never corrupts or duplicates state                                                                                      |
 
 ## Success criteria (acceptance)
 
@@ -76,11 +76,11 @@ reference only**. All branding, format, and domain content is holagent's own.
 
 ## Users
 
-| Persona | Role |
-|---|---|
-| Lab-guide author / technical content engineer | Primary user; runs the `hol-*` commands, approves plans, fills screenshots, final sign-off |
-| Field technical specialist / AI solution architect | Indirect; consumes the finished guides in the lab environment |
-| Lab environment builder | Indirect; consumes `lab-prep.md` from `/hol-plan` |
+| Persona                                            | Role                                                                                       |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Lab-guide author / technical content engineer      | Primary user; runs the `hol-*` commands, approves plans, fills screenshots, final sign-off |
+| Field technical specialist / AI solution architect | Indirect; consumes the finished guides in the lab environment                              |
+| Lab environment builder                            | Indirect; consumes `lab-prep.md` from `/hol-plan`                                          |
 
 ## Operating context
 

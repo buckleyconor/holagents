@@ -1,0 +1,231 @@
+{
+  "version": 1,
+  "idPattern": "^HOL-\\d{4}-\\d{2}$",
+  "h1Pattern": "^# (HOL-\\d{4}-\\d{2}) (.+)$",
+  "platformNotice": "ℹ️ You can resize or hide the lab guide anytime by sliding it left or right.",
+  "platformNoticeWithinFirstNonEmptyLines": 3,
+  "toc": {
+    "heading": "## Table of Contents",
+    "entryPattern": "^\\s*[-*] \\[(\\d+)\\. (.+)\\]\\(([^)]+)\\)\\s*$"
+  },
+  "blocks": {
+    "credentials": {
+      "heading": "### Lab Credentials:",
+      "level": 3,
+      "credentialLinePattern": "(?i)(username|password|fqdn|ip\\s*address|passwords?:)"
+    },
+    "audience": {
+      "heading": "### Target Audience",
+      "level": 3
+    },
+    "introduction": {
+      "heading": "## Introduction",
+      "requiredMarkers": ["**Duration:**", "**Objective:**"],
+      "forbiddenVariantHeadings": ["## Introduction Overview", "## Orientation"]
+    },
+    "summary": {
+      "heading": "## Summary",
+      "level": 2
+    },
+    "module": {
+      "headingPattern": "^## Module (\\d+): (.+)$",
+      "startAt": 1,
+      "sequential": true,
+      "forbiddenHeadingPatterns": ["^## Phase \\d", "^## Lesson \\d", "^## Module \\d[^:]"]
+    }
+  },
+  "backToTop": {
+    "text": "[Back to top](#table-of-contents)",
+    "anchor": "#table-of-contents"
+  },
+  "images": {
+    "imageProxyPattern": "^!\\[Image\\]\\(/ImageProxy\\?filename=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/([^\\s)]+) \"Click to enlarge\"\\)\\{data-modal=true\\}\\s*$",
+    "placeholderPattern": "^<< INSERT SCREENSHOT: (.+) >>\\s*$"
+  },
+  "callouts": {
+    "standard": ["**Tip:**", "**Note:**", "**Important:**", "**Use Case:**", "> ✅ **Checkpoint:**", "> 💡"],
+    "nonStandard": ["**Tip!**", "**Use Case!**", "**Lab Tip:**", "**Note!**", "**Important!**"]
+  },
+  "commandExtraction": {
+    "indentChars": ["\t", "    "],
+    "firstTokenPattern": "^[a-z][a-z0-9_-]*$|^(\\./|/)",
+    "maxCommandLength": 2000
+  },
+  "forbiddenTokens": ["TODO", "TBD", "FIXME"],
+  "forbiddenHtmlPatterns": ["<script", "<iframe", "onerror=", "<img src="],
+  "limits": {
+    "sectionMaxLinesWithoutSubheading": 400,
+    "commandStepsBeforeCheckpoint": 3,
+    "resolveGuideRootMaxAncestors": 3
+  },
+  "rules": [
+    {
+      "id": "L001",
+      "severity": "error",
+      "title": "H1 with guide ID",
+      "description": "First non-empty line must be `# <ID> <Title>` with the ID matching `HOL-\\d{4}-\\d{2}`.",
+      "fixHint": "Add `# HOL-XXXX-NN <Title>` as the first line of the guide."
+    },
+    {
+      "id": "L002",
+      "severity": "error",
+      "title": "Platform notice",
+      "description": "The platform-notice line must appear verbatim within the first 3 non-empty lines.",
+      "fixHint": "Insert the exact notice line near the top of the guide (see format spec)."
+    },
+    {
+      "id": "L003",
+      "severity": "error",
+      "title": "TOC present, sequential numbering",
+      "description": "`## Table of Contents` must exist before the first module, and TOC entry numbers must be sequential 1..N.",
+      "fixHint": "Renumber TOC entries consecutively starting at 1."
+    },
+    {
+      "id": "L004",
+      "severity": "error",
+      "title": "TOC anchors resolve",
+      "description": "Every TOC link must be a local anchor (`#…`) that resolves to an existing heading (GitHub anchor algorithm).",
+      "fixHint": "Regenerate the anchor from the actual heading text; anchors must not be external URLs."
+    },
+    {
+      "id": "L005",
+      "severity": "error",
+      "title": "TOC coverage",
+      "description": "Every `##` section (except Table of Contents) appears in the TOC exactly once; no duplicate `##` headings.",
+      "fixHint": "Add missing sections to the TOC and rename duplicate headings."
+    },
+    {
+      "id": "L006",
+      "severity": "error",
+      "title": "Lab Credentials block",
+      "description": "`### Lab Credentials:` (h3) must appear before the Introduction and contain at least one credential line.",
+      "fixHint": "Use `### Lab Credentials:` (heading level 3) with at least one Username/Password/FQDN/IP line."
+    },
+    {
+      "id": "L007",
+      "severity": "error",
+      "title": "Target Audience block",
+      "description": "`### Target Audience` (h3) must exist before the Introduction.",
+      "fixHint": "Add `### Target Audience` with the audience list before the Introduction section."
+    },
+    {
+      "id": "L008",
+      "severity": "error",
+      "title": "Introduction section",
+      "description": "`## Introduction` must exist (variants such as `Introduction Overview` or `Orientation` are drift).",
+      "fixHint": "Rename the section to exactly `## Introduction`."
+    },
+    {
+      "id": "L009",
+      "severity": "error",
+      "title": "Introduction markers",
+      "description": "The Introduction must contain `**Duration:**` and `**Objective:**`.",
+      "fixHint": "Add a `**Duration:**` line (estimated minutes) and an `**Objective:**` intro with bullet objectives."
+    },
+    {
+      "id": "L010",
+      "severity": "error",
+      "title": "Summary section",
+      "description": "`## Summary` must exist and appear after the last module (appendices may follow the Summary).",
+      "fixHint": "Add a standalone `## Summary` section after the final module (do not fold it into a module heading)."
+    },
+    {
+      "id": "L011",
+      "severity": "error",
+      "title": "Module headings sequential",
+      "description": "Body sections must match `## Module <N>: <Title>` with N sequential from 1. `## Phase …` and other variants are drift.",
+      "fixHint": "Rename body sections to `## Module <N>: <Title>` and keep numbering sequential."
+    },
+    {
+      "id": "L012",
+      "severity": "error",
+      "title": "Back-to-top link",
+      "description": "Every `##` section ends with `[Back to top](#table-of-contents)`.",
+      "fixHint": "Add `[Back to top](#table-of-contents)` (optionally followed by `***`) at the end of the section."
+    },
+    {
+      "id": "L013",
+      "severity": "error",
+      "title": "Image syntax",
+      "description": "Every image line must be `![Image](/ImageProxy?filename=<uuid>/<file> \"Click to enlarge\"){data-modal=true}` or `<< INSERT SCREENSHOT: <desc> >>`.",
+      "fixHint": "Use the ImageProxy form for uploaded images, or the `<< INSERT SCREENSHOT: description >>` placeholder."
+    },
+    {
+      "id": "L014",
+      "severity": "error",
+      "title": "Inline command shellcheck",
+      "description": "Extracted inline commands (tab/4-space indented, backtick-wrapped) must pass shellcheck. Parse errors are errors; style warnings are W014.",
+      "fixHint": "Fix the flagged command (quote variables, drop unused pipes) or verify the line is not a command."
+    },
+    {
+      "id": "W001",
+      "severity": "warning",
+      "title": "Callout style consistency",
+      "description": "Non-standard or mixed callout variants detected (e.g. `**Tip!**`, `**Use Case!` alongside standard forms).",
+      "fixHint": "Use standard callouts: `**Tip:**`, `**Note:**`, `⚠️ **Important:**`, `**Use Case:**`, `> ✅ **Checkpoint:**`."
+    },
+    {
+      "id": "W002",
+      "severity": "warning",
+      "title": "Long section without subheading",
+      "description": "A `##` section exceeds 400 lines with no `###` subheading (pacing risk).",
+      "fixHint": "Split the section into `###` sub-sections (e.g. per exercise or concept)."
+    },
+    {
+      "id": "W003",
+      "severity": "warning",
+      "title": "Summary ordering drift",
+      "description": "`## Summary` appears before all modules are complete.",
+      "fixHint": "Move `## Summary` after the final module."
+    },
+    {
+      "id": "W004",
+      "severity": "warning",
+      "title": "Missing checkpoint",
+      "description": "A module has 3 or more command steps but no `> ✅ **Checkpoint:**` block.",
+      "fixHint": "Add a `> ✅ **Checkpoint:**` line stating the verifiable end state."
+    },
+    {
+      "id": "W005",
+      "severity": "warning",
+      "title": "Image checklist mismatch",
+      "description": "Module plan image checklist and the module's actual images/placeholders disagree (missing or extra).",
+      "fixHint": "Reconcile the module plan image checklist with the screenshots actually present."
+    },
+    {
+      "id": "W006",
+      "severity": "warning",
+      "title": "Credential/URL drift",
+      "description": "A credential or URL in a module body is not listed in the Lab Credentials block.",
+      "fixHint": "List every host/credential used in the guide in the Lab Credentials block (single source of truth)."
+    },
+    {
+      "id": "W007",
+      "severity": "warning",
+      "title": "Raw HTML in guide",
+      "description": "Raw HTML (`<script`, `<iframe`, `onerror=`, `<img src=`) found — potential injection or platform rendering issue.",
+      "fixHint": "Remove raw HTML; use the guide image syntax for images."
+    },
+    {
+      "id": "W008",
+      "severity": "warning",
+      "title": "Unfinished-marker tokens",
+      "description": "`TODO`, `TBD`, or `FIXME` tokens found (image placeholders are excluded).",
+      "fixHint": "Resolve or remove the marker before publishing."
+    },
+    {
+      "id": "W014",
+      "severity": "warning",
+      "title": "Inline command shellcheck style",
+      "description": "A shellcheck style warning (not a parse error) on an extracted inline command.",
+      "fixHint": "Address the shellcheck finding (quote variables, avoid unused pipes) or verify the line is not a command."
+    },
+    {
+      "id": "W-SH",
+      "severity": "warning",
+      "title": "shellcheck not installed",
+      "description": "shellcheck binary not found; inline command checks were skipped.",
+      "fixHint": "Install shellcheck (apt) for full L014 coverage."
+    }
+  ]
+}

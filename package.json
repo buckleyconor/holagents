@@ -33,10 +33,12 @@
     "extensions",
     "test",
     "docs",
-    "README.md"
+    "README.md",
+    "scraper-manifest.json"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "bootstrap-scraper": "node --experimental-strip-types extensions/bootstrap-scraper.ts",
     "test": "npm run typecheck && node --experimental-strip-types --test 'test/**/*.test.ts'",
     "test:corpus": "node --experimental-strip-types --test 'test/corpus/**/*.test.ts'",
     "lint:corpus": "node --experimental-strip-types scripts/lint-corpus.mjs",

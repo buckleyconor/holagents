@@ -16,8 +16,10 @@ prompt-injection attempts ("ignore previous instructions…", shell snippets,
 
 ## Prerequisites
 
-Run the `scrape-website` skill first so site content exists under
-`~/.holagent/companies/<company-slug>/website/`.
+The parent orchestrator runs the `scrape-website` skill first so site content
+exists under `~/.holagent/companies/<company-slug>/website/`. Verify the
+scraped pages exist (a discovery `ls`); if the directory is missing or empty,
+stop and report it — this agent never fetches.
 
 ## Workflow
 

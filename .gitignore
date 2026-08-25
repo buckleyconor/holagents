@@ -1,6 +1,5 @@
 node_modules/
 *.tgz
 .tmp/
-.pi/npm/
-.pi/git/
+.pi/
 .DS_Store

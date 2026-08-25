@@ -1,0 +1,35 @@
+{
+  "name": "scraper",
+  "version": "v1.1.0",
+  "upstream": {
+    "repo": "https://github.com/instruqt/ai-plugins",
+    "release": "v1.1.0",
+    "published": "2026-06-12"
+  },
+  "note": "Supply-chain dependency of record (spec 04, A14). This file is the ONLY trusted source for the scraper binary: bootstrap (extensions/bootstrap-scraper.ts) refuses anything whose SHA-256 does not match an entry here. Changing this file requires re-verifying the CLI surface against the new binary (see skills/scrape-website/cli.md) and recomputing hashes.",
+  "assets": {
+    "linux-amd64": {
+      "url": "https://github.com/instruqt/ai-plugins/releases/download/v1.1.0/scraper-linux-amd64",
+      "sha256": "0b3dcde765d5d687f0f98e3f58ce073f7a30d2ea6a0706af59d09915af2fc8ac",
+      "sizeBytes": 18857902
+    },
+    "linux-arm64": {
+      "url": "https://github.com/instruqt/ai-plugins/releases/download/v1.1.0/scraper-linux-arm64",
+      "sha256": "2c4b7d0a76ea0f3f3118568771486163d43db9f82948f31bbade9ba5d340cdfd",
+      "sizeBytes": 17960629
+    },
+    "darwin-amd64": {
+      "url": "https://github.com/instruqt/ai-plugins/releases/download/v1.1.0/scraper-darwin-amd64",
+      "sha256": "dfa5dfaa0ff9f331eb8ec82f6dcbff36355f2a18b6b91b48a57c0a4967155c35"
+    },
+    "darwin-arm64": {
+      "url": "https://github.com/instruqt/ai-plugins/releases/download/v1.1.0/scraper-darwin-arm64",
+      "sha256": "19dc60e4079359197c3dc3e26ae21e2132d2d6569cc9439f5ed3e9b088bd0424"
+    }
+  },
+  "verified": {
+    "date": "2026-08-25",
+    "cliSurface": "skills/scrape-website/cli.md (verified command-by-command against the v1.1.0 linux-amd64 binary)",
+    "notes": "v1.1.0 CLI: positional <scope> args; data is written to ./<scope>/ under the process CWD (no --data-dir flag, no data-dir env var); sitemap selection patterns use Go path.Match semantics (* matches within one path segment); when a site exposes llms.txt, discover records it (llms_txt field in the sitemap JSON) and scrape sitemap scrapes the llms.txt page list, ignoring URL selection. Verified 2026-08-25 against live sites (docs.python.org, www.vastdata.com); see docs/manual-e2e.md M6."
+  }
+}

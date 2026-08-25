@@ -21,6 +21,7 @@ import {
   readScores,
   resolveGuidePath,
   resolveModuleSelector,
+  removeScoresByScope,
   validateGuide,
   type PlanModule,
 } from '../../extensions/hol-core.ts';
@@ -261,6 +262,142 @@ test('T-39: hol_scores merge (atomicity) — invalid entry leaves file byte-iden
     !stateFiles.some((f) => f.includes('.tmp-')),
     `no temp litter: ${stateFiles.join(', ')}`,
   );
+});
+
+test('T-72a: removeScoresByScope (happy) — drops only that scope, keeps the rest', () => {
+  const { guideDir } = makeProject();
+  const scoresFile = join(guideDir, '.holagent', 'scores.json');
+  writeFileSync(
+    scoresFile,
+    JSON.stringify({
+      version: 1,
+      entries: [
+        entry({
+          scope: 'plan',
+          rubric: 'checklist/plan-completeness',
+          kind: 'checklist',
+          score: 1,
+        }),
+        entry({ scope: 'module-01-launch-qdrant', rubric: 'analytic/step-clarity' }),
+        entry({
+          scope: 'module-01-launch-qdrant',
+          rubric: 'checklist/module-completeness',
+          kind: 'checklist',
+          score: 1,
+        }),
+        entry(),
+      ],
+    }),
+  );
+
+  const result = removeScoresByScope(guideDir, 'module-01-launch-qdrant');
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.removed, [
+    'module-01-launch-qdrant/analytic/step-clarity',
+    'module-01-launch-qdrant/checklist/module-completeness',
+  ]);
+
+  const file = JSON.parse(readFileSync(scoresFile, 'utf8'));
+  assert.equal(file.version, 1);
+  const keys: string[] = file.entries.map(
+    (e: { scope: string; rubric: string }) => `${e.scope}/${e.rubric}`,
+  );
+  assert.equal(keys.length, 2, 'other scopes preserved');
+  assert.ok(keys.includes('plan/checklist/plan-completeness'));
+  assert.ok(keys.includes('module-02-upload-documents/analytic/step-clarity'));
+  assert.ok(!keys.some((k) => k.startsWith('module-01-launch-qdrant/')));
+});
+
+test('T-72b: removeScoresByScope (no-op) — unknown/empty scope leaves file byte-identical', () => {
+  const { guideDir } = makeProject();
+  const scoresFile = join(guideDir, '.holagent', 'scores.json');
+  writeFileSync(scoresFile, JSON.stringify({ version: 1, entries: [entry()] }));
+  const before = readFileSync(scoresFile);
+
+  const r1 = removeScoresByScope(guideDir, 'module-99-does-not-exist');
+  assert.equal(r1.ok, true);
+  assert.deepEqual(r1.removed, []);
+  assert.deepEqual(readFileSync(scoresFile), before, 'byte-identical');
+
+  // missing scores.json entirely: still a clean no-op, no file created
+  rmSync(scoresFile);
+  const r2 = removeScoresByScope(guideDir, 'guide');
+  assert.equal(r2.ok, true);
+  assert.deepEqual(r2.removed, []);
+  assert.ok(!existsSync(scoresFile), 'no file created');
+});
+
+test('T-72c: removeScoresByScope (errors) — non-canonical scope is E-ARG', () => {
+  const { guideDir } = makeProject();
+  const scoresFile = join(guideDir, '.holagent', 'scores.json');
+  writeFileSync(scoresFile, JSON.stringify({ version: 1, entries: [entry()] }));
+  const before = readFileSync(scoresFile);
+
+  for (const bad of [
+    '',
+    'module-1-launch',
+    'Module-01-launch-qdrant',
+    'module-01-launch_qdrant',
+    'plan/guide',
+  ]) {
+    assertHolError(() => removeScoresByScope(guideDir, bad), 'E-ARG', /canonical scope/);
+  }
+  assert.deepEqual(readFileSync(scoresFile), before, 'byte-identical');
+});
+
+test('T-72d: --fresh round-trip — remove then merge resets rounds/score for the scope', () => {
+  const { guideDir } = makeProject();
+  const scoresFile = join(guideDir, '.holagent', 'scores.json');
+  writeFileSync(
+    scoresFile,
+    JSON.stringify({
+      version: 1,
+      entries: [
+        entry({
+          scope: 'module-01-launch-qdrant',
+          rubric: 'analytic/step-clarity',
+          status: 'escalated',
+          score: 2,
+          rounds: 3,
+        }),
+        entry({
+          scope: 'module-01-launch-qdrant',
+          rubric: 'holistic/module-quality',
+          kind: 'holistic',
+          status: 'escalated',
+          score: 3,
+          rounds: 3,
+        }),
+      ],
+    }),
+  );
+
+  removeScoresByScope(guideDir, 'module-01-launch-qdrant');
+  assert.equal(readScores(guideDir).length, 0);
+
+  mergeScores(guideDir, [
+    entry({
+      scope: 'module-01-launch-qdrant',
+      rubric: 'analytic/step-clarity',
+      status: 'passed',
+      score: 4.5,
+      rounds: 1,
+    }),
+    entry({
+      scope: 'module-01-launch-qdrant',
+      rubric: 'holistic/module-quality',
+      kind: 'holistic',
+      status: 'passed',
+      score: 4,
+      rounds: 1,
+    }),
+  ]);
+  const fresh = readScores(guideDir).filter((e) => e.scope === 'module-01-launch-qdrant');
+  assert.equal(fresh.length, 2);
+  for (const e of fresh) {
+    assert.equal(e.rounds, 1, 'rounds reset by the fresh pass');
+    assert.equal(e.status, 'passed');
+  }
 });
 
 test('scores entry validation — scope/kind/score-range rules', () => {

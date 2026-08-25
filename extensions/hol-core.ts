@@ -331,6 +331,38 @@ export function mergeScores(guideDir: string, rawEntries: unknown): MergeResult 
   return { ok: true, scoresPath: '.holagent/scores.json', merged: entries.map(entryKey) };
 }
 
+export interface RemoveScoresResult {
+  ok: boolean;
+  scoresPath: string;
+  /** "scope/rubric" keys that were removed (empty = nothing to remove). */
+  removed: string[];
+}
+
+/**
+ * Remove all score entries for one scope (spec 07 M9: the `--fresh` path —
+ * a fresh scoring pass starts from a clean scope). Scope must match the
+ * canonical pattern; a scope with no entries is a no-op (no write, file
+ * byte-identical). Otherwise the remaining entries are rewritten atomically
+ * (temp+rename).
+ */
+export function removeScoresByScope(guideDir: string, scope: string): RemoveScoresResult {
+  if (typeof scope !== 'string' || !SCOPE_RE.test(scope)) {
+    throw new HolError(
+      'E-ARG',
+      `E-ARG: remove requires a canonical scope ("plan" | "module-plan-<NN>" | "module-<NN>-<slug>" | "guide"), got: ${JSON.stringify(scope)}`,
+    );
+  }
+  const path = join(guideDir, '.holagent', 'scores.json');
+  const current = readScores(guideDir);
+  const removed = current.filter((e) => e.scope === scope).map((e) => entryKey(e));
+  if (removed.length === 0) {
+    return { ok: true, scoresPath: '.holagent/scores.json', removed: [] };
+  }
+  const remaining = current.filter((e) => e.scope !== scope);
+  atomicWriteJson(path, { version: 1, entries: remaining } satisfies ScoresFile);
+  return { ok: true, scoresPath: '.holagent/scores.json', removed };
+}
+
 // ------------------------------------------------------------ plan read
 
 export interface PlanModule {

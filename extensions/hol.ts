@@ -23,6 +23,7 @@ import {
   mergeScores,
   readGuideStatus,
   readScores,
+  removeScoresByScope,
   resolveGuidePath,
   validateGuide,
 } from './hol-core.ts';
@@ -145,13 +146,21 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
     name: 'hol_scores',
     label: 'hol_scores',
     description:
-      'Read or merge lab-guide scoring results in .holagent/scores.json. merge is atomic (all entries validated first; temp+rename) and keyed by scope/rubric (latest wins). Scopes: "plan" | "module-plan-<NN>" | "module-<NN-slug>" | "guide".',
-    promptSnippet: 'Read or atomically merge lab-guide scoring results (scores.json)',
+      'Read, merge, or clear lab-guide scoring results in .holagent/scores.json. merge is atomic (all entries validated first; temp+rename) and keyed by scope/rubric (latest wins); remove drops every entry for one scope (the --fresh path). Scopes: "plan" | "module-plan-<NN>" | "module-<NN-slug>" | "guide".',
+    promptSnippet:
+      'Read, atomically merge, or clear (remove by scope) lab-guide scoring results (scores.json)',
     parameters: Type.Object({
       guideDir: optGuideDir(GUIDE_DIR_DESC),
-      action: StringEnum(['read', 'merge'], {
-        description: 'read: return all entries; merge: validate + upsert entries',
+      action: StringEnum(['read', 'merge', 'remove'], {
+        description:
+          'read: return all entries; merge: validate + upsert entries; remove: drop all entries for one scope (requires scope; the --fresh path)',
       }),
+      scope: Type.Optional(
+        Type.String({
+          description:
+            'Required for action=remove: the canonical scope to clear, e.g. "module-01-launch-qdrant"',
+        }),
+      ),
       entries: Type.Optional(
         Type.Array(
           Type.Object({
@@ -181,6 +190,24 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
         typeof params.guideDir === 'string' ? params.guideDir : undefined,
       );
       const action = typeof params.action === 'string' ? params.action : 'read';
+      if (action === 'remove') {
+        const result = removeScoresByScope(
+          guideDir,
+          typeof params.scope === 'string' ? params.scope : '',
+        );
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                result.removed.length === 0
+                  ? `No score entries for scope "${params.scope}" — .holagent/scores.json unchanged.`
+                  : `Removed ${result.removed.length} score entr${result.removed.length === 1 ? 'y' : 'ies'} from .holagent/scores.json:\n${result.removed.map((k) => `  ${k}`).join('\n')}`,
+            },
+          ],
+          details: result,
+        };
+      }
       if (action === 'merge') {
         const result = mergeScores(guideDir, params.entries);
         return {

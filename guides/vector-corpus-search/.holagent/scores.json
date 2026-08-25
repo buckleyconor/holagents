@@ -175,6 +175,244 @@
         }
       ],
       "updated_at": "2026-08-25T21:04:28.561Z"
+    },
+    {
+      "scope": "module-01-launch-qdrant",
+      "rubric": "checklist/module-completeness",
+      "kind": "checklist",
+      "status": "passed",
+      "score": 1,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "steps-implemented",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "expected-outputs",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "images-match-checklist",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "checkpoint-present",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "title-alignment",
+          "score": 1,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-25T22:30:50.975Z"
+    },
+    {
+      "scope": "module-01-launch-qdrant",
+      "rubric": "analytic/step-clarity",
+      "kind": "analytic",
+      "status": "passed",
+      "score": 4.8,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "actionable-steps",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "ui-actions",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "expected-results",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "no-fluff",
+          "score": 4,
+          "finding": null
+        },
+        {
+          "criterion": "terminology-consistent",
+          "score": 5,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-25T22:30:50.975Z"
+    },
+    {
+      "scope": "module-01-launch-qdrant",
+      "rubric": "analytic/technical-accuracy",
+      "kind": "analytic",
+      "status": "passed",
+      "score": 5,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "commands-valid",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "credential-alignment",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "no-fabrication",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "expected-output-plausible",
+          "score": 5,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-25T22:30:50.975Z"
+    },
+    {
+      "scope": "module-01-launch-qdrant",
+      "rubric": "holistic/module-quality",
+      "kind": "holistic",
+      "status": "passed",
+      "score": 5,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "overall",
+          "score": 5,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-25T22:30:50.975Z"
+    },
+    {
+      "scope": "module-02-ingest-corpus",
+      "rubric": "checklist/module-completeness",
+      "kind": "checklist",
+      "status": "passed",
+      "score": 1,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "steps-implemented",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "expected-outputs",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "images-match-checklist",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "checkpoint-present",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "title-alignment",
+          "score": 1,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-25T22:47:35.260Z"
+    },
+    {
+      "scope": "module-02-ingest-corpus",
+      "rubric": "analytic/step-clarity",
+      "kind": "analytic",
+      "status": "passed",
+      "score": 4.6,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "actionable-steps",
+          "score": 3,
+          "finding": "Step 2 (\"Write the embedder\", module body): the opening heredoc line `cat > /lab/embed.py <<'PY'` is shown twice — once as the tab-indented backticked command and again as the first line of the plain heredoc block that immediately follows. The step instructs the reader to \"type or paste it exactly as shown\", so a reader who runs the backticked line and then pastes the block writes the cat line into /lab/embed.py as the first line of the Python file, and the step-3 run fails with a syntax error. Missing: a single non-duplicated presentation of the lines to enter, or an explicit instruction that only the body (from `import json, math` through the closing `PY`) is what gets pasted."
+        },
+        {
+          "criterion": "ui-actions",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "expected-results",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "no-fluff",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "terminology-consistent",
+          "score": 5,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-25T22:47:35.260Z"
+    },
+    {
+      "scope": "module-02-ingest-corpus",
+      "rubric": "analytic/technical-accuracy",
+      "kind": "analytic",
+      "status": "passed",
+      "score": 5,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "commands-valid",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "credential-alignment",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "no-fabrication",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "expected-output-plausible",
+          "score": 5,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-25T22:47:35.260Z"
+    },
+    {
+      "scope": "module-02-ingest-corpus",
+      "rubric": "holistic/module-quality",
+      "kind": "holistic",
+      "status": "passed",
+      "score": 4,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "overall",
+          "score": 4,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-25T22:47:35.260Z"
     }
   ]
 }

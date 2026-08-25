@@ -184,6 +184,35 @@ test('tool executes end-to-end against a scratch guide', async () => {
       );
     }, /E-ARG/);
 
+    // remove: no-op when the scope has no entries
+    const removeEmpty = await byName
+      .get('hol_scores')!
+      .execute(
+        'tc8',
+        { action: 'remove', scope: 'module-01-launch-qdrant' },
+        undefined,
+        undefined,
+        ctx,
+      );
+    assert.match(removeEmpty.content[0]!.text, /No score entries for scope/);
+
+    // remove: drops the scope's entries; others survive
+    const removeGuide = await byName
+      .get('hol_scores')!
+      .execute('tc9', { action: 'remove', scope: 'guide' }, undefined, undefined, ctx);
+    assert.match(removeGuide.content[0]!.text, /Removed 1 score entry/);
+    const readAfterRemove = await byName
+      .get('hol_scores')!
+      .execute('tc10', { action: 'read' }, undefined, undefined, ctx);
+    assert.match(readAfterRemove.content[0]!.text, /No scores recorded/);
+
+    // remove: non-canonical scope → E-ARG
+    await assert.rejects(async () => {
+      await byName
+        .get('hol_scores')!
+        .execute('tc11', { action: 'remove', scope: 'module-1-launch' }, undefined, undefined, ctx);
+    }, /E-ARG/);
+
     // path escape via the tool surface → E-PATH error
     await assert.rejects(async () => {
       await byName

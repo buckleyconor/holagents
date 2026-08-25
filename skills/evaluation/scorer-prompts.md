@@ -153,3 +153,58 @@ const results = await runs.all([
 // parse (1 retry on failure, then record escalated "scorer output unparseable"),
 // compute score/status per the SKILL.md table, hol_scores action=merge.
 ```
+
+In an interactive session (review/generate prompts) the same fanout runs as
+sequential blocking dispatches (`subagent`, one scorer at a time,
+`async: false`); the parent merges **all** entries of a pass in a single
+`hol_scores` `action: "merge"` call so the scope's entry set lands
+all-or-nothing.
+
+---
+
+## Rubric fanout table (v1 — from the rubric frontmatter `scope` field)
+
+| Scope              | Rubrics (one scorer each)                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `plan`             | `checklist/plan-completeness` (1.0), `analytic/learning-arc` (4), `analytic/environment-alignment` (4), `holistic/plan-coherence` (4) |
+| `module-plan-<NN>` | `checklist/module-plan-completeness` (1.0), `analytic/module-design` (4)                                                              |
+| `module-<NN-slug>` | `checklist/module-completeness` (1.0), `analytic/step-clarity` (4), `analytic/technical-accuracy` (4), `holistic/module-quality` (4)  |
+| `guide`            | `checklist/guide-completeness` (1.0), `analytic/terminology-consistency` (4), `holistic/guide-quality` (4)                            |
+
+(Thresholds in parentheses are the rubric frontmatter defaults at v1; the
+rubric file is authoritative — re-read its `threshold` when building the
+task.)
+
+## Fix loop and caps (parent procedure)
+
+Scoring is round-based per rubric; `rounds` on a merged entry counts that
+rubric's scoring rounds.
+
+- **Round 1** is the initial pass (all rubrics of the scope).
+- **Fix round** (per failing set): one `guide-implementer` dispatch carrying
+  the failing findings verbatim (grouped by rubric) + the module plan + the
+  section, then re-validate (0 section errors), then **rescore only the
+  still-failed rubrics** with `rounds: <previous + 1>`.
+- **Caps**:
+  - `analytic` / `holistic` — max **3 scoring rounds**; a rubric failing
+    round 3 is recorded `status: "escalated"` (findings kept) and no longer
+    fixed or re-scored.
+  - `checklist` — max **5 rounds**, plus the unproductive rule: if the pass
+    rate did not improve across the last two consecutive rounds, escalate
+    immediately.
+- **Unparseable scorer output** (after the 1 retry) is also recorded
+  `status: "escalated"` with finding `"scorer output unparseable"` — it does
+  not consume a fix round.
+- A scope with any `escalated` entry makes the module/guide
+  **scored-escalated** in `hol_status`; `/hol-generate-all` blocks on it
+  until the user resolves it.
+
+## `--fresh` (rescoring without re-generation)
+
+`/hol-generate-module <module> --fresh` on a generated/validated/scored
+module: keep the section byte-identical, take a fresh lint record
+(`hol_validate`), then clear the scope before the pass — `hol_scores`
+`action: "remove"`, `scope: "module-<NN>-<slug>"` — and run the full
+rubric fanout at `rounds: 1`. Used to re-score after a hand-edit, after a
+rubric wording change, or to restart a stuck scope. On an
+`unplanned`/`planned` module the flag is ignored (nothing to score yet).

@@ -69,11 +69,11 @@ test('TOC: unnumbered entries → num null', () => {
   assert.equal(s.tocEntries[0]?.title, 'Intro');
 });
 
-test('images: proxy valid, bare markdown image invalid', () => {
+test('images: ImageProxy core required (quote style & data-modal optional); other images invalid', () => {
   const s = scan(
     [
       '![Image](/ImageProxy?filename=34433ee9-ab2e-4913-a39d-eb3c00ef29d4/arch_diagram.png "Click to enlarge"){data-modal=true}',
-      '![Image](/ImageProxy?filename=34433ee9-ab2e-4913-a39d-eb3c00ef29d4/x.png "Click to enlarge")',
+      "![Image](/ImageProxy?filename=34433ee9-ab2e-4913-a39d-eb3c00ef29d4/x.png 'Click to enlarge')",
       '![](img.png)',
       'plain text',
     ].join('\n'),
@@ -82,7 +82,7 @@ test('images: proxy valid, bare markdown image invalid', () => {
     s.images.map((i) => [i.line, i.kind]),
     [
       [1, 'proxy'],
-      [2, 'invalid'],
+      [2, 'proxy'],
       [3, 'invalid'],
     ],
   );

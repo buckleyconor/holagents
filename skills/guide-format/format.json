@@ -2,7 +2,7 @@
   "version": 1,
   "idPattern": "^HOL-\\d{4}-\\d{2}$",
   "h1Pattern": "^# (HOL-\\d{4}-\\d{2}) (.+)$",
-  "platformNotice": "ℹ️ You can resize or hide the lab guide anytime by sliding it left or right.",
+  "platformNotice": "\u2139\ufe0f You can resize or hide the lab guide anytime by sliding it left or right.",
   "platformNoticeWithinFirstNonEmptyLines": 3,
   "toc": {
     "heading": "## Table of Contents",
@@ -31,7 +31,7 @@
       "headingPattern": "^## Module (\\d+): (.+)$",
       "startAt": 1,
       "sequential": true,
-      "forbiddenHeadingPatterns": ["^## Phase \\d", "^## Lesson \\d", "^## Module \\d[^:]"]
+      "forbiddenHeadingPatterns": ["^Phase \\d", "^Lesson \\d"]
     }
   },
   "backToTop": {
@@ -39,7 +39,7 @@
     "anchor": "#table-of-contents"
   },
   "images": {
-    "imageProxyPattern": "^!\\[Image\\]\\(/ImageProxy\\?filename=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/([^\\s)]+) \"Click to enlarge\"\\)\\{data-modal=true\\}\\s*$",
+    "imageProxyPattern": "^!\\[[^\\]]*\\]\\(/ImageProxy\\?filename=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[^\\s)]+.*\\)",
     "placeholderPattern": "^<< INSERT SCREENSHOT: (.+) >>\\s*$"
   },
   "callouts": {
@@ -48,8 +48,8 @@
       "**Note:**",
       "**Important:**",
       "**Use Case:**",
-      "> ✅ **Checkpoint:**",
-      "> 💡"
+      "> \u2705 **Checkpoint:**",
+      "> \ud83d\udca1"
     ],
     "nonStandard": ["**Tip!**", "**Use Case!**", "**Lab Tip:**", "**Note!**", "**Important!**"]
   },
@@ -91,14 +91,14 @@
       "id": "L004",
       "severity": "error",
       "title": "TOC anchors resolve",
-      "description": "Every TOC link must be a local anchor (`#…`) that resolves to an existing heading (GitHub anchor algorithm).",
+      "description": "Every TOC link must be a local anchor (`#\u2026`) that resolves to an existing heading (GitHub anchor algorithm).",
       "fixHint": "Regenerate the anchor from the actual heading text; anchors must not be external URLs."
     },
     {
       "id": "L005",
       "severity": "error",
       "title": "TOC coverage",
-      "description": "Every `##` section (except Table of Contents) appears in the TOC exactly once; no duplicate `##` headings.",
+      "description": "Every non-TOC \"##\" section must appear in the TOC exactly once \u2014 matched by ANCHOR, not display title (house style uses short TOC titles, e.g. \"Explore the VSS UI\" for \"## Module 1: Explore the VSS UI\"). Duplicate \"##\" headings are also errors (ambiguous anchors).",
       "fixHint": "Add missing sections to the TOC and rename duplicate headings."
     },
     {
@@ -133,14 +133,14 @@
       "id": "L010",
       "severity": "error",
       "title": "Summary section",
-      "description": "`## Summary` must exist and appear after the last module (appendices may follow the Summary).",
+      "description": "A standalone `## Summary` section must exist (appendices may follow it). Out-of-order Summary is W003.",
       "fixHint": "Add a standalone `## Summary` section after the final module (do not fold it into a module heading)."
     },
     {
       "id": "L011",
       "severity": "error",
       "title": "Module headings sequential",
-      "description": "Body sections must match `## Module <N>: <Title>` with N sequential from 1. `## Phase …` and other variants are drift.",
+      "description": "Body sections must match `## Module <N>: <Title>` with N sequential from 1. `## Phase \u2026` and other variants are drift.",
       "fixHint": "Rename body sections to `## Module <N>: <Title>` and keep numbering sequential."
     },
     {
@@ -154,7 +154,7 @@
       "id": "L013",
       "severity": "error",
       "title": "Image syntax",
-      "description": "Every image line must be `![Image](/ImageProxy?filename=<uuid>/<file> \"Click to enlarge\"){data-modal=true}` or `<< INSERT SCREENSHOT: <desc> >>`.",
+      "description": "Every image line must be a platform ImageProxy line \u2014 ![alt](/ImageProxy?filename=<uuid>/<file> \u2026) with any quote style and optional {data-modal=true} \u2014 or a << INSERT SCREENSHOT: \u2026 >> placeholder. Local or other-URL images fail (upload to the platform and link via ImageProxy).",
       "fixHint": "Use the ImageProxy form for uploaded images, or the `<< INSERT SCREENSHOT: description >>` placeholder."
     },
     {
@@ -169,7 +169,7 @@
       "severity": "warning",
       "title": "Callout style consistency",
       "description": "Non-standard or mixed callout variants detected (e.g. `**Tip!**`, `**Use Case!` alongside standard forms).",
-      "fixHint": "Use standard callouts: `**Tip:**`, `**Note:**`, `⚠️ **Important:**`, `**Use Case:**`, `> ✅ **Checkpoint:**`."
+      "fixHint": "Use standard callouts: `**Tip:**`, `**Note:**`, `\u26a0\ufe0f **Important:**`, `**Use Case:**`, `> \u2705 **Checkpoint:**`."
     },
     {
       "id": "W002",
@@ -182,15 +182,15 @@
       "id": "W003",
       "severity": "warning",
       "title": "Summary ordering drift",
-      "description": "`## Summary` appears before all modules are complete.",
+      "description": "A `## Summary` section exists but appears before at least one module (ordering drift).",
       "fixHint": "Move `## Summary` after the final module."
     },
     {
       "id": "W004",
       "severity": "warning",
       "title": "Missing checkpoint",
-      "description": "A module has 3 or more command steps but no `> ✅ **Checkpoint:**` block.",
-      "fixHint": "Add a `> ✅ **Checkpoint:**` line stating the verifiable end state."
+      "description": "A module has 3 or more command steps but no `> \u2705 **Checkpoint:**` block.",
+      "fixHint": "Add a `> \u2705 **Checkpoint:**` line stating the verifiable end state."
     },
     {
       "id": "W005",
@@ -210,7 +210,7 @@
       "id": "W007",
       "severity": "warning",
       "title": "Raw HTML in guide",
-      "description": "Raw HTML (`<script`, `<iframe`, `onerror=`, `<img src=`) found — potential injection or platform rendering issue.",
+      "description": "Raw HTML (`<script`, `<iframe`, `onerror=`, `<img src=`) found \u2014 potential injection or platform rendering issue.",
       "fixHint": "Remove raw HTML; use the guide image syntax for images."
     },
     {

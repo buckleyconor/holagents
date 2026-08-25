@@ -36,8 +36,10 @@ the arbiter and its rules are configured in this skill's `format.json`.
 9. `## Appendix I: …` — optional, after Summary.
 10. Every `##` section ends with `[Back to top](#table-of-contents)` (a `***`
     divider may follow).
-11. TOC coverage: every `##` section (except Table of Contents) appears in the TOC
-    exactly once, and display numbers are sequential.
+11. TOC coverage: every `##` section (except Table of Contents) is linked in the TOC
+    exactly once — by **anchor**. Display titles may be shortened (e.g.
+    `- [2. Explore the VSS UI](#module-1-explore-the-vss-ui)` for
+    `## Module 1: Explore the VSS UI`), and display numbers are sequential 1..N.
 
 ## Module body conventions
 
@@ -62,25 +64,27 @@ the arbiter and its rules are configured in this skill's `format.json`.
   `**Tip:**` · `**Note:**` · `⚠️ **Important:**` · `**Use Case:**` · `> 💡 <tip>`
 - **Images**: exactly one of
   - uploaded: `![Image](/ImageProxy?filename=<uuid>/<file>.png "Click to enlarge"){data-modal=true}`
+    (the linter requires the `/ImageProxy?filename=<uuid>/<file>` core; quote style
+    and `{data-modal=true}` are tolerated, but author the full form above)
   - pending: `<< INSERT SCREENSHOT: <what the reader should see> >>`
     (W005 cross-checks the module plan's image checklist against actual images.)
 
 ## Known drift classes (what NOT to emit)
 
-| Drift                                           | Fix                                       |
-| ----------------------------------------------- | ----------------------------------------- |
-| Missing H1/ID, or `# Lab Guide: <title>`        | `# HOL-XXXX-NN <Title>` first line        |
-| TOC with duplicate or skipped numbers           | Renumber 1..N consecutively               |
-| Stale anchors (TOC text ≠ heading text)         | Regenerate anchors from headings          |
-| `## Phase N - …` / `## Lesson N` sections       | `## Module N: …`                          |
-| `## Lab Credentials:` (h2)                      | `### Lab Credentials:` (h3)               |
-| `### 1.1 Target Audience`                       | `### Target Audience`                     |
-| `## Introduction Overview` / `## Orientation`   | `## Introduction`                         |
-| `## Module N: Summary`                          | Standalone `## Summary` after last module |
-| `**Tip!**`, `**Use Case!**`                     | `**Tip:**`, `**Use Case:**`               |
-| Bare `![](x.png)` / missing `{data-modal=true}` | Full ImageProxy form or placeholder       |
-| Raw HTML (`<script>`, `<img src=`, `onerror=`)  | Remove; use image syntax (W007)           |
-| `TODO`/`TBD`/`FIXME` markers                    | Resolve before publish (W008)             |
+| Drift                                            | Fix                                       |
+| ------------------------------------------------ | ----------------------------------------- |
+| Missing H1/ID, or `# Lab Guide: <title>`         | `# HOL-XXXX-NN <Title>` first line        |
+| TOC with duplicate or skipped numbers            | Renumber 1..N consecutively               |
+| Stale anchors (TOC text ≠ heading text)          | Regenerate anchors from headings          |
+| `## Phase N - …` / `## Lesson N` sections        | `## Module N: …`                          |
+| `## Lab Credentials:` (h2)                       | `### Lab Credentials:` (h3)               |
+| `### 1.1 Target Audience`                        | `### Target Audience`                     |
+| `## Introduction Overview` / `## Orientation`    | `## Introduction`                         |
+| `## Module N: Summary`                           | Standalone `## Summary` after last module |
+| `**Tip!**`, `**Use Case!**`                      | `**Tip:**`, `**Use Case:**`               |
+| Non-ImageProxy images (`![](x.png)`, other URLs) | ImageProxy form or placeholder            |
+| Raw HTML (`<script>`, `<img src=`, `onerror=`)   | Remove; use image syntax (W007)           |
+| `TODO`/`TBD`/`FIXME` markers                     | Resolve before publish (W008)             |
 
 ## Linter
 

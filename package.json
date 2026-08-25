@@ -39,11 +39,12 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run typecheck && node --experimental-strip-types --test 'test/**/*.test.ts'",
     "test:corpus": "node --experimental-strip-types --test 'test/corpus/**/*.test.ts'",
-    "lint:corpus": "node scripts/lint-corpus.mjs",
+    "lint:corpus": "node --experimental-strip-types scripts/lint-corpus.mjs",
     "docs:rules": "node scripts/gen-rule-docs.mjs",
     "corpus:sync": "node scripts/sync-corpus.mjs",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "corpus:baseline": "node scripts/make-corpus-baseline.mjs"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

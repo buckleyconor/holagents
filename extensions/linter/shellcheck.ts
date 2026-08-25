@@ -8,6 +8,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Finding, ScanResult } from './types.ts';
 
+/** Rule IDs emitted by the shellcheck pass (not registry rules — see T-50). */
+export const SHELLCHECK_RULE_IDS = ['L014', 'W014', 'W-SH'] as const;
+
 const GCC_RE = /^([^:]+):(\d+):(\d+):\s+(\w+):\s+(.*?)\s+\[(SC\d+)\]\s*$/;
 
 /** SHELLCHECK_BIN override, else `which shellcheck`, else null. */

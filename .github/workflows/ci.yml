@@ -30,3 +30,16 @@ jobs:
         run: |
           mkdir -p .tmp && npm pack --pack-destination .tmp/
           node scripts/package-smoke.mjs .tmp/holagent-lab-guides-0.1.0.tgz
+
+  corpus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Style-corpus regression (linter output vs triaged baselines)
+        run: node --experimental-strip-types --test 'test/corpus/**/*.test.ts'
+      - name: Corpus triage summary (informational)
+        run: npm run lint:corpus

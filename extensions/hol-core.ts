@@ -18,7 +18,7 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { parseFrontmatter } from './frontmatter.ts';
+import { parseFrontmatter, type Frontmatter } from './frontmatter.ts';
 import { loadFormatConfig } from './linter/config.ts';
 import { runLint, type RunLintOptions } from './linter/index.ts';
 import { scanMarkdown } from './linter/scan.ts';
@@ -346,13 +346,141 @@ export interface PlanInfo {
   slug: string | null;
   objectives: number;
   modules: PlanModule[];
+  /** Frontmatter validation (M7): valid = no contract errors. */
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+// ------------------------------------------------- plan validation (M7)
+
+const GUIDE_ID_RE = /^HOL-\d{4}-\d{2}$/;
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export interface PlanValidation {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+function stringList(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x) => typeof x === 'string' && x.trim().length > 0) as string[];
+}
+
+/**
+ * Validate plan.md frontmatter (spec §02 §3.3).
+ *
+ * Errors = machine-contract violations: they block the `planned` state and
+ * force `next` back to `/hol-plan`. Warnings = plan-quality concerns for the
+ * scorer/user, never blocking. Pure function over parsed frontmatter
+ * (`null` = absent or unparseable).
+ */
+export function validatePlanFrontmatter(fm: Frontmatter | null): PlanValidation {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  if (!fm) {
+    errors.push('plan.md has no parseable frontmatter (must use the mini-YAML subset)');
+    return { valid: false, errors, warnings };
+  }
+  const data = fm.data;
+
+  const id = data['id'];
+  if (typeof id !== 'string' || !GUIDE_ID_RE.test(id)) {
+    errors.push(`id must match ^HOL-\\d{4}-\\d{2}$ (got ${JSON.stringify(id ?? null)})`);
+  }
+  const title = data['title'];
+  if (typeof title !== 'string' || title.trim().length === 0) {
+    errors.push('title is required');
+  }
+  const slug = data['slug'];
+  if (typeof slug !== 'string' || !SLUG_RE.test(slug)) {
+    errors.push(`slug must be kebab-case a-z0-9- (got ${JSON.stringify(slug ?? null)})`);
+  }
+  const duration = data['duration_minutes'];
+  if (typeof duration !== 'number' || !Number.isInteger(duration) || duration <= 0) {
+    errors.push('duration_minutes must be a positive integer');
+  }
+
+  const rawModules = data['modules'];
+  if (!Array.isArray(rawModules) || rawModules.length === 0) {
+    errors.push('modules must be a non-empty list');
+  } else {
+    for (let i = 0; i < rawModules.length; i += 1) {
+      const m = rawModules[i];
+      if (typeof m !== 'object' || m === null || Array.isArray(m)) {
+        errors.push(`modules[${i + 1}] must be a flow map { n, slug, title, goal, est_minutes }`);
+        continue;
+      }
+      const rec = m as Record<string, unknown>;
+      const n = rec['n'];
+      if (typeof n !== 'number' || !Number.isInteger(n) || n < 1) {
+        errors.push(`modules[${i + 1}].n must be a positive integer`);
+      }
+      const ms = rec['slug'];
+      if (typeof ms !== 'string' || !SLUG_RE.test(ms)) {
+        errors.push(
+          `modules[${i + 1}].slug must be kebab-case (got ${JSON.stringify(ms ?? null)})`,
+        );
+      }
+      const goal = rec['goal'];
+      if (typeof goal !== 'string' || goal.trim().length === 0) {
+        warnings.push(`modules[${i + 1}].goal is missing or empty`);
+      }
+    }
+    const ns = rawModules.map((m) =>
+      typeof m === 'object' && m !== null && !Array.isArray(m)
+        ? (m as Record<string, unknown>)['n']
+        : undefined,
+    );
+    if (ns.every((n) => typeof n === 'number' && Number.isInteger(n) && n > 0)) {
+      const sequential = ns.every((n, i) => n === i + 1);
+      if (!sequential)
+        errors.push('module n values must be sequential from 1 (got ' + ns.join(',') + ')');
+    }
+  }
+
+  if (stringList(data['audience']).length === 0) warnings.push('audience is empty or missing');
+  const objectives = stringList(data['objectives']);
+  if (objectives.length === 0)
+    warnings.push('objectives is empty or missing (3–5, action-verb led)');
+  else if (objectives.length < 3 || objectives.length > 5) {
+    warnings.push(`objectives count should be 3–5 (got ${objectives.length})`);
+  }
+  const env =
+    typeof data['environment'] === 'object' &&
+    data['environment'] !== null &&
+    !Array.isArray(data['environment'])
+      ? (data['environment'] as Record<string, unknown>)
+      : null;
+  if (!env) {
+    warnings.push('environment block is missing');
+  } else {
+    const baseline = env['baseline'];
+    if (typeof baseline !== 'string' || baseline.trim().length === 0)
+      warnings.push('environment.baseline is missing');
+    if (stringList(env['credentials']).length === 0)
+      warnings.push('environment.credentials is empty');
+  }
+
+  return { valid: errors.length === 0, errors, warnings };
 }
 
 /** Parse `.holagent/plan.md` frontmatter (missing file → exists:false). */
 export function readPlan(guideDir: string): PlanInfo {
   const path = join(guideDir, '.holagent', 'plan.md');
   if (!existsSync(path)) {
-    return { exists: false, id: null, title: null, slug: null, objectives: 0, modules: [] };
+    return {
+      exists: false,
+      id: null,
+      title: null,
+      slug: null,
+      objectives: 0,
+      modules: [],
+      valid: true,
+      errors: [],
+      warnings: [],
+    };
   }
   let text: string;
   try {
@@ -361,6 +489,7 @@ export function readPlan(guideDir: string): PlanInfo {
     throw new HolError('E-READ', `E-READ: cannot read plan.md: ${(e as Error).message}`);
   }
   const fm = parseFrontmatter(text);
+  const validation = validatePlanFrontmatter(fm);
   const data = fm?.data ?? {};
   const modulesRaw = Array.isArray(data.modules) ? (data.modules as unknown[]) : [];
   const modules: PlanModule[] = [];
@@ -381,6 +510,9 @@ export function readPlan(guideDir: string): PlanInfo {
     slug: typeof data.slug === 'string' ? data.slug : null,
     objectives,
     modules,
+    valid: validation.valid,
+    errors: validation.errors,
+    warnings: validation.warnings,
   };
 }
 
@@ -442,7 +574,14 @@ export interface ModuleStatus {
 export interface GuideStatus {
   guide: { slug: string; id: string | null; title: string | null; file: 'guide.md' };
   research: { companies: string[]; products: string[] };
-  plan: { exists: boolean; moduleCount: number; objectives: number };
+  plan: {
+    exists: boolean;
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+    moduleCount: number;
+    objectives: number;
+  };
   modules: ModuleStatus[];
   lastValidation: { ok: boolean; errors: number; warnings: number; at: string } | null;
   next: string;
@@ -571,16 +710,24 @@ export function readGuideStatus(guideDir: string): GuideStatus {
   }
 
   const firstIncomplete = modules.find((m) => m.state !== 'scored-passed');
-  const next = !plan.exists
-    ? '/hol-plan'
-    : firstIncomplete
-      ? `/hol-generate-module ${firstIncomplete.nn}-${firstIncomplete.slug}`
-      : '/hol-review-guide';
+  const next =
+    !plan.exists || plan.errors.length > 0
+      ? '/hol-plan'
+      : firstIncomplete
+        ? `/hol-generate-module ${firstIncomplete.nn}-${firstIncomplete.slug}`
+        : '/hol-review-guide';
 
   return {
     guide: { slug: basename(guideDir), id, title, file: 'guide.md' },
     research: { companies, products: products.sort() },
-    plan: { exists: plan.exists, moduleCount: plan.modules.length, objectives: plan.objectives },
+    plan: {
+      exists: plan.exists,
+      valid: plan.valid,
+      errors: plan.errors,
+      warnings: plan.warnings,
+      moduleCount: plan.modules.length,
+      objectives: plan.objectives,
+    },
     modules,
     lastValidation,
     next,

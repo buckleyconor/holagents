@@ -11,11 +11,32 @@ the full `guide.md`).
 Every task ends with the contract reminder so the last thing the scorer sees is
 the output format.
 
+**Read-only marker (required in every task):** scorer tasks embed content that
+contains implementation verbs ("create a collection", "write the helper"),
+which trips the subagent runtime's mutation-intent guard for read-only agents.
+Every task therefore starts with the literal line:
+
+```
+READ-ONLY scoring task — return findings only; do not edit or modify any file.
+```
+
+**Dispatch requirement (mandatory):** dispatch scorers with `acceptance: false`.
+The subagent runtime auto-infers an acceptance level for read-only agents and
+injects an "end with a structured acceptance report" instruction; the model
+then emits an `acceptance-report` fence **before** the scoring JSON fence, and
+the runtime's output-strip regex (from the acceptance fence to the last
+end-of-message fence) deletes **both** fences — the parent receives prose only
+and the score is lost. With `acceptance: false` no acceptance prompt is
+injected and the trailing scoring JSON block is delivered intact (verified
+against the runtime source + controlled runs; M7 gate finding, see
+`docs/manual-e2e.md`).
+
 ---
 
 ## Template: `plan` scope
 
 ```
+READ-ONLY scoring task — return findings only; do not edit or modify any file.
 Score the lab-guide PLAN below against the rubric «rubric-name».
 
 ### Scoring guide
@@ -39,6 +60,7 @@ copied verbatim; finding null on pass, concrete location otherwise.
 ## Template: `module-plan-<NN>` scope
 
 ```
+READ-ONLY scoring task — return findings only; do not edit or modify any file.
 Score the MODULE PLAN below against the rubric «rubric-name».
 
 ### Scoring guide
@@ -62,6 +84,7 @@ copied verbatim; finding null on pass, concrete location otherwise.
 ## Template: `module-<NN-slug>` scope
 
 ```
+READ-ONLY scoring task — return findings only; do not edit or modify any file.
 Score the MODULE below against the rubric «rubric-name».
 
 ### Scoring guide
@@ -85,6 +108,7 @@ copied verbatim; finding null on pass, concrete location otherwise.
 ## Template: `guide` scope
 
 ```
+READ-ONLY scoring task — return findings only; do not edit or modify any file.
 Score the WHOLE LAB GUIDE below against the rubric «rubric-name».
 
 ### Scoring guide

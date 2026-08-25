@@ -28,6 +28,11 @@ manual gate (runbook per §05). Sizes are rough (S ≤ half-day, M 1–2 days, L
 - M9's rubric _content_ is authored in M5; M9 wires the machinery. If scorer
   calibration is poor at the M9 gate, iterate rubric wording (M5 artifacts) before
   touching machinery.
+- **Scorer agent pulled forward into M7:** M7's gate requires the checklist rubric
+  to run end-to-end with a real scorer, so `agents/scorer.md` (an M9 deliverable)
+  was built in M7. M9 still owns the machinery: trailing-JSON extraction + 1-retry,
+  fix-loop caps (analytic 3; checklist escalate@5), and wiring the `hol_scores`
+  merge flows into the generate/review prompts.
 - **Parallelization (if using subagents for the build):** M2/M3 (linter) and
   M5 (skills) are independent after M1 and can run in parallel lanes with separate
   worktrees; M6–M10 are sequential on the main lane. One writer per file at a time.

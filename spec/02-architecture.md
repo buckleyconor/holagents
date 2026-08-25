@@ -405,6 +405,18 @@ references a concrete location. The parent extracts the last fenced JSON block p
 child; if parsing fails, the parent re-runs that single scorer once (max 1 retry).
 (ADR-006: no reliance on per-item `outputSchema` in `workflowScript` items.)
 
+**Dispatch dependency (M7 gate finding):** scorers must be dispatched with
+`acceptance: false`. The subagent runtime auto-infers a review-level acceptance
+for read-only agents and injects an "end with a structured acceptance report"
+instruction; the model then emits an `acceptance-report` fence **before** the
+scoring JSON fence, and the runtime's `stripAcceptanceReport` fallback
+(`/```acceptance[-_]report\s*\n[\s\S]*?```\s*$/`) spans from that fence to the
+last end-of-message fence and deletes **both** — the parent receives prose only.
+With `acceptance: false` no acceptance prompt is injected and the trailing
+scoring JSON survives (verified against the runtime source + the M7 run). The
+read-only marker line in `scorer-prompts.md` also keeps the mutation-intent
+guard from misclassifying scorer tasks as implementation work.
+
 Scorer fanout pattern (embedded in the review/generate prompts and
 `skills/evaluation/scorer-prompts.md`):
 

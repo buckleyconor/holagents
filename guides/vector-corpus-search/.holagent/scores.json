@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "scope": "plan",
+      "rubric": "checklist/plan-completeness",
+      "kind": "checklist",
+      "status": "passed",
+      "score": 1,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "id-and-identity",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "objectives",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "modules-complete",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "environment-block",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "lab-prep",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "duration-consistent",
+          "score": 1,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-25T19:53:37.528Z"
+    }
+  ]
+}

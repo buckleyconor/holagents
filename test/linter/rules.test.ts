@@ -270,3 +270,110 @@ test('T-31: TODO token → W008 (image placeholders excluded)', async () => {
   );
   assert.equal(findings(r2, 'W008').length, 0);
 });
+
+// T-70: standalone `<< INSERT SCREENSHOT: … >>` placeholders are images.
+// M8 gate finding: the scanner only detected lines starting with `![`, so
+// authoring-phase placeholders were invisible to L013 and W005 (false
+// "missing" W005 warnings on every planned-but-unshot module).
+test('T-70a: placeholder line is a valid image; malformed placeholder → L013', async () => {
+  const good = await lint(
+    BASE.replace(
+      '> ✅ **Checkpoint:** The workspace is ready.',
+      '<< INSERT SCREENSHOT: terminal with file list >>\n\n> ✅ **Checkpoint:** The workspace is ready.',
+    ),
+  );
+  assert.equal(findings(good, 'L013').length, 0);
+
+  const bad = await lint(
+    BASE.replace(
+      '> ✅ **Checkpoint:** The workspace is ready.',
+      '<< INSERT SCREENSHOT: broken placeholder\n\n> ✅ **Checkpoint:** The workspace is ready.',
+    ),
+  );
+  assert.equal(findings(bad, 'L013').length, 1);
+  assert.match(findings(bad, 'L013')[0]?.message ?? '', /INSERT SCREENSHOT/);
+});
+
+test('T-70b: W005 cross-checks placeholders against the image_checklist', async () => {
+  const plan = [
+    '---',
+    'id: HOL-1000-01',
+    'title: "Clean Fixture"',
+    'modules:',
+    '  - { n: 1, slug: setup, title: "Setup" }',
+    '---',
+    'body',
+  ].join('\n');
+  const modulePlan = [
+    '---',
+    'module_n: 1',
+    'slug: setup',
+    'title: Setup',
+    'image_checklist:',
+    '  - "state one"',
+    '  - "state two"',
+    '---',
+    'body',
+  ].join('\n');
+  const opts = { plan, modulePlan, moduleSlug: 'setup' };
+
+  const exact = await lint(
+    BASE.replace(
+      '> ✅ **Checkpoint:** The workspace is ready.',
+      [
+        '<< INSERT SCREENSHOT: state one >>',
+        '',
+        '<< INSERT SCREENSHOT: state two >>',
+        '',
+        '> ✅ **Checkpoint:** The workspace is ready.',
+      ].join('\n'),
+    ),
+    opts,
+  );
+  assert.equal(findings(exact, 'W005').length, 0);
+
+  const oneShort = await lint(
+    BASE.replace(
+      '> ✅ **Checkpoint:** The workspace is ready.',
+      '<< INSERT SCREENSHOT: state one >>\n\n> ✅ **Checkpoint:** The workspace is ready.',
+    ),
+    opts,
+  );
+  assert.equal(findings(oneShort, 'W005').length, 1);
+  assert.match(findings(oneShort, 'W005')[0]?.message ?? '', /missing/);
+
+  const oneExtra = await lint(
+    BASE.replace(
+      '> ✅ **Checkpoint:** The workspace is ready.',
+      [
+        '<< INSERT SCREENSHOT: state one >>',
+        '',
+        '<< INSERT SCREENSHOT: state two >>',
+        '',
+        '<< INSERT SCREENSHOT: state three >>',
+        '',
+        '> ✅ **Checkpoint:** The workspace is ready.',
+      ].join('\n'),
+    ),
+    opts,
+  );
+  assert.equal(findings(oneExtra, 'W005').length, 1);
+  assert.match(findings(oneExtra, 'W005')[0]?.message ?? '', /reconcile/);
+});
+
+// T-71c (M8 gate): L015 — command-shaped line with 1–3 space indent is an
+// error; the house form (tab / 4 spaces) stays clean.
+test('T-71c: 3-space indented command line → L015 error; tab form clean', async () => {
+  const r = await lint(BASE.replace('\t`ls -la`', '   `ls -la`'));
+  const l015 = findings(r, 'L015');
+  assert.equal(l015.length, 1);
+  assert.equal(l015[0]?.severity, 'error');
+  assert.match(l015[0]?.message ?? '', /tab-indented/);
+  assert.equal(findings(await lint(BASE), 'L015').length, 0);
+  // prose backticks are not command-shaped → no L015
+  assert.equal(
+    findings(await lint(BASE.replace('You set up the thing.', '   `You set up the thing`')), 'L015')
+      .length,
+    0,
+  );
+});

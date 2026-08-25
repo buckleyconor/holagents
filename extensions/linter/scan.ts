@@ -9,6 +9,7 @@ import type {
   CommandCandidate,
   Heading,
   ImageLine,
+  MisindentedCommand,
   ScanResult,
   Section,
   TocEntry,
@@ -90,27 +91,40 @@ export function scanMarkdown(lines: string[], config: GuideFormatConfig): ScanRe
     }
   }
 
-  // Images.
+  // Images: ImageProxy markdown images and standalone
+  // `<< INSERT SCREENSHOT: … >>` placeholders (the authoring-phase image
+  // form; W005 cross-checks them against the module plan's image_checklist).
+  // A line that starts with the placeholder prefix but fails the strict
+  // pattern is malformed → 'invalid' (L013).
   const images: ImageLine[] = [];
   for (let i = 0; i < lineCount; i += 1) {
     if (fenced[i]) continue;
     const line = (lines[i] ?? '').trim();
-    if (!line.startsWith('![')) continue;
-    const kind = config.images.imageProxyPattern.test(line)
-      ? 'proxy'
-      : config.images.placeholderPattern.test(line)
-        ? 'placeholder'
-        : 'invalid';
+    let kind: ImageLine['kind'] | null = null;
+    if (line.startsWith('![')) {
+      kind = config.images.imageProxyPattern.test(line) ? 'proxy' : 'invalid';
+    } else if (config.images.placeholderPattern.test(line)) {
+      kind = 'placeholder';
+    } else if (PLACEHOLDER_RE.test(line)) {
+      kind = 'invalid';
+    }
+    if (kind === null) continue;
     images.push({ line: i + 1, raw: line, kind });
   }
 
-  // Command candidates (§02 §4.7).
+  // Command candidates (§02 §4.7). House form is tab-indented (or 4 spaces);
+  // a command-shaped line indented with 1–3 spaces escapes extraction, so
+  // L014 (shellcheck) and W004 (checkpoint count) would silently skip it —
+  // those lines are collected for the L015 rule instead.
   const commands: CommandCandidate[] = [];
+  const misindentedCommands: MisindentedCommand[] = [];
   for (let i = 0; i < lineCount; i += 1) {
     if (fenced[i]) continue;
     const raw = lines[i] ?? '';
     const indent = raw.match(/^( +|\t+)/)?.[1] ?? '';
-    if (!(indent === '\t' || indent.startsWith('    '))) continue;
+    const isCommandIndent = indent === '\t' || indent.startsWith('    ');
+    const isMisindented = /^ {1,3}$/.test(indent);
+    if (!isCommandIndent && !isMisindented) continue;
     const content = raw.trim();
     if (!/^`[^`]+`$/.test(content)) continue;
     const command = content.slice(1, -1).trim();
@@ -118,7 +132,11 @@ export function scanMarkdown(lines: string[], config: GuideFormatConfig): ScanRe
       continue;
     const firstToken = command.split(/\s+/)[0] ?? '';
     if (!config.commandExtraction.firstTokenPattern.test(firstToken)) continue;
-    commands.push({ line: i + 1, command });
+    if (isCommandIndent) {
+      commands.push({ line: i + 1, command });
+    } else {
+      misindentedCommands.push({ line: i + 1, command, indent: indent.length });
+    }
   }
 
   // Level-2 sections (single forward pass over the sorted headings list — O(H+S)).
@@ -206,6 +224,7 @@ export function scanMarkdown(lines: string[], config: GuideFormatConfig): ScanRe
     tocRange,
     images,
     commands,
+    misindentedCommands,
     sections,
     calloutLines,
     tokenLines,

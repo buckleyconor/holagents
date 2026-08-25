@@ -175,3 +175,41 @@ test('raw HTML: forbidden patterns detected case-insensitively', () => {
     [1, 3],
   );
 });
+
+// T-71 (M8 gate): command-shaped lines indented with 1–3 spaces escape
+// extraction and are surfaced for L015 instead of polluting `commands`.
+test('T-71a: 1–3 space command-shaped lines → misindentedCommands, not commands', () => {
+  const s = scan(
+    [
+      '   `ls -la`',
+      '\t`curl -s http://x/health`',
+      '    `pwd`',
+      '   `Save the file`',
+      '   `ls languages` and more prose',
+      '`echo unindented`',
+      '   plain prose line',
+    ].join('\n'),
+  );
+  assert.deepEqual(s.misindentedCommands, [{ line: 1, command: 'ls -la', indent: 3 }]);
+  assert.deepEqual(
+    s.commands.map((c) => c.command),
+    ['curl -s http://x/health', 'pwd'],
+  );
+});
+
+test('T-71b: misindented detection respects fences, length, and first-token', () => {
+  const s = scan(
+    [
+      '```',
+      '   `fenced cmd not flagged`',
+      '```',
+      '   `./relative script.sh --flag`',
+      '   `  `',
+    ].join('\n'),
+  );
+  assert.deepEqual(
+    s.misindentedCommands.map((m) => m.command),
+    ['./relative script.sh --flag'],
+  );
+  assert.equal(s.misindentedCommands[0]?.indent, 3);
+});

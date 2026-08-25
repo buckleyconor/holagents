@@ -1,11 +1,11 @@
 {
   "ok": true,
-  "guideDir": "/home/demouser/projects/instruqt-skill/guides/vector-corpus-search",
+  "guideDir": "guides/vector-corpus-search",
   "findings": [],
   "summary": {
     "errors": 0,
     "warnings": 0
   },
   "shellcheck": "skipped (shellcheck not installed)",
-  "at": "2026-08-25T19:25:36.109Z"
+  "at": "2026-08-25T21:35:39.737Z"
 }

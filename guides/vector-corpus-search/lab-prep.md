@@ -15,12 +15,12 @@ with the `environment` block in `.holagent/plan.md` and with the guide's
 
 ## Preloaded software
 
-| Component           | Version                       | Where                               |
-| ------------------- | ----------------------------- | ----------------------------------- |
-| Docker              | 29.x                          | /usr/bin/docker (daemon running)    |
-| Qdrant Docker image | qdrant/qdrant (pin exact tag) | local image cache (docker image ls) |
-| python3             | 3.12.x (Ubuntu 24.04 base)    | /usr/bin/python3                    |
-| curl                | Ubuntu 24.04 base             | /usr/bin/curl                       |
+| Component           | Version                    | Where                               |
+| ------------------- | -------------------------- | ----------------------------------- |
+| Docker              | 29.x                       | /usr/bin/docker (daemon running)    |
+| Qdrant Docker image | qdrant/qdrant:v1.19.0      | local image cache (docker image ls) |
+| python3             | 3.12.x (Ubuntu 24.04 base) | /usr/bin/python3                    |
+| curl                | Ubuntu 24.04 base          | /usr/bin/curl                       |
 
 ## Credentials
 
@@ -43,9 +43,15 @@ with the `environment` block in `.holagent/plan.md` and with the guide's
 ## Expected starting artifacts
 
 - `/lab/corpus.json` — small document corpus (~15 short documents on
-  storage/AI infrastructure), valid JSON
+  storage/AI infrastructure), valid JSON. Schema: a top-level JSON array of
+  objects `[{ "id": <int>, "topic": <string>, "text": <string> }, …]` —
+  `id` is a unique positive integer (used as the Qdrant point id), `topic`
+  is a short slug for the document's subject, `text` is the document body
+  (~50–80 words each). A conforming reference file (15 documents) is kept at
+  `guides/vector-corpus-search/fixtures/corpus.json` in this repo — the
+  provisioning team may use it verbatim or substitute equivalent content.
 - `/lab/` — writable working directory for lab artifacts (embedder helper,
-  question files)
+  points file, question files)
 
 ## Verification
 
@@ -55,7 +61,8 @@ The environment is ready when:
    pre-pulled image
 2. `python3 --version` and `curl --version` both succeed
 3. `python3 -m json.tool /lab/corpus.json > /dev/null` succeeds (valid JSON)
-   and the file holds ~15 short documents on storage/AI infrastructure
+   and the file holds ~15 short documents on storage/AI infrastructure, each
+   a `{"id", "topic", "text"}` object (see Expected starting artifacts)
 4. Port 6333 is free — `curl -s http://localhost:6333` fails with connection
    refused. The Qdrant container is intentionally **not** started at prep
    time: Module 1 of the guide starts it, and that module's first checkpoint

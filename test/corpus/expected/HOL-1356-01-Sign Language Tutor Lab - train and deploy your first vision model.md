@@ -18,5 +18,10 @@
 "rule": "L012",
 "line": 362,
 "severity": "error"
+},
+{
+"rule": "L013",
+"line": 301,
+"severity": "error"
 }
 ]

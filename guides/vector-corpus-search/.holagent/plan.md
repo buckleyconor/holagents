@@ -133,9 +133,9 @@ and verification steps — lives in `lab-prep.md`.
   the environment team should keep it stable, and Module 2's success
   criterion is that the point count _matches the file_ (length of
   `/lab/corpus.json`), not a hardcoded number.
-- **Qdrant image tag.** The payload says `qdrant/qdrant` was pulled without a
-  tag; the environment team should pin and record the exact tag in
-  `lab-prep.md`'s Preloaded software table at provision time.
+- **Qdrant image tag (resolved 2026-08-25, M8 dry run).** Pinned to
+  `qdrant/qdrant:v1.19.0` and recorded in `lab-prep.md`'s Preloaded software
+  table; the guide's `docker run` command uses this tag.
 - **Qdrant not running at prep time.** Module 1's goal is the learner
   launching it, so the pre-provisioned state is "image present, container
   stopped". `lab-prep.md` verification therefore checks the image/file

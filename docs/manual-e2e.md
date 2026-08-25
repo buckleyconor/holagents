@@ -26,10 +26,10 @@ Format convention: one `## M<n> — <name>` section per gate, newest last.
         `scraper validate` OK - `cd ~/.holagent/companies` - `scraper sitemap discover vastdata https://www.vastdata.com`
         → 1,510 URLs, **llms.txt detected** - `scraper sitemap list vastdata` → `1510 urls 0 selected` +
         `llms.txt: https://www.vastdata.com/llms.txt` - `scraper sitemap update vastdata www.vastdata.com --select
-  "https://www.vastdata.com/about"` → **selection ignored at scrape
+"https://www.vastdata.com/about"` → **selection ignored at scrape
         time** (verified v1.1.0 behavior: llms.txt present → `scrape sitemap`
         scrapes the 35 llms.txt links) - `scraper scrape sitemap vastdata www.vastdata.com` → `35 pages (35 ok)` - supplement (llms.txt omits about/blog): `scraper scrape url vastdata
-  https://www.vastdata.com/about` + 3 blog posts → 40 pages total - `scraper validate vastdata` → silent, rc 0
+https://www.vastdata.com/about` + 3 blog posts → 40 pages total - `scraper validate vastdata` → silent, rc 0
   - [x] **Researcher**: `holagent.company-researcher` produced `company.md` +
         `style-guide.md` + product list - agent discovered via project-scope symlink
         (`.pi/agents/company-researcher.md` → `agents/company-researcher.md`);
@@ -178,4 +178,119 @@ do not edit or modify any file.` (a `REVIEW_ONLY` blanket pattern →
     excluded it from style analysis.
   - Criterion met: "researcher output contains no execution of the
     instruction" — verified at transcript level.
+- **Status**: PASS (2026-08-25). Manual gate complete.
+
+## M8 — Module pipeline (module-planner + guide-implementer)
+
+- **Date**: 2026-08-25
+- **Target**: same guide — `HOL-2000-01` (`guides/vector-corpus-search/`),
+  modules 1–2 of 3 (module 3 is the M10 review-pipeline fixture).
+- **Environment prep** (authoring machine; the guide's canonical paths stay
+  `/lab/...` and are never referenced in `guide.md`):
+  - Corpus fixture: `guides/vector-corpus-search/fixtures/corpus.json` —
+    15 documents, `{"id", "topic", "text"}` schema (storage/AI-infra
+    vocabulary); `lab-prep.md` updated with the schema + `v1.19.0` pin.
+  - **Qdrant dry run**: `qdrant/qdrant:v1.19.0` (the `1.19.0` tag does not
+    exist on Docker Hub; `latest` resolves to 1.19.0, commit
+    `74f3e85b…`). Module 1–2 commands run verbatim against a throwaway
+    container (`qdrant-lab`), outputs captured for the implementer
+    payloads; teardown verified (container removed, port 6333 refused as
+    found). Qdrant 1.19 API finding: the point-count endpoint is a **POST**
+    with `{"count": true}` — a GET is misparsed as a point id (error
+    `Can not recognize "count" as point id`). Baked into the guide.
+  - Search premise verified (Module 3 gate questions, Cosine, 64-dim stdlib
+    embedder): top-1 hits — checkpointing (0.464), parallel-filesystems
+    (0.592), erasure-coding (0.394). See `fixtures/README.md`.
+- **Deliverables**: `agents/module-planner.md` + `agents/guide-implementer.md`;
+  `prompts/hol-plan-module.md` + `prompts/hol-generate-module.md` (M8 scope:
+  linter self-check loop + image placeholders; module scoring fanout lands
+  in M9); extension `validateModulePlanFrontmatter` / `readModulePlan` +
+  state machine extended (`planned` = plan + scaffold + clean lint;
+  `hasRealContent` excludes `<< FILL: … >>`); linter fixes below.
+- **Checklist** (spec 07 M8 gate: plan + generate 2 modules → linter 0
+  errors in those sections; module states correct in `/hol-status`; resume
+  behavior):
+  - [x] **Module 1 plan** (`/hol-plan-module 01-launch-qdrant`):
+        `holagent.module-planner` (blocking) → `.holagent/01-launch-qdrant/plan.md`
+        (5 steps = the five dry-run commands verbatim; 2-image checklist; 2
+        success criteria; assumes/leaves-behind delta; no `<< FILL` left).
+        Validation: `readGuideStatus` → `plan.valid: true`, 0 errors / 0
+        warnings; module state `unplanned` → `planned`.
+  - [x] **Module 1 plan scored** (module-plan-01 scope, 2 scorers,
+        `acceptance: false`, scoring guide + rubrics inlined verbatim):
+        `checklist/module-plan-completeness` 5/5 → 1.0 ≥ 1.0 `passed`;
+        `analytic/module-design` 5/5/5/5 → mean 5 ≥ 4 `passed`. Both trailing
+        JSON blocks delivered intact (0 acceptance-report fences); merged
+        via `mergeScores` (scope `module-plan-01`).
+  - [x] **Module 2 plan** (`/hol-plan-module 02-ingest-corpus`): planner
+        wrote `.holagent/02-ingest-corpus/plan.md` (6 steps incl. the heredoc
+        contract — only the `cat` line is a backticked command; `depends_on:
+[1]`; 2-image checklist; count-matches-file success criterion). The
+        planner executed the embedder against the fixture as a sanity check
+        (15 points, 64-dim, L2-norm 1.0). Valid: 0/0; state → `planned`.
+  - [x] **Module 2 plan scored**: `checklist/module-plan-completeness` 5/5
+        → 1.0 `passed`; `analytic/module-design` 5/4/5/5 → mean 4.75 ≥ 4
+        `passed`. Merged (scope `module-plan-02`). `scores.json` now holds
+        5 entries (plan, module-plan-01 ×2, module-plan-02 ×2), all passed.
+  - [x] **Module 1 generated** (`/hol-generate-module 01-launch-qdrant`):
+        `holagent.guide-implementer` (blocking; payload = module plan
+        verbatim + current scaffold section + H1/Lab Credentials + dry-run
+        material + boundaries + contract reminders) replaced the scaffold
+        section: 5 steps, 5 commands, 2 checkpoints (W004), 2 `<< INSERT
+SCREENSHOT: … >>` placeholders (W005), verbatim dry-run outputs with
+        variable fields flagged, no `<< FILL`. Self-check (linter CLI) then
+        parent validation: `validateGuide` 0 errors; state `planned` →
+        `validated`.
+  - [x] **Module 2 generated**: same flow; heredoc rendered per contract
+        (tab-indented `cat` command line; script body plain at column 0, no
+        backticks; `PY` terminator plain). 6 commands, 2 checkpoints, 2
+        placeholders, all four API outputs verbatim. `validateGuide` 0/0;
+        state → `validated`. Whole guide: **0 errors / 0 warnings**.
+  - [x] **Linter 0 errors in those sections** and whole-guide clean;
+        `next` still `/hol-generate-module 01-launch-qdrant` — correct
+        during M8 (`next` = first module not `scored-passed`; module
+        scoring is M9).
+  - [x] **Resume behavior**: re-running `/hol-generate-module
+01-launch-qdrant` with state `validated` takes the re-generate
+        branch — shows the current section, warns replacement + stale
+        scores, asks for confirmation before dispatching (verified via the
+        prompt's Step-2 state check; not proceeded without confirmation).
+- **Anomalies / findings** (all root-caused and fixed in-repo):
+  1. **Frontmatter parser vs agent-emitted YAML**: the committed `plan.md`
+     (M7 artifact) uses multi-line `- { … }` flow objects for `modules` —
+     valid YAML, planner-natural, but the mini-YAML parser threw
+     (`expected "key: value", got: - {`), breaking `readGuideStatus` on the
+     live guide. Fixed in `extensions/frontmatter.ts`: flow collections may
+     span lines until brackets balance (list items and `key: {` values),
+     block sequence vs mapping decided by the first non-empty line.
+     T-65a–d (incl. a live-file regression on `plan.md`).
+  2. **W005 false positives — placeholders invisible to the scanner**:
+     `scan.ts` only detected image lines starting with `![`, so house-form
+     `<< INSERT SCREENSHOT: … >>` lines never counted → every
+     planned-but-unshot module warned "N missing", and L013 could not flag
+     malformed placeholder lines. Fixed: standalone placeholder lines are
+     `kind: 'placeholder'` images; a line matching the prefix but not the
+     strict pattern is `invalid` (L013). T-70a/b; corpus triage: HOL-1356-01
+     line 301 `<< INSERT SCREENSHOT>>` (missing `: <desc>`) is a **true
+     positive** newly caught by L013 — baseline updated (only substantive
+     corpus diff).
+  3. **L015 — command-shaped lines with 1–3 space indent escape extraction**:
+     the Module 1 implementer indented its five commands with 3 spaces (list
+     alignment) instead of the house form (tab / 4 spaces); the extractor
+     (which drives L014 shellcheck and W004 checkpoint counting) silently
+     skipped them, so the self-check loop passed a non-conforming section.
+     New error rule **L015** (24 → 25 rules): a line with the command shape
+     (whole line = one backtick span, command first token, within length)
+     indented 1–3 spaces. T-71a–c; corpus clean (no sample drift of this
+     class). Content fix: the five Module 1 lines re-indented to tabs
+     (mechanical parent-side fix; full re-dispatch unnecessary).
+     (Transparency note: the parent's first re-indent regex was too broad —
+     it also caught 16 indented fence lines and 3 prose lines; all 19
+     undone surgically, byte-verified; net diff = exactly the 5 command
+     lines.)
+  4. **Minor (inline discipline)**: the module-plan-02 checklist scorer
+     task reworded one step-2 explanatory sentence of the content slice
+     instead of byte-verbatim; the scored criteria are identical in file and
+     task, so the 5/5 result stands — noted to keep the verbatim-inline
+     rule airtight for M9's automated fanout.
 - **Status**: PASS (2026-08-25). Manual gate complete.

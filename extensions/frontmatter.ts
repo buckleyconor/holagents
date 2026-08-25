@@ -5,6 +5,8 @@
  *   - block lists: `key:\n  - item`
  *   - inline (flow) lists: `[a, b]`
  *   - inline (flow) maps: `{ n: 1, slug: x, title: "y" }`
+ *   - multi-line flow collections (YAML flow style): a `- { … }` list item
+ *     or `key: { … }` value may span lines until brackets balance
  *   - one level of nested maps (e.g. `environment:`)
  * Throws on shapes outside this subset — callers treat that as "unparseable".
  */
@@ -34,6 +36,28 @@ export function parseFrontmatter(text: string): Frontmatter | null {
 
 function indentOf(line: string): number {
   return line.match(/^\s*/)?.[0].length ?? 0;
+}
+
+/**
+ * Net bracket depth of flow collections (`[`, `{`) outside quotes.
+ * Positive = still open at end of line (more lines belong to the value).
+ */
+function flowDepthDelta(s: string): number {
+  let depth = 0;
+  let quote: string | null = null;
+  for (const ch of s) {
+    if (quote) {
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch === '[' || ch === '{') depth += 1;
+    if (ch === ']' || ch === '}') depth -= 1;
+  }
+  return depth;
 }
 
 function parseBlock(lines: (string | undefined)[]): FmMap {
@@ -71,13 +95,31 @@ function parseBlock(lines: (string | undefined)[]): FmMap {
         map[key] = '';
         continue;
       }
-      const allListItems = nonEmpty.every((l) => l.trim().startsWith('-'));
-      if (allListItems) {
+      // YAML block sequence vs mapping is decided by the first non-empty
+      // line; flow objects may span lines, so later lines need not start
+      // with `-`.
+      if (nonEmpty[0]!.trim().startsWith('-')) {
         map[key] = parseList(childLines);
       } else {
         map[key] = parseBlock(childLines);
       }
     } else {
+      // Inline value; a flow collection may span multiple lines (YAML flow
+      // style): join continuation lines until brackets balance.
+      let rest = keyMatch[3]?.trim() ?? '';
+      let open = flowDepthDelta(rest);
+      if (open > 0) {
+        const cont: string[] = [];
+        while (open > 0 && i < lines.length) {
+          const next = lines[i] ?? '';
+          i += 1;
+          if (next.trim() === '') continue;
+          cont.push(next.trim());
+          open += flowDepthDelta(next);
+        }
+        rest = [rest, ...cont].join(' ');
+        if (open !== 0) throw new Error(`frontmatter: unbalanced flow in "${key}": ${rest}`);
+      }
       map[key] = parseInline(rest);
     }
   }
@@ -86,12 +128,29 @@ function parseBlock(lines: (string | undefined)[]): FmMap {
 
 function parseList(lines: string[]): FmValue[] {
   const out: FmValue[] = [];
-  for (const line of lines) {
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i] ?? '';
     const t = line.trim();
-    if (t === '') continue;
+    if (t === '') {
+      i += 1;
+      continue;
+    }
     const itemMatch = line.match(ITEM_RE);
     if (!itemMatch) throw new Error(`frontmatter: expected list item, got: ${t}`);
-    out.push(parseInline(itemMatch[2]!.trim()));
+    // A flow collection (`{ … }` / `[ … ]`) may span multiple lines (YAML
+    // flow style): join continuation lines until brackets balance.
+    let rest = itemMatch[2]!.trim();
+    let open = flowDepthDelta(rest);
+    while (open > 0 && i + 1 < lines.length) {
+      const cont = lines[i + 1]!;
+      rest += ' ' + cont.trim();
+      open += flowDepthDelta(cont);
+      i += 1;
+    }
+    if (open !== 0) throw new Error(`frontmatter: unbalanced flow in list item: ${rest}`);
+    out.push(parseInline(rest));
+    i += 1;
   }
   return out;
 }

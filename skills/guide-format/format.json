@@ -165,6 +165,13 @@
       "fixHint": "Fix the flagged command (quote variables, drop unused pipes) or verify the line is not a command."
     },
     {
+      "id": "L015",
+      "severity": "error",
+      "title": "Command with non-standard indent",
+      "description": "A line with the command shape (whole line is one backtick span, command-like first token, within length) must be tab-indented or 4-space indented. Indented with 1–3 spaces it escapes command extraction, so L014 (shellcheck) and W004 (checkpoint count) silently skip it. Error: re-indent to a tab/4 spaces, or reword if it is prose.",
+      "fixHint": "Indent the command line with a tab (or 4 spaces) so it is extracted as a command; if it is prose, not a command, reword it so it is no longer a single backtick span with a command-like first token."
+    },
+    {
       "id": "W001",
       "severity": "warning",
       "title": "Callout style consistency",

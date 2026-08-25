@@ -41,6 +41,140 @@
         }
       ],
       "updated_at": "2026-08-25T19:53:37.528Z"
+    },
+    {
+      "scope": "module-plan-01",
+      "rubric": "checklist/module-plan-completeness",
+      "kind": "checklist",
+      "status": "passed",
+      "score": 1,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "step-outline",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "image-checklist",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "success-criteria",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "environment-delta",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "commands-listed",
+          "score": 1,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-25T20:52:47.873Z"
+    },
+    {
+      "scope": "module-plan-01",
+      "rubric": "analytic/module-design",
+      "kind": "analytic",
+      "status": "passed",
+      "score": 5,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "pacing",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "verifiable-success",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "depends-on-correct",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "image-specificity",
+          "score": 5,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-25T20:52:47.873Z"
+    },
+    {
+      "scope": "module-plan-02",
+      "rubric": "checklist/module-plan-completeness",
+      "kind": "checklist",
+      "status": "passed",
+      "score": 1,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "step-outline",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "image-checklist",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "success-criteria",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "environment-delta",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "commands-listed",
+          "score": 1,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-25T21:04:28.561Z"
+    },
+    {
+      "scope": "module-plan-02",
+      "rubric": "analytic/module-design",
+      "kind": "analytic",
+      "status": "passed",
+      "score": 4.75,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "pacing",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "verifiable-success",
+          "score": 4,
+          "finding": null
+        },
+        {
+          "criterion": "depends-on-correct",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "image-specificity",
+          "score": 5,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-25T21:04:28.561Z"
     }
   ]
 }

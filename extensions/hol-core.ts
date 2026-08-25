@@ -556,6 +556,173 @@ export function resolveModuleSelector(modules: PlanModule[] | null, arg: string)
   throw new HolError('E-ARG', `E-ARG: ambiguous or unknown module "${arg}" — ${available}`);
 }
 
+// --------------------------------------------------------------- module plan
+
+/**
+ * Module plan (`.holagent/<NN-slug>/plan.md`) frontmatter validation.
+ *
+ * errors   = machine-contract violations that block module-plan scoring (the
+ *            parent re-dispatches the module planner with the error list).
+ * warnings = quality concerns (design-modules bands, empty/missing quality
+ *            lists, missing body sections) — never block.
+ */
+export interface ModulePlanValidation {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export function validateModulePlanFrontmatter(
+  fm: Frontmatter | null,
+  expected: PlanModule,
+): ModulePlanValidation {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  if (!fm) {
+    errors.push('module plan has no parseable frontmatter (mini-YAML subset required)');
+    return { valid: false, errors, warnings };
+  }
+  const data = fm.data;
+
+  const n = data['module_n'];
+  if (typeof n !== 'number' || !Number.isInteger(n) || n !== expected.n) {
+    errors.push(`module_n must equal ${expected.n} (got ${JSON.stringify(n ?? null)})`);
+  }
+  const slug = data['slug'];
+  if (slug !== expected.slug) {
+    errors.push(`slug must be "${expected.slug}" (got ${JSON.stringify(slug ?? null)})`);
+  }
+  const title = data['title'];
+  if (typeof title !== 'string' || title.trim().length === 0) {
+    errors.push('title is required');
+  }
+  const est = data['est_minutes'];
+  if (typeof est !== 'number' || !Number.isInteger(est) || est <= 0) {
+    errors.push('est_minutes must be a positive integer');
+  } else if (est < 5 || est > 30) {
+    warnings.push(`est_minutes ${est} is outside the 5–30 band (design-modules budget)`);
+  }
+
+  const deps = data['depends_on'];
+  if (!Array.isArray(deps)) {
+    errors.push('depends_on must be a list ([] when the module has no dependencies)');
+  } else {
+    const nums: number[] = [];
+    for (let i = 0; i < deps.length; i += 1) {
+      const d = deps[i];
+      if (typeof d !== 'number' || !Number.isInteger(d) || d < 1) {
+        errors.push(
+          `depends_on[${i + 1}] must be a positive module number (got ${JSON.stringify(d ?? null)})`,
+        );
+      } else {
+        nums.push(d);
+      }
+    }
+    if (nums.length > 0) {
+      if (nums.includes(expected.n))
+        errors.push(`depends_on must not reference module ${expected.n} itself`);
+      if (nums.some((d) => d > expected.n))
+        errors.push('depends_on may only reference earlier modules');
+      if (new Set(nums).size !== nums.length) errors.push('depends_on contains duplicates');
+    }
+  }
+
+  const images = data['image_checklist'];
+  if (images === undefined || images === null) {
+    warnings.push('image_checklist is missing (use [] when the module needs no screenshots)');
+  } else if (
+    !Array.isArray(images) ||
+    images.some((s) => typeof s !== 'string' || s.trim().length === 0)
+  ) {
+    errors.push('image_checklist must be a list of non-empty screenshot descriptions');
+  }
+
+  const success = data['success_criteria'];
+  if (
+    !Array.isArray(success) ||
+    success.length === 0 ||
+    success.some((s) => typeof s !== 'string' || s.trim().length === 0)
+  ) {
+    warnings.push(
+      'success_criteria is missing or empty (verifiable end states the checkpoints assert)',
+    );
+  }
+
+  // Body sections (quality — the module-plan rubrics score these too).
+  const body = fm.body ?? '';
+  for (const heading of [
+    '## Step outline',
+    '## Environment delta',
+    '## Commands used',
+    '## Expected outputs',
+  ]) {
+    const found = body.split(/\r?\n/).some((l) => l.trimStart().startsWith(heading));
+    if (!found) warnings.push(`body section missing: "${heading}"`);
+  }
+
+  return { valid: errors.length === 0, errors, warnings };
+}
+
+export interface ModulePlanInfo extends ModulePlanValidation {
+  exists: boolean;
+  /** Absolute path (null when the file is missing). */
+  path: string | null;
+  title: string | null;
+  dependsOn: number[];
+  estMinutes: number | null;
+  imageChecklist: string[];
+  successCriteria: string[];
+}
+
+/** Read + validate the module plan for a plan module (missing → exists:false). */
+export function readModulePlan(guideDir: string, module: PlanModule): ModulePlanInfo {
+  const nn = String(module.n).padStart(2, '0');
+  const path = join(guideDir, '.holagent', `${nn}-${module.slug}`, 'plan.md');
+  const base: ModulePlanInfo = {
+    exists: false,
+    path: null,
+    valid: true,
+    errors: [],
+    warnings: [],
+    title: null,
+    dependsOn: [],
+    estMinutes: null,
+    imageChecklist: [],
+    successCriteria: [],
+  };
+  if (!existsSync(path)) return base;
+  let text: string;
+  try {
+    text = readFileSync(path, 'utf8');
+  } catch (e) {
+    throw new HolError(
+      'E-READ',
+      `E-READ: cannot read ${nn}-${module.slug}/plan.md: ${(e as Error).message}`,
+    );
+  }
+  const fm = parseFrontmatter(text);
+  const validation = validateModulePlanFrontmatter(fm, module);
+  const data = fm?.data ?? {};
+  const strList = (v: unknown): string[] =>
+    Array.isArray(v)
+      ? v.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+      : [];
+  const deps = data['depends_on'];
+  return {
+    ...base,
+    ...validation,
+    exists: true,
+    path,
+    title: typeof data['title'] === 'string' ? data['title'] : null,
+    dependsOn: Array.isArray(deps)
+      ? deps.filter((d): d is number => typeof d === 'number' && Number.isInteger(d))
+      : [],
+    estMinutes: typeof data['est_minutes'] === 'number' ? data['est_minutes'] : null,
+    imageChecklist: strList(data['image_checklist']),
+    successCriteria: strList(data['success_criteria']),
+  };
+}
+
 // --------------------------------------------------------------- status
 
 export type ModuleState =
@@ -568,6 +735,8 @@ export interface ModuleStatus {
   /** Zero-padded NN (for commands: /hol-generate-module NN-slug). */
   nn: string;
   state: ModuleState;
+  /** Module plan (`.holagent/<NN-slug>/plan.md`) presence + validation. */
+  plan: { exists: boolean; valid: boolean; errors: string[]; warnings: string[] };
   scores?: { checklist?: number; analyticMean?: number };
 }
 
@@ -659,9 +828,19 @@ export function readGuideStatus(guideDir: string): GuideStatus {
   const modules: ModuleStatus[] = plan.modules.map((m) => {
     const nn = String(m.n).padStart(2, '0');
     const scope = `module-${nn}-${m.slug}`;
-    const hasModulePlan = existsSync(join(guideDir, '.holagent', `${nn}-${m.slug}`, 'plan.md'));
+    const modulePlan = readModulePlan(guideDir, m);
+    const hasModulePlan = modulePlan.exists;
     const section = moduleMap.get(m.n);
-    const hasGuideSection = section !== undefined;
+    // "Generated" = real content: the scaffold leaves `<< FILL: ... >>`
+    // placeholders in the section; a planned-but-unwritten module must not
+    // read as generated/validated.
+    const sectionText =
+      section !== undefined
+        ? (guideText.split(/\r?\n/).slice(section.startLine - 1, section.endLine) as string[]).join(
+            '\n',
+          )
+        : '';
+    const hasRealContent = section !== undefined && !sectionText.includes('<< FILL: ');
     const entries = scores.filter((e) => e.scope === scope);
     const anyEscalated = entries.some((e) => e.status === 'escalated');
     const allPassed = entries.length > 0 && entries.every((e) => e.status === 'passed');
@@ -675,13 +854,25 @@ export function readGuideStatus(guideDir: string): GuideStatus {
 
     let state: ModuleState;
     if (anyEscalated) state = 'scored-escalated';
-    else if (allPassed && hasGuideSection && sectionErrors === 0) state = 'scored-passed';
+    else if (allPassed && hasRealContent && sectionErrors === 0) state = 'scored-passed';
     else if (!hasModulePlan) state = 'unplanned';
-    else if (!hasGuideSection) state = 'planned';
+    else if (!hasRealContent) state = 'planned';
     else if (sectionErrors === 0) state = 'validated';
     else state = 'generated';
 
-    const status: ModuleStatus = { n: m.n, slug: m.slug, title: m.title, nn, state };
+    const status: ModuleStatus = {
+      n: m.n,
+      slug: m.slug,
+      title: m.title,
+      nn,
+      state,
+      plan: {
+        exists: modulePlan.exists,
+        valid: modulePlan.valid,
+        errors: modulePlan.errors,
+        warnings: modulePlan.warnings,
+      },
+    };
     const scoresOut: { checklist?: number; analyticMean?: number } = {};
     const checklistEntries = entries.filter((e) => e.kind === 'checklist');
     if (checklistEntries.length > 0) {

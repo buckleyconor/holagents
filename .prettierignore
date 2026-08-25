@@ -1,0 +1,4 @@
+# Guide content is a linter-managed artifact (house format: tab-indented
+# commands, specific fence/heredoc indentation). Prettier would mangle it
+# (tabs→spaces, de-indent heredoc Python, re-flow fences) — see M8 gate.
+guides/

@@ -52,6 +52,18 @@ export interface CommandCandidate {
   command: string;
 }
 
+/**
+ * A command-shaped line (single-backtick span, command first token) that is
+ * indented with 1–3 spaces instead of the house form (tab or 4 spaces).
+ * Such lines escape command extraction — L015.
+ */
+export interface MisindentedCommand {
+  line: number;
+  command: string;
+  /** Space count of the indent (1–3). */
+  indent: number;
+}
+
 export interface Section {
   /** The level-2 heading that starts this section. */
   heading: Heading;
@@ -79,6 +91,8 @@ export interface ScanResult {
   tocRange: { startLine: number; endLine: number } | null;
   images: ImageLine[];
   commands: CommandCandidate[];
+  /** Command-shaped lines indented with 1–3 spaces (L015); not extracted. */
+  misindentedCommands: MisindentedCommand[];
   /** Level-2 sections in document order (includes the TOC section). */
   sections: Section[];
   /** Lines matching standard or non-standard callout variants. */

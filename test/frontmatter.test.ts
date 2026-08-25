@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { parseFrontmatter } from '../extensions/frontmatter.ts';
 
 const PLAN = `---
@@ -69,4 +70,83 @@ test('malformed shape → throws', () => {
 test('CRLF frontmatter', () => {
   const fm = parseFrontmatter('---\r\nid: HOL-1-01\r\n---\r\nbody');
   assert.equal(fm?.data.id, 'HOL-1-01');
+});
+
+// T-65: multi-line flow objects — the shape the planner agent emits
+// (valid YAML flow style spread over lines; the live guide's plan.md uses it).
+test('T-65a: multi-line flow map list items parse', () => {
+  const fm = parseFrontmatter(`---
+modules:
+  - {
+      n: 1,
+      slug: launch-qdrant,
+      title: 'Launch the vector database',
+      goal: 'Qdrant is running, and curl returns 200, proving readiness.',
+      est_minutes: 10,
+    }
+  - {
+      n: 2,
+      slug: ingest-corpus,
+      title: 'Ingest the corpus',
+      goal: 'Point count matches the corpus size.',
+      est_minutes: 20,
+    }
+---
+body
+`);
+  assert.ok(fm);
+  const mods = fm.data.modules as Record<string, unknown>[];
+  assert.equal(mods.length, 2);
+  assert.equal(mods[0]!.n, 1);
+  assert.equal(mods[0]!.slug, 'launch-qdrant');
+  assert.equal(mods[0]!.est_minutes, 10);
+  assert.equal(mods[1]!.n, 2);
+  assert.equal(mods[1]!.slug, 'ingest-corpus');
+  assert.match(fm.body, /^body/);
+});
+
+test('T-65b: multi-line flow map as a key value parses', () => {
+  const fm = parseFrontmatter(`---
+config: {
+  size: 64,
+  distance: 'Cosine',
+}
+nested:
+  inner:
+    - a
+---
+x
+`);
+  assert.ok(fm);
+  assert.deepEqual(fm.data.config, { size: 64, distance: 'Cosine' });
+  const nested = fm.data.nested as Record<string, unknown>;
+  assert.deepEqual(nested.inner, ['a']);
+});
+
+test('T-65c: unbalanced multi-line flow throws', () => {
+  assert.throws(
+    () =>
+      parseFrontmatter(`---
+modules:
+  - {
+      n: 1,
+---
+body
+`),
+    /unbalanced flow/,
+  );
+});
+
+test('T-65d: live guide plan.md (agent-emitted flow style) parses', () => {
+  const text = fs.readFileSync('guides/vector-corpus-search/.holagent/plan.md', 'utf8');
+  const fm = parseFrontmatter(text);
+  assert.ok(fm, 'live plan.md must have parseable frontmatter');
+  assert.equal(fm.data.id, 'HOL-2000-01');
+  const mods = fm.data.modules as Record<string, unknown>[];
+  assert.equal(mods.length, 3);
+  assert.equal(mods[0]!.n, 1);
+  assert.equal(mods[0]!.slug, 'launch-qdrant');
+  assert.equal(mods[2]!.est_minutes, 15);
+  const env = fm.data.environment as Record<string, unknown>;
+  assert.ok(Array.isArray(env.preloaded));
 });

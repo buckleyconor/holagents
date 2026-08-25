@@ -1,0 +1,45 @@
+{
+  "name": "holagent-lab-guides",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "holagent: Pi agent package that produces hands-on lab guides end-to-end (research, plan, generate, validate, score)",
+  "keywords": ["pi-package", "pi", "agent", "lab-guides"],
+  "license": "UNLICENSED",
+  "pi": {
+    "extensions": ["./extensions/hol.ts"],
+    "skills": ["./skills"],
+    "prompts": ["./prompts"]
+  },
+  "pi-subagents": {
+    "agents": ["./agents"]
+  },
+  "files": [
+    "prompts",
+    "agents",
+    "skills",
+    "extensions",
+    "test",
+    "docs",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "npm run typecheck && node --experimental-strip-types --test 'test/**/*.test.ts'",
+    "test:corpus": "node --experimental-strip-types --test 'test/corpus/**/*.test.ts'",
+    "lint:corpus": "node scripts/lint-corpus.mjs",
+    "docs:rules": "node scripts/gen-rule-docs.mjs",
+    "corpus:sync": "node scripts/sync-corpus.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-ai": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "prettier": "^3.4.0",
+    "typescript": "^5.8.0"
+  }
+}

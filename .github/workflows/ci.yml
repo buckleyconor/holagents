@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Unit + integration tests (node:test, type-stripped TS)
+        run: node --experimental-strip-types --test 'test/**/*.test.ts'
+      - run: npx prettier --check .
+
+  package-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Pack and verify package integrity (manifest paths, branding, deps)
+        run: |
+          mkdir -p .tmp && npm pack --pack-destination .tmp/
+          node scripts/package-smoke.mjs .tmp/holagent-lab-guides-0.1.0.tgz

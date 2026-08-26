@@ -491,6 +491,270 @@
         }
       ],
       "updated_at": "2026-08-26T09:33:54.507Z"
+    },
+    {
+      "scope": "module-plan-03",
+      "rubric": "checklist/module-plan-completeness",
+      "kind": "checklist",
+      "status": "passed",
+      "score": 1,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "step-outline",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "image-checklist",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "success-criteria",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "environment-delta",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "commands-listed",
+          "score": 1,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-26T11:00:16.423Z"
+    },
+    {
+      "scope": "module-plan-03",
+      "rubric": "analytic/module-design",
+      "kind": "analytic",
+      "status": "passed",
+      "score": 5,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "pacing",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "verifiable-success",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "depends-on-correct",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "image-specificity",
+          "score": 5,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-26T11:00:16.423Z"
+    },
+    {
+      "scope": "module-03-similarity-search",
+      "rubric": "checklist/module-completeness",
+      "kind": "checklist",
+      "status": "passed",
+      "score": 1,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "steps-implemented",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "expected-outputs",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "images-match-checklist",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "checkpoint-present",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "title-alignment",
+          "score": 1,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-26T12:36:42.222Z"
+    },
+    {
+      "scope": "module-03-similarity-search",
+      "rubric": "analytic/step-clarity",
+      "kind": "analytic",
+      "status": "passed",
+      "score": 4.5,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "actionable-steps",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "expected-results",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "no-fluff",
+          "score": 4,
+          "finding": "No marketing or motivational filler — all six steps are action-clean. Two pieces of unexplained jargon in the explanatory asides: \"RAG\" is used three times without definition (step 2 opening: \"the property every real RAG pipeline requires of its embedder\"; step 4: \"production RAG pipeline\"; step 6: \"the same path as every production RAG retrieval flow\"), and \"L2-normalized\" appears without explanation in step 3’s vector description (\"4 of the 64 entries are non-zero — ≈ 0.378 and ≈ 0.756, L2-normalized\"). Neither blocks a step, but both are undefined within the module."
+        },
+        {
+          "criterion": "terminology-consistent",
+          "score": 4,
+          "finding": "The first element of `result` goes by three names: \"top-1\" (step 4 \"top-1 first\"; step 5 \"top-1 first\"), \"top hit\" (step 5 \"the top hit’s text is shown in full\"; step 6 heading and body; final checkpoint \"the top hit’s id\"), and \"top-ranked hit\" (step 6 screenshot line). Everything else is named consistently throughout — /lab/question.json, /lab/query.json, /lab/search_result.json, the `corpus` collection, `payload`, and the reference question — so this is mild drift, not a reader-confusing inconsistency."
+        }
+      ],
+      "updated_at": "2026-08-26T12:36:42.222Z"
+    },
+    {
+      "scope": "module-03-similarity-search",
+      "rubric": "analytic/technical-accuracy",
+      "kind": "analytic",
+      "status": "passed",
+      "score": 4.8,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "commands-valid",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "credential-alignment",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "no-fabrication",
+          "score": 4,
+          "finding": "Step 1’s Tip states a specific figure for a variant not in the captured dry run (“the reference question scores id 1 at ≈ 0.48 without the ? and ≈ 0.40 with it”) — only the ≈ 0.48 no-? value is supported by the provided context; the ≈ 0.40 claim has no basis there and should be softened or verified. Separately, step 5 states the score range as ‘(−1, 1]’; cosine similarity spans [−1, 1] (closed on both ends), and with this non-negative toy embedder the effective range is [0, 1]."
+        },
+        {
+          "criterion": "expected-output-plausible",
+          "score": 5,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-26T12:36:42.222Z"
+    },
+    {
+      "scope": "module-03-similarity-search",
+      "rubric": "holistic/module-quality",
+      "kind": "holistic",
+      "status": "passed",
+      "score": 4,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "overall",
+          "score": 4,
+          "finding": "Step 1 (Write a question): the command line `cat > /lab/question.json <<'JSON'` is presented twice — once as the tab-indented inline-code line (the module’s standard command form used in steps 2–6) and again as the first line of the plain heredoc block that follows. A first-time reader is momentarily surprised and must decide which form to type; typing the inline-code line and then the block would make the second `cat …` line heredoc content, leaving /lab/question.json with invalid JSON and breaking step 2’s json.load. A careful reader bridges it via \"enter the heredoc block exactly as shown\" + \"Only the opening `cat` line is a shell command\", but the duplicate contradicts the module’s own one-line-per-command presentation. No other step has a flow gap: all file states are established before use, surprises (silent heredoc, import re-embedding, silent curl -o, variable `time`) are pre-empted, and both checkpoints land at natural rest points."
+        }
+      ],
+      "updated_at": "2026-08-26T12:36:42.222Z"
+    },
+    {
+      "scope": "guide",
+      "rubric": "checklist/guide-completeness",
+      "kind": "checklist",
+      "status": "passed",
+      "score": 1,
+      "rounds": 2,
+      "findings": [
+        {
+          "criterion": "all-modules-present",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "objectives-covered",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "introduction-consistent",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "summary-honest",
+          "score": 1,
+          "finding": null
+        },
+        {
+          "criterion": "credentials-consistent",
+          "score": 1,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-26T13:22:57.853Z"
+    },
+    {
+      "scope": "guide",
+      "rubric": "analytic/terminology-consistency",
+      "kind": "analytic",
+      "status": "passed",
+      "score": 4.5,
+      "rounds": 2,
+      "findings": [
+        {
+          "criterion": "product-names",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "no-synonym-drift",
+          "score": 4,
+          "finding": "Same Qdrant feature given two names: 'health endpoint' in the Introduction objective bullet ('Launch a Qdrant vector database and verify its health endpoint') vs 'REST root endpoint'/'root endpoint' in Module 1 (step 4 'Poll the REST root endpoint until it answers' and both Module 1 Checkpoints); every other mention in Modules 1-3 uses 'root endpoint'."
+        },
+        {
+          "criterion": "credential-terms",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "house-terms",
+          "score": 4,
+          "finding": "Banned word 'phase' used to label the module role in all three module intro sentences: Module 1 ('This module is the observe phase'), Module 2 ('This module is the ingest phase'), Module 3 ('This module is the search phase') — house terminology requires 'module'; 'Checkpoint', 'Lab Credentials', and 'Table of Contents' are all used correctly."
+        }
+      ],
+      "updated_at": "2026-08-26T13:22:57.853Z"
+    },
+    {
+      "scope": "guide",
+      "rubric": "holistic/guide-quality",
+      "kind": "holistic",
+      "status": "passed",
+      "score": 5,
+      "rounds": 2,
+      "findings": [
+        {
+          "criterion": "overall",
+          "score": 5,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-26T13:22:57.853Z"
     }
   ]
 }

@@ -32,6 +32,9 @@ Follow the steps in order. Stop and report at the first hard failure.
   stop: "fix the linter errors first (regenerate the failing modules), then
   re-run /hol-review-guide". Warnings are listed in the report (never
   block).
+- If `## Summary` still holds a `<< FILL: ... >>` placeholder, stop:
+  "Summary not authored — run the /hol-generate-all completion step first"
+  (the guide-scope `summary-honest` criterion cannot pass on a placeholder).
 - Read the existing `guide` scope entries (if any): note `rounds` (this
   review is `existing + 1`; a scope with no entries starts at round 1; to
   restart at 1, clear the scope first with `hol_scores` `action: "remove"`,

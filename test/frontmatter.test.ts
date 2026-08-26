@@ -150,3 +150,13 @@ test('T-65d: live guide plan.md (agent-emitted flow style) parses', () => {
   const env = fm.data.environment as Record<string, unknown>;
   assert.ok(Array.isArray(env.preloaded));
 });
+
+// ---- T-73c: bracket characters inside quoted scalars do not break flow ------
+
+test('T-73c: parseFrontmatter — brackets inside a double-quoted scalar are ignored by flow balancing', () => {
+  const fm = parseFrontmatter(
+    '---\nid: HOL-2000-01\ntitle: "score range (\u22121, 1]"\nslug: x\n---\nbody\n',
+  );
+  assert.ok(fm);
+  assert.equal(fm.data['title'], 'score range (\u22121, 1]');
+});

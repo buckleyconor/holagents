@@ -52,6 +52,11 @@ est_minutes), and carries the guide plan context.
 
 ## Frontmatter (machine contract — mini-YAML subset)
 
+- **Quoting**: list-item and title values are single-quoted. Inside a
+  single-quoted value, double any apostrophe you need (`'the request''s
+limit'`) — an unescaped apostrophe terminates the scalar and breaks
+  parsing. Prefer rewording to avoid apostrophes and bracket characters
+  (`[ ] { }`) inside quoted values where practical.
 - `module_n` — the module number from the task payload (bare integer).
 - `slug` — verbatim from the task payload.
 - `title` — the module title (quote it if it has special characters).

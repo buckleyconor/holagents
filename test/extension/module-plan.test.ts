@@ -361,3 +361,30 @@ test('T-64: hol_status — scaffold stays planned; real content + validation adv
     rmSync(base, { recursive: true, force: true });
   }
 });
+
+// ---- T-73a: malformed frontmatter degrades to invalid, never a crash --------
+
+test('T-73a: readModulePlan — unparseable frontmatter degrades to valid:false (no throw)', () => {
+  const base = mkdtempSync(join(tmpdir(), 'holagent-modparse-'));
+  try {
+    const guideDir = join(base, 'g');
+    mkdirSync(join(guideDir, '.holagent', '01-launch-qdrant'), { recursive: true });
+    // An unescaped apostrophe flips the parser's quote state so a bracket in
+    // the "unquoted" gap is counted — the M10 module-3 plan failure shape.
+    const bad = VALID_FM.replace(
+      '  - "curl to http://localhost:6333 returns 200"',
+      "  - 'the request's score is in (−1, 1] per the model's docs'",
+    );
+    writeFileSync(join(guideDir, '.holagent', '01-launch-qdrant', 'plan.md'), bad);
+    const info = readModulePlan(guideDir, M1);
+    assert.equal(info.exists, true);
+    assert.equal(info.valid, false, 'unparseable frontmatter is invalid');
+    assert.ok(
+      info.errors.some((e) => e.startsWith('frontmatter parse error:')),
+      `specific parse error surfaced, got: ${info.errors.join(' | ')}`,
+    );
+    assert.ok(info.errors.some((e) => e.includes('no parseable frontmatter')));
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});

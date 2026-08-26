@@ -12,6 +12,11 @@ success_criteria:
   - '<< FILL: verifiable end state 2 >>'
 ---
 
+Frontmatter is parsed by a minimal YAML-subset reader: quote list-item and
+title values; inside a single-quoted value double any apostrophe you need
+(`'the request''s limit'`) — an unescaped apostrophe terminates the scalar
+and fails validation. Keep numbers bare (`module_n`, `est_minutes`).
+
 ## Step outline (numbered; each step: action, expected result, screenshot?)
 
 1. << FILL: action — name the UI control in bold with quotes, e.g. Click the **"New Collection"** button. >> — expected: << FILL: observable result >> — screenshot: << FILL: yes/no; if yes, which image_checklist item >>

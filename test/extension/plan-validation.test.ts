@@ -152,3 +152,28 @@ test('T-59: hol_status — valid plan -> next=generate; invalid plan -> next=/ho
     rmSync(base, { recursive: true, force: true });
   }
 });
+
+// ---- T-73b: malformed plan frontmatter degrades, never a crash --------------
+
+test('T-73b: readGuideStatus — unparseable plan frontmatter -> invalid + /hol-plan (no throw)', () => {
+  const base = mkdtempSync(join(tmpdir(), 'holagent-planparse-'));
+  const prev = process.env.HOLAGENT_DATA_DIR;
+  process.env.HOLAGENT_DATA_DIR = join(base, 'data');
+  try {
+    const dir = writeGuide(
+      join(base, 'a'),
+      VALID_PLAN.replace(
+        '  - Run a similarity search and inspect the ranked results',
+        "  - 'the request's score is in (−1, 1] per the model's docs'",
+      ),
+    );
+    const st = readGuideStatus(dir); // must not throw
+    assert.equal(st.plan.exists, true);
+    assert.equal(st.plan.valid, false);
+    assert.ok(st.plan.errors.some((e) => e.startsWith('frontmatter parse error:')));
+    assert.equal(st.next, '/hol-plan', 'unparseable plan sends next back to /hol-plan');
+  } finally {
+    process.env.HOLAGENT_DATA_DIR = prev;
+    rmSync(base, { recursive: true, force: true });
+  }
+});

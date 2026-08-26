@@ -520,8 +520,18 @@ export function readPlan(guideDir: string): PlanInfo {
   } catch (e) {
     throw new HolError('E-READ', `E-READ: cannot read plan.md: ${(e as Error).message}`);
   }
-  const fm = parseFrontmatter(text);
+  let fm: Frontmatter | null;
+  let parseError: string | null = null;
+  try {
+    fm = parseFrontmatter(text);
+  } catch (e) {
+    // Malformed frontmatter (e.g. unescaped apostrophe in a quoted scalar)
+    // degrades to invalid + the parse error, never a crash (T-73).
+    fm = null;
+    parseError = `frontmatter parse error: ${(e as Error).message}`;
+  }
   const validation = validatePlanFrontmatter(fm);
+  if (parseError) validation.errors.unshift(parseError);
   const data = fm?.data ?? {};
   const modulesRaw = Array.isArray(data.modules) ? (data.modules as unknown[]) : [];
   const modules: PlanModule[] = [];
@@ -732,8 +742,18 @@ export function readModulePlan(guideDir: string, module: PlanModule): ModulePlan
       `E-READ: cannot read ${nn}-${module.slug}/plan.md: ${(e as Error).message}`,
     );
   }
-  const fm = parseFrontmatter(text);
+  let fm: Frontmatter | null;
+  let parseError: string | null = null;
+  try {
+    fm = parseFrontmatter(text);
+  } catch (e) {
+    // Malformed frontmatter degrades to invalid + the parse error, never a
+    // crash (T-73) — /hol-plan-module's re-dispatch path needs the error list.
+    fm = null;
+    parseError = `frontmatter parse error: ${(e as Error).message}`;
+  }
   const validation = validateModulePlanFrontmatter(fm, module);
+  if (parseError) validation.errors.unshift(parseError);
   const data = fm?.data ?? {};
   const strList = (v: unknown): string[] =>
     Array.isArray(v)

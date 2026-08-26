@@ -75,6 +75,17 @@ with `--fresh`), then re-run `/hol-generate-all` to continue.
 
 ## 5. Completion
 
-When every module is `scored-passed`: final report — all modules done, the
-per-module scorecard summary, `hol_status` next field, and next command =
-`/hol-review-guide` (the final guide-scope review + rename step).
+When every module is `scored-passed`:
+
+- **Summary authorship**: the scaffold leaves `## Summary` as a
+  `<< FILL: ... >>` placeholder and no module step owns it — author it now.
+  Dispatch `guide-implementer` (blocking) with the boundary "replace only
+  the `## Summary` section body", the plan's module titles/goals as the
+  source of truth for what the learner accomplished, and the house style
+  (2–4 sentences, second person, present tense, no fluff; state the
+  accomplishment arc and what to do next). Skip if the section no longer
+  holds a `<< FILL: ... >>`. Re-validate (`hol_validate`, 0 errors) before
+  the final report.
+- Final report — all modules done, the per-module scorecard summary,
+  `hol_status` next field, and next command = `/hol-review-guide` (the final
+  guide-scope review + rename step).

@@ -407,6 +407,161 @@ SCREENSHOT: … >>` placeholders (W005), verbatim dry-run outputs with
   defect list above.
 - **Status**: PASS (2026-08-25). Manual gate complete (A + B + C).
 
+## M10 — Review + batch pipeline (review templates, `--fresh` resume, guide-scope review, ADR-005 rename)
+
+- **Date**: 2026-08-26
+- **Target**: guide `HOL-2000-01` (`guides/vector-corpus-search/`), module 3
+  (`03-similarity-search`) — the guide's last module. The finished guide was
+  renamed to `HOL-2000-01-Store and Search an Embedded Document Corpus.md`
+  (ADR-005, user-confirmed) and has left the pipeline.
+- **Milestone scope**:
+  - **M10a** (committed `dd1c47d`): the four review templates —
+    `/hol-review-plan` (4-rubric plan-scope fanout at the approval gate),
+    `/hol-review-module-plan <module>` (2-rubric module-plan re-score),
+    `/hol-review-module <module>` (4-rubric module re-score, scoring only,
+    requires state ≥ generated), `/hol-review-guide` (final pass —
+    pre-flight `hol_validate` 0 errors, non-blocking warning when modules
+    are not all `scored-passed`, 3-rubric guide-scope fanout, scorecard,
+    ADR-005 rename offer on all-passed) — plus `/hol-generate-all
+[--fresh]` (state detection via `hol_status`, resume table, in-plan-
+    order batch loop running each stage's template flow inline with its
+    user gates intact).
+  - **M10b** (this run): T-73 (below); the live module-3 pipeline (plan →
+    user approval → generate with a deliberate stop/resume → 4-rubric
+    scoring); the first live guide-scope review (3 rubrics, 2 rounds, one
+    real fix loop); the final ADR-005 rename.
+- **T-73 — `readPlan`/`readModulePlan` never throw on malformed
+  frontmatter**:
+  - Found during module-3 planning: an apostrophe inside a single-quoted
+    mini-YAML scalar (a bare apostrophe terminates the scalar) made
+    `parseFrontmatter` throw; the crash propagated `readPlan` →
+    `readGuideStatus`, killing the status check instead of degrading to
+    `valid: false` + the specific error `/hol-plan-module`'s Step-5
+    re-dispatch path consumes.
+  - Fix (`extensions/hol-core.ts`): both readers wrap `parseFrontmatter`
+    in try/catch → `fm = null` + `frontmatter parse error: <specific>`
+    unshifted into `validation.errors`. Quoting rule documented in
+    `agents/module-planner.md` + the "Frontmatter subset rule" sections of
+    `skills/guide-scaffolds/{guide-plan,module-plan}.md`: single-quote
+    list-item/title values; **double any apostrophe inside a single-quoted
+    value** (`'the request''s limit'`); keep numbers bare.
+  - Tests: T-73a (`readModulePlan` degrades to `valid:false`, no throw),
+    T-73b (`readGuideStatus` → invalid + `next: /hol-plan`, no throw),
+    T-73c (flow balancing ignores brackets inside double-quoted scalars).
+    Suite 104 → 107.
+- **Gate — module 3 (plan → approval → generate → score)**:
+  - Plan: `/hol-plan-module 03-similarity-search` → module plan written
+    (6 steps; image checklist 2; environment delta: none — same Qdrant
+    instance; success criterion: topically relevant top hit, not a
+    specific score). `/hol-review-module-plan` fanout: module-plan-
+    completeness 1.0, module-design 5.0 → merged at rounds 1 → **user
+    approved** (plan-approval gate).
+  - Generation: `/hol-generate-module 03-similarity-search` — dry run on a
+    disposable pinned Qdrant container (`qdrant/qdrant:v1.19.0`,
+    throwaway name, port freed after); implementer dispatched with the
+    section-only boundary; 6 steps / 2 checkpoints / 2 `<< INSERT
+SCREENSHOT >>` / 6 tab-backtick commands (no shellcheck on the box →
+    `bash -n` PARSE OK on all six); linter 0/0; state `validated`.
+  - **Deliberate mid-module stop + resume proof**: stopped before scoring
+    (simulated kill). Witness: 18 score entries, 0 module-03 entries,
+    section hash `f0adb8c7b6d2b52cda185a5020cc9af97afbe8b474e96bd51ea31007f061fb81`
+    (sha256 of the `## Module 3:` … `## Summary` span). Run #2: state
+    detection → `validated` → `--fresh` re-score **without regeneration**;
+    section hash identical after scoring — and still identical after the
+    guide-scope credentials fix and the ADR-005 rename (recomputed on the
+    renamed file). Scoring never writes the section.
+  - Module-03 scoring (4 rubrics; tasks generated from disk by
+    `.tmp/m10-gate/gen-module-03-tasks.mts`, dispatched verbatim;
+    sequential blocking `holagent.scorer`, `acceptance: false`):
+    module-completeness 1.0; step-clarity 4.5 (`ui-actions` n/a — D1-B
+    CLI-only module; findings: undefined RAG/L2 jargon, top-1 vs top-hit
+    drift); technical-accuracy 4.8; module-quality 4.0 (heredoc double-
+    presentation finding — the known house pattern, same as M9 module 2).
+    Single atomic merge (parent-recomputed; holistic criterion normalized
+    to `overall`) → `scored-passed`; `next: /hol-review-guide`.
+  - technical-accuracy incident: the first two dispatches truncated mid-
+    verification (agent turn exhausted before the JSON block); the third
+    dispatch, with `turnBudget {maxTurns: 40, graceTurns: 5}` + a static-
+    scope note, succeeded. Its no-fabrication=4 finding (the ≈ 0.40 figure
+    in step 1's Tip) was context-scoped; the parent re-verified against
+    the actual dry run (0.4029) → claim accurate, no fix needed.
+- **Gate — `/hol-review-guide` (first live guide-scope run)**:
+  - Pre-flight: fresh lint 0/0; plan valid; all three modules
+    `scored-passed`; no existing guide entries (rounds 1).
+  - **Design gap found + fixed (Summary ownership)**: `## Summary` still
+    held `<< FILL: … >>` — no pipeline step owned it (L010 only checks
+    existence; `summary-honest` could never pass on a placeholder). Fix:
+    (a) one-off `guide-implementer` dispatch authored the Summary
+    (3-sentence second-person arc + next steps); (b) `/hol-generate-all`
+    Step 5 now owns Summary authorship (the batch-completion step); (c)
+    `/hol-review-guide` Step 2 gained a deterministic FILL guard (stop if
+    `## Summary` holds a `<< FILL: >>`). Parent re-verified: lint 0/0, 0
+    FILL tokens; guide tasks regenerated with the new Summary.
+  - Round-1 fanout (3 rubrics, tasks generated from disk, dispatched
+    verbatim):
+    - `guide-completeness` **0.8 FAILED** — `credentials-consistent` 0:
+      Module 1's verbatim `docker ps` output + note mention port 6334
+      (Qdrant's gRPC port, container-internal), which the `### Lab
+Credentials:` block did not list. A genuine semantic catch the
+      linter cannot make (W006 matches host:port pairs / credential
+      strings; a bare `6334/tcp` in expected output is out of its reach)
+      — the two-tier mechanical-linter + semantic-scorer design doing its
+      job on first live use.
+    - `terminology-consistency` 4.5 (product-names 5; no-synonym-drift 4
+      — "health endpoint" (Intro) vs "root endpoint" (Mod 1) plus top-1/
+      top-hit; credential-terms 5; house-terms 4 — "observe/ingest/search
+      phase" descriptors). The scorer emitted criteria as the rubric's
+      description text; the parent normalized to the rubric heading names
+      before merging (M9 convention).
+    - `guide-quality` 5.0 (`overall`). Incident: the task construction
+      truncated the inlined guide content mid-Module 2 (50KB parent-side
+      read cap); the scorer detected the truncation, verified the on-disk
+      `guide.md` was complete (inlined text = verbatim prefix), and asked
+      a supervisor ruling. Ruling: score the complete on-disk file.
+      Lesson: verify the inlined content section ends at the guide's last
+      line before dispatching.
+  - Merged r1 (single atomic merge; the failure recorded). Per Step 6: no
+    rename; scorecard + failing finding reported.
+  - Fix loop (Step 6): one `guide-implementer` writer dispatch, boundary =
+    the credentials block only, finding verbatim. The fix took the
+    finding's first option — add 6334 to the block (the second option,
+    removing the mention from the module body, was infeasible: the
+    `docker ps` output is verbatim lab output). Added line: `- gRPC port:
+6334 — Qdrant gRPC port (container-internal only: …); not used in this
+lab (only the REST API on 6333 is used)`. Parent re-verified:
+    `git diff` = exactly one line; linter 0/0.
+  - Round-2 full re-run (per Step 6 "re-run `/hol-review-guide`"; all
+    three entries at rounds 2): `guide-completeness` **1.0** (5/5 — the
+    scorer explicitly credited the gRPC-6334 line); `terminology-
+consistency` 4.5 (same sub-5 findings — stable); `guide-quality` 5.0.
+    Single atomic merge of the r2 set (latest wins by scope+rubric key;
+    the r1 failure entry superseded).
+- **ADR-005 rename (user-confirmed)**: `mv guides/vector-corpus-search/
+guide.md "guides/vector-corpus-search/HOL-2000-01-Store and Search an
+Embedded Document Corpus.md"`; verified with `ls`. The guide has left
+  the pipeline — `guide.md` is canonical only during the pipeline;
+  re-entering requires restoring `guide.md`.
+- **Final state**: 25 score entries (plan 4, module-plan 6, module 12,
+  guide 3); all modules `scored-passed`; guide scope all passed (r2);
+  linter 0/0.
+- **Anomalies / findings**:
+  1. Summary ownership gap (fixed in templates — see above).
+  2. technical-accuracy truncation (resolved via turn budget + scope note).
+  3. Inlined-content truncation in the guide-quality r1 task (supervisor
+     ruling; dispatches now verified against the generated task file).
+  4. ≈ 0.40 finding was context-scoped; parent-verified against the dry
+     run (0.4029) — no fix needed.
+  5. Heredoc double-presentation (modules 2/3) remains the known house
+     pattern — candidate W-rule (same as M9 finding 3).
+- **Artifacts**: `guides/vector-corpus-search/` (the renamed guide;
+  `.holagent/` with 25 score entries + module-03 plan/state/checklists;
+  `fixtures/`; `lab-prep.md`); task generator + per-scope merge scripts
+  under `.tmp/m10-gate/` (gitignored); template fixes
+  `prompts/hol-generate-all.md` (Step 5 Summary ownership) and
+  `prompts/hol-review-guide.md` (FILL guard).
+- **Status**: PASS (2026-08-26). Manual gate complete (module 3 + guide
+  review + rename).
+
 ## M5 — Rubric-wording review (deferred gate, closed 2026-08-26)
 
 - **Date**: 2026-08-26 (gate opened at the M5 commit `2e23834`; closed

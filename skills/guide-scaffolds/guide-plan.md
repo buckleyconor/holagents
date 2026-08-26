@@ -42,6 +42,17 @@ modules:
     }
 ---
 
+## Frontmatter subset rule
+
+The frontmatter is parsed by a minimal YAML-subset reader (see
+`extensions/frontmatter.ts`), not full YAML: top-level `key: value` scalars
+(quoted or bare), block lists, inline flow lists `[a, b]`, and flow maps —
+one per list item, which may span lines while brackets balance. Rules of
+thumb: quote scalar values with special characters; inside a single-quoted
+value double any apostrophe you need (`'the request''s limit'`) — an
+unescaped apostrophe terminates the scalar; keep numbers bare. An
+unparseable frontmatter fails plan validation (it does not crash the tools).
+
 ## Module roadmap
 
 One entry per module — narrative, depends-on, teaching points, in learner

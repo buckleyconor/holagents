@@ -159,5 +159,6 @@ npm run lint:corpus # run the linter over the style-corpus samples (triage aid)
 npm run docs:rules  # regenerate docs/linter-rules.md from format.json
 ```
 
-Milestone-gate runbook: `docs/manual-e2e.md`. ADRs: `docs/adr/`. Spec:
-`spec/`.
+Milestone-gate runbook: `docs/manual-e2e.md`. First-time user tour (components,
+diagrams, agents, what you need up front): `docs/quickstart.md`. ADRs:
+`docs/adr/`. Spec: `spec/`.

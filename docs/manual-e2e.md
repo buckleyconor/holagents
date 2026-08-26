@@ -562,6 +562,52 @@ Embedded Document Corpus.md"`; verified with `ls`. The guide has left
 - **Status**: PASS (2026-08-26). Manual gate complete (module 3 + guide
   review + rename).
 
+## M11 — Hardening & release (README, ADRs, final battery, v0.1.0)
+
+- **Date**: 2026-08-26
+- **Scope**: README per spec 06 §1 (10 sections, in order), ADRs per
+  spec 06 §4 (`docs/adr/`), `.gitignore` check, final battery, tag `v0.1.0`.
+- **Work**:
+  - `README.md` replaced the M0 stub with the spec 06 §1 ten-section
+    README: what it is (3 sentences) · prerequisites + degradation matrix
+    (pi-subagents hard peer; Node 22 bundled with Pi; shellcheck optional →
+    L014/W014 skip) · install (`pi install git:<repo>@v0.1.0`, `-l` project
+    scope; verify with `/hol-status`) · six-command quickstart · command
+    reference (spec 02 §1.1 + the two LLM-bypass extension commands, with a
+    prerequisites column) · workflow notes (`/clear` stage separation —
+    state is in files; post-module test flow: verify-only / manual lab run /
+    skip; `<< INSERT SCREENSHOT >>` → `/ImageProxy` replacement) ·
+    configuration (`HOLAGENT_DATA_DIR`, model pinning via agent frontmatter
+    or `subagents.agentOverrides`, `scraper-manifest.json`) · data layout ·
+    troubleshooting table (scraper, shellcheck, `E-PATH`, scorer parse
+    retry/escalation, pi-subagents missing, checklist escalation, the
+    `grep -ri instruqt` provenance question) · provenance & license
+    (UNLICENSED; credit line to the reference plugin; format standard is the
+    team's own).
+  - `docs/adr/0001-parent-owned-scorer-fanout.md` …
+    `0007-deterministic-commands-in-extension.md` written per spec 06 §4
+    (short context / decision / consequences; immutable once accepted).
+    ADR-003 (no lifecycle-script layer — pre-provisioned labs, inline
+    commands only) and ADR-007 (`/hol-validate` + `/hol-status` as
+    extension commands) were referenced inline in-tree until now and are
+    recorded here for the first time.
+  - `.gitignore` verified: `node_modules/`, `*.tgz`, `.tmp/`, `.pi/`,
+    `.DS_Store` — scratch and dev-only trees stay untracked.
+- **Final battery (gate)**:
+  - `npm test` (typecheck + node:test): **107/107**.
+  - `prettier --check .`: clean.
+  - `npm pack` + `scripts/package-smoke.mjs`: **OK** — T-47 (every `pi.*`
+    manifest path present in the tarball), T-48 (zero `instruqt`/`claude`
+    in shipped `prompts/`/`skills/`/`agents/` .md files; the intentional
+    provenance mentions remain only in package-root `scraper-manifest.json`
+    and `scripts/package-smoke.mjs` — outside the scan scope by design),
+    T-49 (no runtime dependencies).
+  - Corpus: `test/corpus` **7/7**; `lint:corpus` baselines unchanged.
+  - Full manual E2E green per this runbook (M6–M10, all PASS).
+  - Author sign-off: the user approved the `HOL-2000-01` guide draft and
+    confirmed the ADR-005 rename (2026-08-26, M10 gate).
+- **Status**: PASS (2026-08-26). `v0.1.0` tagged.
+
 ## M5 — Rubric-wording review (deferred gate, closed 2026-08-26)
 
 - **Date**: 2026-08-26 (gate opened at the M5 commit `2e23834`; closed

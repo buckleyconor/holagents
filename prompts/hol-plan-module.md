@@ -92,7 +92,7 @@ payload (self-contained):
   scorer's trailing JSON block; see `evaluation/scorer-prompts.md` dispatch
   requirement).
 - **Extract the last fenced JSON block** of each result. Parse/shape failure
-  (missing fields, `criteria` not covering the rubric's criteria) → re-run
+  (missing fields, `findings` not covering the rubric's criteria) → re-run
   that single scorer **once**; still failing → record
   `status: "escalated"`, finding "scorer output unparseable".
 - Checklist: pass rate = mean of the criterion scores (0/1);

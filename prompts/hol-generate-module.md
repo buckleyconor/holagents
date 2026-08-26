@@ -125,7 +125,7 @@ extensions/linter/cli.ts <guide-dir>` (cwd = project root) and fix every
   scorer's trailing JSON block; see `evaluation/scorer-prompts.md` dispatch
   requirement).
 - **Extract the last fenced JSON block** of each result. Parse/shape failure
-  (missing fields, `criteria` not covering the rubric's criteria) → re-run
+  (missing fields, `findings` not covering the rubric's criteria) → re-run
   that single scorer **once** (append the parse error to the same task);
   still failing → record `status: "escalated"`, `score: 0`, `findings:
 [{criterion: "<rubric-name>", finding: "scorer output unparseable"}]`.

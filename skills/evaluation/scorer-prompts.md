@@ -184,8 +184,11 @@ rubric file is authoritative — re-read its `threshold` when building the
 task.)
 
 Each stage gate runs its scope's **full** fanout: `plan` at `/hol-plan`
-Step 8; `module-plan-<NN>` at `/hol-plan-module`; `module-<NN>-<slug>` at
-`/hol-generate-module` Step 6; `guide` at `/hol-review-guide` (M10).
+Step 8 (standalone re-review at `/hol-review-plan`); `module-plan-<NN>` at
+`/hol-plan-module` (re-review at `/hol-review-module-plan`);
+`module-<NN>-<slug>` at `/hol-generate-module` Step 6 (re-review at
+`/hol-review-module`); `guide` at `/hol-review-guide` (final pass +
+ADR-005 rename).
 
 ## Fix loop and caps (parent procedure)
 

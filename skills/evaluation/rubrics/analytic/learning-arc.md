@@ -31,5 +31,5 @@ module; early-module vocabulary is reused later (not re-explained).
 ### difficulty-ramp
 
 Difficulty rises gradually; no module jumps far beyond what the prior
-two modules established (flag sudden spikes with the module in the
+modules established (at module 2, judge against module 1; flag sudden spikes with the module in the
 finding).

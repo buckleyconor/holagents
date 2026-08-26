@@ -98,7 +98,7 @@ scope: module-«NN»-«slug»
 
 ### Content — module section
 «the full "## Module <N>: …" section of guide.md, verbatim, including its [Back to top] line»
-«plus: the guide's "### Lab Credentials:" block and, if present, the module plan's step outline / image checklist / success criteria under a "### context" sub-heading»
+«plus: the guide's "### Lab Credentials:" block and the module plan's title, step outline, environment delta, image checklist, and success criteria under a "### context" sub-heading (the title is mandatory — `title-alignment` is unverifiable without it; include each of the others when present)»
 
 ### Output contract
 End with exactly one fenced JSON block; no prose after it. criterion_text
@@ -122,7 +122,7 @@ scope: guide
 
 ### Content — full guide
 «full guide.md, verbatim»
-«plus: the plan.md frontmatter (objectives + modules list) under a "### context" sub-heading»
+«plus: the plan.md frontmatter (objectives + modules list) and a pointer to the product/company profile under ~/.holagent (the scorer may read it) under a "### context" sub-heading»
 
 ### Output contract
 End with exactly one fenced JSON block; no prose after it. criterion_text
@@ -160,6 +160,14 @@ sequential blocking dispatches (`subagent`, one scorer at a time,
 `hol_scores` `action: "merge"` call so the scope's entry set lands
 all-or-nothing.
 
+**Normalization:** the scorer's contract envelope (SKILL.md, agents/scorer.md,
+scoring-guide.md) matches the canonical entry shape — `findings` array, entry
+`score`/`status`. The parent still **recomputes** `score`/`status` from the
+criterion scores against the rubric threshold before merging (defense in
+depth, and the backstop for any scorer that emits a legacy nested
+`criteria` object). `validateScoreEntry` rejects non-canonical entries, so
+nothing malformed reaches `scores.json`.
+
 ---
 
 ## Rubric fanout table (v1 — from the rubric frontmatter `scope` field)
@@ -174,6 +182,10 @@ all-or-nothing.
 (Thresholds in parentheses are the rubric frontmatter defaults at v1; the
 rubric file is authoritative — re-read its `threshold` when building the
 task.)
+
+Each stage gate runs its scope's **full** fanout: `plan` at `/hol-plan`
+Step 8; `module-plan-<NN>` at `/hol-plan-module`; `module-<NN>-<slug>` at
+`/hol-generate-module` Step 6; `guide` at `/hol-review-guide` (M10).
 
 ## Fix loop and caps (parent procedure)
 

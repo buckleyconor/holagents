@@ -406,3 +406,104 @@ SCREENSHOT: … >>` placeholders (W005), verbatim dry-run outputs with
   fixture is gitignored (`.tmp/`); it is reconstructable from the planted-
   defect list above.
 - **Status**: PASS (2026-08-25). Manual gate complete (A + B + C).
+
+## M5 — Rubric-wording review (deferred gate, closed 2026-08-26)
+
+- **Date**: 2026-08-26 (gate opened at the M5 commit `2e23834`; closed
+  before M10, per the build order's "human review pass (rubrics wording
+  approved by the author)" gate in spec 07).
+- **Scope**: all 13 rubrics (`rubrics/{checklist,analytic,holistic}/`),
+  the shared `scoring-guide.md`, the scorer agent contract
+  (`agents/scorer.md`), `skills/evaluation/SKILL.md`, the four task
+  templates in `scorer-prompts.md`, and `/hol-plan` Step 8.
+- **Evidence base**: 25+ live scorer dispatches (M7 plan-completeness;
+  M8 module-plan fanouts; M9 module fanouts incl. the negative fixture)
+  plus this review's 3 plan-scope backfill dispatches.
+- **Decisions (human-approved 2026-08-26)**:
+  - **D1-B** — `step-clarity` `ui-actions`: a CLI-only module's UI
+    criterion is **n/a** — omitted from `findings` and excluded from the
+    mean (no reward for absence; removes the observed mean-dilution —
+    the M9 weak module's step-clarity had been propped to exactly 4.0 by
+    an automatic 5).
+  - **D2-A** — `module-completeness` `checkpoint-present`: scores
+    **faithfulness** to the module plan's success criterion (verbatim or
+    near-verbatim); a criterion that is not itself a verifiable end state
+    is a plan-level defect and fails `module-plan-completeness`
+    `success-criteria` instead (cleaner layering — the plan gate is where
+    vagueness is actionable).
+  - **D3** — scoring-guide anchor rule: anchors are reference points; a
+    between-anchor score (e.g. 4) is allowed only with a non-null finding
+    naming the blemish; each criterion is scored independently (the old
+    "do not average / take the lower one" wording conflicted with the
+    entry score being the rounded mean and had produced below-5 criteria
+    with null findings in live runs).
+  - **D5-B** — plan-scope fanout is **full** at approval: `/hol-plan`
+    Step 8 now runs all four plan-scope rubrics (was "degenerate fanout"
+    — `plan-completeness` only), consistent with module-plan (2/2) and
+    module (4/4) stage gates; the v1 fanout table in `scorer-prompts.md`
+    now states the stage-gate mapping.
+  - **W1–W6, T1–T2** (approved): `commands-valid` scope clarification
+    (tool syntax/flags only; environment-capability conflicts are
+    `no-fabrication` / `expected-output-plausible`'s job — the weak
+    fixture scored it 3/4/5 across identical-content rounds);
+    `no-fabrication` + `expected-output-plausible` gain explicit
+    environment-consistency clauses; `guide-completeness` `duration ≈`
+    → the explicit 0.5×–2× band; `terminology-consistency` + guide-scope
+    template point scorers at the `~/.holagent` product/company profiles;
+    scoring-guide output envelope tightened to the canonical shape (see
+    anomaly 2); `plan-completeness` objectives aligned to the validator's
+    3–5 band; `learning-arc` difficulty-ramp "prior two modules" → "prior
+    modules"; module-scope task template now **mandates** the module
+    plan's `title` + environment delta in context (M9 round-1
+    `title-alignment` false-0).
+  - **C1–C3 confirmed as-is**: ≥1 image-checklist entry per module plan;
+    `plan-completeness` "plausibly supported" soft wording;
+    mean == threshold → pass.
+- **Backfill (D5-B)**: the three never-run plan-scope rubrics were run on
+  the existing HOL-2000-01 plan with the new wording (tasks generated
+  from disk by `.tmp/m5-backfill-gen-tasks.mts`; dispatches sent
+  file-content verbatim): `learning-arc` 5.0, `environment-alignment`
+  5.0, `plan-coherence` 5.0 — all **passed**, merged at `rounds: 1`.
+  Plan scope now holds 4/4 entries (16 total in scores.json).
+  All three dispatches returned the **new canonical envelope directly**
+  (top-level `status`/`score` + `findings[]`) — no parent normalization
+  needed; the scorers also self-verified the inlined rubrics against the
+  on-disk files.
+- **Anomalies / findings** (root-caused):
+  1. **Wording-variant incident (M9 Gates B/C)**: the M9 session's
+     hand-composed scorer dispatches inlined a **hand-written variant**
+     of `scoring-guide.md` (a "hard rules" version) and variant
+     module-scope rubric text (numbered criteria with explicit 5/3/1
+     anchors) instead of the committed files verbatim — an inlining-rule
+     violation. Verified by cross-check: the generated Gate-A task files
+     on disk contain the committed text ✓ (so the positive-evidence
+     scores for modules 1–2 stand under the committed wording), while the
+     negative-fixture runs (8 findings, cap, escalation, `--fresh`) are
+     **mechanism evidence under the variant wording**, not wording
+     validation of the committed module-scope rubrics. The committed
+     wording's negative behavior (does a weak section still produce
+     findings?) will get its live check at M10 (module 3 + guide scope).
+     Scorers followed the `agents/scorer.md` system-prompt contract
+     regardless of the divergent inlined guide — the agent file is the
+     effective contract; the inlined guide must match it (now enforced:
+     backfill tasks were generated from disk, never hand-composed).
+  2. **Three-way envelope mismatch resolved**: `scoring-guide.md`,
+     `agents/scorer.md`, and `SKILL.md` all specified a nested
+     `criteria{}` envelope (which the scorers followed faithfully — the
+     M9 "output-shape drift" was scorer compliance, not drift), while the
+     canonical entry shape (T-38 / `validateScoreEntry`) uses a
+     `findings[]` array with top-level `score`/`status`. All three
+     surfaces now specify the canonical envelope; the scorer reports
+     `score`/`status`, and the parent **recomputes** both from the
+     criterion scores before merging (defense in depth;
+     `validateScoreEntry` remains the backstop).
+- **Files changed**: `skills/evaluation/scoring-guide.md` (rewritten
+  output contract + anchor/n-a rules), `agents/scorer.md`,
+  `skills/evaluation/SKILL.md`, `scorer-prompts.md` (templates + stage-
+  gate line + normalization note), `prompts/hol-plan.md` (Step 8 full
+  fanout), and 7 rubric files (step-clarity, module-completeness,
+  technical-accuracy, guide-completeness, plan-completeness,
+  learning-arc; module-design/module-quality/plan-coherence etc.
+  unchanged).
+- **Status**: PASS / gate CLOSED (2026-08-26). Rubric wording
+  human-approved; M10 may proceed.

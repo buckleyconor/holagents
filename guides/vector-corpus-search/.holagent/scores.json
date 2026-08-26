@@ -413,6 +413,84 @@
         }
       ],
       "updated_at": "2026-08-25T22:47:35.260Z"
+    },
+    {
+      "scope": "plan",
+      "rubric": "analytic/learning-arc",
+      "kind": "analytic",
+      "status": "passed",
+      "score": 5,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "progression",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "one-concept-per-module",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "no-concept-islands",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "difficulty-ramp",
+          "score": 5,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-26T09:33:54.507Z"
+    },
+    {
+      "scope": "plan",
+      "rubric": "analytic/environment-alignment",
+      "kind": "analytic",
+      "status": "passed",
+      "score": 5,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "baseline-consistent",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "credentials-and-urls-complete",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "no-duplicated-setup",
+          "score": 5,
+          "finding": null
+        },
+        {
+          "criterion": "lab-prep-captures-assumptions",
+          "score": 5,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-26T09:33:54.507Z"
+    },
+    {
+      "scope": "plan",
+      "rubric": "holistic/plan-coherence",
+      "kind": "holistic",
+      "status": "passed",
+      "score": 5,
+      "rounds": 1,
+      "findings": [
+        {
+          "criterion": "overall",
+          "score": 5,
+          "finding": null
+        }
+      ],
+      "updated_at": "2026-08-26T09:33:54.507Z"
     }
   ]
 }

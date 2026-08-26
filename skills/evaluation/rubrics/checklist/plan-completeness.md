@@ -20,7 +20,7 @@ lowercase-hyphenated and derivable from the title.
 
 ### objectives
 
-At least 2 objectives, each concrete and verifiable (a learner outcome,
+3–5 objectives (the validator warns outside this band), each concrete (a learner outcome,
 not an activity: "Configure resource quotas" not "Learn about quotas").
 
 ### modules-complete

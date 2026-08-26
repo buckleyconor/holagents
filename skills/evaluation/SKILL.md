@@ -29,9 +29,11 @@ writer = the parent session). Scores drive module state
 | `holistic`  | single 1–5 overall (anchored)    | that score       | score ≥ rubric threshold (default 4)   |
 
 Each rubric file declares its own `threshold` in frontmatter; the rubric text
-defines the criteria and anchors. **The scorer never computes status** — it
-returns per-criterion scores only. The parent computes the entry
-(`score`, `status: passed | failed`, `rounds`) and merges it via `hol_scores`.
+defines the criteria and anchors. **The scorer reports** per-criterion
+scores plus the entry `score` and `status` (against the threshold stated in
+its task). The parent **recomputes** `score`/`status` from the criterion
+scores before merging (defense in depth), adds `rounds`, and merges via
+`hol_scores`.
 
 ## Scorer contract (LLM → parent)
 
@@ -43,27 +45,35 @@ exactly one fenced JSON block, no prose after it (spec §02 §4.4):
   "rubric": "analytic/step-clarity",
   "scope": "module-02-upload-documents",
   "kind": "analytic",
-  "criteria": {
-    "actionable-steps": {
+  "status": "failed",
+  "score": "3.4",
+  "findings": [
+    {
+      "criterion": "<verbatim criterion text>",
       "score": 4,
-      "criterion_text": "<verbatim criterion text>",
       "finding": null
     },
-    "expected-outputs": {
+    {
+      "criterion": "expected-outputs",
       "score": 3,
-      "criterion_text": "…",
       "finding": "Step 3 has no expected output (guide.md L88)"
     }
-  }
+  ]
 }
 ```
 
-Rules: `score` ∈ 1–5 (analytic/holistic) or 0/1 (checklist); `criterion_text`
-is copied **verbatim** from the rubric; `finding` is `null` when the
-criterion passes, otherwise names a concrete location. The parent extracts
-the **last** fenced JSON block per child; on parse failure it re-runs that
-single scorer **once** (max 1 retry); still unparseable → the parent records
-the entry with `status: "escalated"` and `finding "scorer output
+Rules: criterion `score` ∈ 1–5 (integer, analytic/holistic) or 0/1
+(checklist); `criterion` is copied **verbatim** from the rubric; `finding`
+is `null` when the criterion is fully met (5, or a score exactly matching a
+stated anchor), otherwise it names a concrete location — a between-anchor
+score always names its blemish. `findings` has one object per rubric
+criterion, no more no less (except criteria the rubric marks n/a for the
+content). Entry `score`: checklist → pass rate 0–1; analytic/holistic →
+rounded mean of the criterion scores. Entry `status`: `passed` iff entry
+`score` ≥ rubric threshold. The parent extracts the **last** fenced JSON
+block per child; on parse failure it re-runs that single scorer **once**
+(max 1 retry); still unparseable → the parent records the entry with
+`status: "escalated"` and `finding "scorer output
 unparseable"` rather than guessing. (ADR-006: no reliance on per-item
 `outputSchema`.)
 
@@ -76,8 +86,9 @@ unparseable"` rather than guessing. (ADR-006: no reliance on per-item
 2. Fan out with `runs.all` — stable keys = rubric names (e.g.
    `score-step-clarity`). Scorers are read-only (`holagent.scorer` has no
    bash/write tools) — injected content reaching a scorer cannot act.
-3. Parse each result's trailing JSON, compute entry scores/status per the
-   table above, merge via `hol_scores` (action `merge`).
+3. Parse each result's trailing JSON; recompute (verify) the entry
+   `score`/`status` per the table above, then merge via `hol_scores`
+   (action `merge`).
 4. On failures: inline the failing `finding`s into the next
    `/hol-generate-module` (resume) round. **Fix-loop caps:** analytic/holistic
    rubrics max **3 rounds**; checklist gates escalate to the user after **5**

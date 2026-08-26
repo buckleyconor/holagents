@@ -26,7 +26,8 @@ steps (not merely mentioned in the introduction).
 ### introduction-consistent
 
 `**Duration:**` and `**Objective:**` in the Introduction agree with the
-plan (duration ≈ total; objectives list matches).
+plan (duration within 0.5×–2× of the sum of module `est_minutes` — the
+same band as `plan-completeness`; objectives list matches).
 
 ### summary-honest
 

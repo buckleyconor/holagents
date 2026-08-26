@@ -33,7 +33,11 @@ specific description of what the reader should see.
 ### checkpoint-present
 
 If the module has ≥3 command steps, a `> ✅ **Checkpoint:** …` line
-states a verifiable end state.
+states the module plan's success criterion verbatim or near-verbatim.
+(A criterion that is not itself a verifiable end state is a plan-level
+defect — it fails `module-plan-completeness` `success-criteria`; score
+this criterion met if the checkpoint states the plan's criterion
+faithfully.)
 
 ### title-alignment
 

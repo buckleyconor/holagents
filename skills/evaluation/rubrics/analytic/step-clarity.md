@@ -22,7 +22,9 @@ bundle multiple actions or hide the "where" score low.
 
 UI interactions name the control in bold with quotes
 (Click the **"New Collection"** button); vague "open the collection
-page" phrasing scores low.
+page" phrasing scores low. (When the module has no UI steps, this
+criterion is n/a: omit it from the findings and exclude it from the
+entry score.)
 
 ### expected-results
 

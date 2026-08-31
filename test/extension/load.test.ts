@@ -69,7 +69,12 @@ test('extension loads and registers the deterministic surface', async () => {
   const { api, tools, commands, onHandlers } = makeMock([]); // no subagent tool → degradation path
   holagentExtension(api);
 
-  assert.deepEqual(tools.map((t) => t.name).sort(), ['hol_scores', 'hol_status', 'hol_validate']);
+  assert.deepEqual(tools.map((t) => t.name).sort(), [
+    'hol_scores',
+    'hol_spec_check',
+    'hol_status',
+    'hol_validate',
+  ]);
   assert.deepEqual(Object.keys(commands).sort(), ['hol-status', 'hol-validate']);
   assert.equal(typeof onHandlers.session_start, 'function');
   for (const t of tools) {

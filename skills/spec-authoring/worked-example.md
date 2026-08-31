@@ -1,3 +1,8 @@
+<!-- Worked example, lightly redacted: two references to the upstream project's
+     name were generalised so this file passes the package's own no-third-party-
+     branding check (scripts/package-smoke.mjs). The verbatim original is in git
+     history as spec_builder_prompt.md. Provenance is recorded in the README. -->
+
 You are a senior software architect producing a development specification for an
 application that will be built by an autonomous coding agent. The agent will rely
 on this spec as its primary source of truth, so it must be precise, unambiguous,
@@ -15,14 +20,14 @@ What it does: A Pi.dev agent package (holagent) that produces production-quality
 5. vendor & product research (site scraping, style corpus from the 4 samples)
 6. state tracking + idempotent /hol-generate-all resume + /hol-status
 
-- Out of scope (do NOT build): lab environment provisioning (VM images, K8s/Helm, sample data), screenshot capture & image upload, publishing/upload to the lab platform, automated end-to-end lab execution (Instruqt-style track test), standalone scripts beyond guide-embedded commands, i18n
+- Out of scope (do NOT build): lab environment provisioning (VM images, K8s/Helm, sample data), screenshot capture & image upload, publishing/upload to the lab platform, automated end-to-end lab execution (upstream-style track test), standalone scripts beyond guide-embedded commands, i18n
 - Stack / language preferences: Pi-native: TypeScript extension (linter + status tools), Markdown prompts/skills/agents, Node for the linter; shipped as one pi package, no other constraints
 - Runtime & deployment target: Dev: this workstation (Ubuntu 24.04.4, x86_64 — RTX PRO 6000). The plugin has no production deployment (local agent package).  
   Generated content targets: dev sandbox containers (browser + embedded terminal) and production = Charmed Kubernetes, x86, NVIDIA RTX PRO 6000 (Blackwell, sm_120) — guides must reference these accurately
 - Data handled & sensitivity: demo lab credentials (deliberately weak, non-sensitive), scraped vendor product content, internal style corpus; no PII. ~/.holagent/ cache holds scraped vendor content — internal use only
 - Expected scale: single team, local; roughly 5–20 guides/yr, 3–9 modules each, 10–25 KB Markdown per guide; no concurrency; plain-file state
 - External services / APIs / integrations: public web (site scraping via bundled scraper binary), local binaries (shellcheck), pi model API (via pi config); GitHub hosting for the scraper release (re-host under your org later); platform ImageProxy API not in v1
-- Hard constraints: zero "Instruqt" branding; single installable pi package; writes confined to project dir + ~/.holagent/; must work with installed pi-subagents; format spec must validate the four existing samples (accept with known-warn list, reject the drift classes: broken TOC, stale anchors, Phase headings); research cache stays plain files (VCS-checkable, shareable)
+- Hard constraints: zero upstream vendor branding in shipped files; single installable pi package; writes confined to project dir + ~/.holagent/; must work with installed pi-subagents; format spec must validate the four existing samples (accept with known-warn list, reject the drift classes: broken TOC, stale anchors, Phase headings); research cache stays plain files (VCS-checkable, shareable)
 
 ## Your task
 

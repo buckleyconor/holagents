@@ -19,6 +19,7 @@
 import { Type } from 'typebox';
 import {
   HolError,
+  checkSpec,
   ensureHolagentDataDir,
   mergeScores,
   readGuideStatus,
@@ -278,6 +279,46 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
         content: [{ type: 'text', text }],
         details: { scoresPath: '.holagent/scores.json', entries },
       };
+    },
+  });
+
+  pi.registerTool({
+    name: 'hol_spec_check',
+    label: 'hol_spec_check',
+    description:
+      'Deterministic stage-2 gate: verify the spec set in the registered lab repo (lab-ref.json) has all eight numbered sections, no unfilled << FILL: >> markers, and a populated Open Questions & Assumptions section. An empty open-questions section means the author hid guesses in the design — it fails the gate.',
+    promptSnippet: 'Check the spec set for completeness and a populated open-questions section',
+    parameters: Type.Object({
+      guideDir: optGuideDir(GUIDE_DIR_DESC),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<PiToolResult> {
+      const labDir = resolveLabPath(
+        ctx.cwd,
+        typeof params.guideDir === 'string' ? params.guideDir : undefined,
+      );
+      const check = checkSpec(labDir);
+      const lines: string[] = [];
+      if (check.specDir === null) {
+        lines.push(
+          'No lab repo registered (.holagent/lab-ref.json missing) — run /hol-lab-register.',
+        );
+      } else {
+        lines.push(`Spec check ${check.ok ? 'PASS' : 'FAIL'} — ${check.specDir}`);
+        lines.push(`Files (${check.files.length}): ${check.files.join(', ') || 'none'}`);
+        if (check.missing.length > 0) lines.push(`Missing sections: ${check.missing.join(', ')}`);
+        if (check.unfilled.length > 0)
+          lines.push(`Unfilled << FILL: >> markers in: ${check.unfilled.join(', ')}`);
+        lines.push(
+          check.openQuestions.file === null
+            ? 'Open questions: section 08 missing'
+            : `Open questions: ${check.openQuestions.file} — ${check.openQuestions.contentLines} content line(s)${
+                check.openQuestions.substantive
+                  ? ''
+                  : ' — TOO THIN: the spec is hiding its assumptions'
+              }`,
+        );
+      }
+      return { content: [{ type: 'text', text: lines.join('\n') }], details: check };
     },
   });
 

@@ -9,6 +9,7 @@ import {
   readLabRef,
   resolveDevEnvironment,
   resolveGuidePath,
+  checkSpec,
   resolveLabPath,
   validateScoreEntry,
 } from '../../extensions/hol-core.ts';
@@ -330,4 +331,62 @@ test('T-87: every rubric is well-formed and names a known scope family', () => {
     }
   }
   assert.ok(seen >= 17, `expected the full rubric set, saw ${seen}`);
+});
+
+test('T-88: the spec gate fails an empty open-questions section (ADR-007)', () => {
+  withTmp((base) => {
+    const repo = join(base, 'lab-repo');
+    const specDir = join(repo, 'spec');
+    mkdirSync(specDir, { recursive: true });
+    const nn = ['01', '02', '03', '04', '05', '06', '07', '08'];
+    const write = (n: string, body: string) =>
+      writeFileSync(join(specDir, `${n}-section.md`), body);
+    for (const n of nn)
+      write(n, `# Section ${n}\n\nReal content here.\nMore content.\nAnd a third line.\n`);
+
+    const lab = makeLab(
+      base,
+      {
+        '.holagent/lab-ref.json': JSON.stringify({ repo, spec_dir: 'spec', origin: 'generated' }),
+      },
+      'spec-lab',
+    );
+
+    let c = checkSpec(lab);
+    assert.equal(c.ok, true, 'a complete spec set passes');
+    assert.equal(c.files.length, 8);
+    assert.deepEqual(c.missing, []);
+    assert.equal(c.openQuestions.substantive, true);
+
+    // a one-line "None." section clears a naive non-empty test but not this gate
+    write('08', '# Open Questions & Assumptions\n\nNone.\n');
+    assert.equal(checkSpec(lab).ok, false, 'a one-line section 8 must fail the gate');
+
+    // an open-questions section containing only a heading is empty
+    write('08', '# Open Questions & Assumptions\n\n');
+    c = checkSpec(lab);
+    assert.equal(c.ok, false, 'a heading-only section 8 must fail the gate');
+    assert.equal(c.openQuestions.substantive, false);
+    assert.equal(c.openQuestions.contentLines, 0);
+
+    // unfilled markers fail, and do not count as open-questions content
+    write('08', '# Open Questions\n\n<< FILL: assumptions >>\n');
+    c = checkSpec(lab);
+    assert.equal(c.ok, false, 'leftover << FILL: >> must fail the gate');
+    assert.deepEqual(c.unfilled, ['08-section.md']);
+    assert.equal(c.openQuestions.substantive, false);
+
+    // a missing numbered section fails
+    write('08', '# Open Questions\n\nA. assumed X.\nB. confirm Y.\nC. confirm Z.\n');
+    rmSync(join(specDir, '05-section.md'));
+    c = checkSpec(lab);
+    assert.equal(c.ok, false);
+    assert.deepEqual(c.missing, ['05']);
+
+    // no lab-ref at all → nothing registered, nothing to check
+    const bare = makeLab(base, {}, 'no-ref');
+    const none = checkSpec(bare);
+    assert.equal(none.specDir, null);
+    assert.equal(none.ok, false);
+  });
 });

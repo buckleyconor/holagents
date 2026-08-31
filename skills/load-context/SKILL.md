@@ -52,6 +52,9 @@ knows what is available.
 | `/hol-research-product`   | for extra sources | -                 | existing (update) | -                 | -                 | -            | -                 | -            |
 | `/hol-concept`            | yes               | yes               | relevant only     | existing (extend) | -                 | -            | -                 | -            |
 | `/hol-review-concept`     | -                 | -                 | -                 | yes               | -                 | -            | -                 | yes          |
+| `/hol-spec`               | -                 | -                 | relevant only     | yes               | -                 | -            | -                 | -            |
+| `/hol-review-spec`        | -                 | -                 | -                 | yes               | -                 | -            | -                 | yes          |
+| `/hol-lab-register`       | -                 | -                 | -                 | -                 | -                 | -            | -                 | -            |
 | `/hol-plan`               | yes               | yes               | relevant only     | yes               | existing (extend) | -            | existing (extend) | -            |
 | `/hol-plan-module`        | -                 | -                 | relevant only     | -                 | yes               | prior        | -                 | -            |
 | `/hol-generate-module`    | yes               | yes               | relevant only     | -                 | yes               | this + prior | this + prior      | -            |

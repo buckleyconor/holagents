@@ -63,6 +63,9 @@ or an unambiguous title fragment; ambiguous input lists available modules.
 | ------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
 | `/hol-concept`            | `[topic]`                    | Interview → `concept-author` + `sizing-architect` → concept/sizing scoring → approval loop → `concept.md` + `sizing.md` | pi-subagents                              |
 | `/hol-review-concept`     | —                            | Concept-scope (3 rubrics) + sizing-scope (1 rubric) re-score → scorecard                                                | pi-subagents                              |
+| `/hol-lab-register`       | `<repo-path>`                | Records `.holagent/lab-ref.json` — the lab's own repo, its spec dir, and its dev/prod environments (ADR-008/012)        | —                                         |
+| `/hol-spec`               | —                            | `spec-author` → spec set in the lab repo + derived `lab-prep.md` → `hol_spec_check` gate → spec scoring → approval      | pi-subagents                              |
+| `/hol-review-spec`        | —                            | Deterministic spec check + spec-scope (3 rubrics) re-score → scorecard                                                  | pi-subagents                              |
 | `/hol-plan`               | `[topic]`                    | Interview → `guide-planner` → plan scoring fanout → approval loop → `plan.md` + `lab-prep.md`                           | pi-subagents                              |
 | `/hol-plan-module`        | `<module>`                   | `module-planner` → module plan file → light scoring (2 rubrics)                                                         | pi-subagents                              |
 | `/hol-generate-module`    | `<module> [--fresh]`         | `guide-implementer` writes the section → linter loop → module scoring (4 rubrics) → capped fix loop → merge             | pi-subagents                              |
@@ -77,8 +80,8 @@ or an unambiguous title fragment; ambiguous input lists available modules.
 | `/hol-status`             | `[guideDir]`                 | **Extension command (no LLM):** plan/module states, last validation, next command                                       | Node 22                                   |
 
 The extension also registers the LLM-callable tools `hol_validate`,
-`hol_status`, and `hol_scores` — the same deterministic core that the prompt
-templates call (ADR-007).
+`hol_status`, `hol_scores`, and `hol_spec_check` — the same deterministic core
+that the prompt templates call (ADR-007).
 
 ## Workflow notes
 
@@ -159,6 +162,11 @@ Write confinement: the package writes only under `~/.holagent/` (or
   (ADR-008), the lifecycle state machine (ADR-009), the guide/lab-repo scope
   split (ADR-010), `lab-prep.md` as a machine-readable contract (ADR-011),
   and the dev-only execution boundary (ADR-012).
+- `skills/spec-authoring/worked-example.md` is the filled architect prompt that
+  generated this package's own `spec/` (previously `spec_builder_prompt.md` at
+  the repo root). Two references to the upstream project's name were generalised
+  when it moved into `skills/`, so that it passes the package's own
+  no-third-party-branding check; the verbatim original is in git history.
 - The content/format standard — house style, the linter rule set, and the
   evaluation rubrics — is the team's own, derived from four in-house sample
   guides (`skills/style-corpus/samples/`).

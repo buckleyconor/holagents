@@ -81,6 +81,35 @@ End with exactly one fenced JSON block; no prose after it. criterion_text
 copied verbatim; finding null on pass, concrete location otherwise.
 ```
 
+## Template: `spec` scope
+
+```
+READ-ONLY scoring task — return findings only; do not edit or modify any file.
+Score the lab SPEC below against the rubric «rubric-name».
+
+### Scoring guide
+«contents of scoring-guide.md, verbatim»
+
+### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
+«rubric file content, verbatim»
+
+### Scope label
+scope: spec
+
+### Content — spec set
+«every <lab-repo>/<spec-dir>/NN-*.md in order, each under a "### NN-<name>.md" sub-heading, verbatim»
+
+### Content — lab-prep.md
+«full <lab-dir>/lab-prep.md: frontmatter + body, verbatim»
+
+### Content — sizing.md
+«full <lab-dir>/.holagent/sizing.md, verbatim — the footprint the spec must not exceed»
+
+### Output contract
+End with exactly one fenced JSON block; no prose after it. criterion_text
+copied verbatim; finding null on pass, concrete location otherwise.
+```
+
 ## Template: `plan` scope
 
 ```
@@ -224,6 +253,7 @@ nothing malformed reaches `scores.json`.
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `concept`          | `checklist/concept-completeness` (1.0), `analytic/business-value` (4), `holistic/story-coherence` (4)                                 |
 | `sizing`           | `analytic/footprint-realism` (4)                                                                                                      |
+| `spec`             | `checklist/spec-completeness` (1.0), `analytic/spec-buildability` (4), `holistic/spec-coherence` (4)                                  |
 | `plan`             | `checklist/plan-completeness` (1.0), `analytic/learning-arc` (4), `analytic/environment-alignment` (4), `holistic/plan-coherence` (4) |
 | `module-plan-<NN>` | `checklist/module-plan-completeness` (1.0), `analytic/module-design` (4)                                                              |
 | `module-<NN-slug>` | `checklist/module-completeness` (1.0), `analytic/step-clarity` (4), `analytic/technical-accuracy` (4), `holistic/module-quality` (4)  |
@@ -234,7 +264,9 @@ rubric file is authoritative — re-read its `threshold` when building the
 task.)
 
 Each stage gate runs its scope's **full** fanout: `concept` and `sizing` at
-`/hol-concept` (re-review at `/hol-review-concept`); `plan` at `/hol-plan`
+`/hol-concept` (re-review at `/hol-review-concept`); `spec` at `/hol-spec`,
+behind the deterministic `hol_spec_check` gate (re-review at
+`/hol-review-spec`); `plan` at `/hol-plan`
 Step 8 (standalone re-review at `/hol-review-plan`); `module-plan-<NN>` at
 `/hol-plan-module` (re-review at `/hol-review-module-plan`);
 `module-<NN>-<slug>` at `/hol-generate-module` Step 6 (re-review at

@@ -917,6 +917,92 @@ export function resolveDevEnvironment(labRef: LabRef | null, name: string): LabE
   return env;
 }
 
+// ----------------------------------------------------------- spec check
+
+export interface SpecCheck {
+  /** Absolute spec dir, or null when no lab repo is registered. */
+  specDir: string | null;
+  /** Spec files found, sorted. */
+  files: string[];
+  /** Expected NN prefixes (01..08) with no matching file. */
+  missing: string[];
+  openQuestions: { file: string | null; contentLines: number; substantive: boolean };
+  /** Unfilled `<< FILL: ... >>` markers, by file. */
+  unfilled: string[];
+  ok: boolean;
+}
+
+const SPEC_PREFIXES = ['01', '02', '03', '04', '05', '06', '07', '08'] as const;
+
+/** Minimum content lines for section 8 to count as substantive. */
+const MIN_OPEN_QUESTION_LINES = 3;
+
+/**
+ * Deterministic gate for stage 2 (ADR-007): does the spec set exist, is every
+ * numbered section present, and — the check that matters — is the Open
+ * Questions & Assumptions section actually populated?
+ *
+ * An empty open-questions section is the reliable signal that the author hid
+ * guesses inside the design rather than surfacing them, which is precisely
+ * what this stage exists to prevent.
+ *
+ * Reads the lab repo through `lab-ref.json` (ADR-008); never writes there.
+ */
+export function checkSpec(labDir: string): SpecCheck {
+  const labRef = readLabRef(labDir);
+  const empty: SpecCheck = {
+    specDir: null,
+    files: [],
+    missing: [...SPEC_PREFIXES],
+    openQuestions: { file: null, contentLines: 0, substantive: false },
+    unfilled: [],
+    ok: false,
+  };
+  if (!labRef) return empty;
+
+  const specDir = join(labRef.repo, labRef.specDir);
+  const files = listFiles(specDir).filter((f) => f.endsWith('.md'));
+  if (files.length === 0) return { ...empty, specDir };
+
+  const missing = SPEC_PREFIXES.filter((nn) => !files.some((f) => f.startsWith(`${nn}-`)));
+
+  const unfilled: string[] = [];
+  for (const f of files) {
+    try {
+      if (readFileSync(join(specDir, f), 'utf8').includes('<< FILL: ')) unfilled.push(f);
+    } catch {
+      /* unreadable file surfaces via `missing` instead */
+    }
+  }
+
+  // Open questions: the 08- file. "Content" excludes blanks, headings, and
+  // unfilled markers — a section containing only a heading is empty.
+  const oqFile = files.find((f) => f.startsWith('08-')) ?? null;
+  let contentLines = 0;
+  if (oqFile) {
+    try {
+      contentLines = readFileSync(join(specDir, oqFile), 'utf8')
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l !== '' && !l.startsWith('#') && !l.includes('<< FILL: ')).length;
+    } catch {
+      contentLines = 0;
+    }
+  }
+  // Three content lines, not one: "None." and a single hand-wave are the exact
+  // failure this gate exists to catch, and both clear a bare non-empty test.
+  const substantive = contentLines >= MIN_OPEN_QUESTION_LINES;
+
+  return {
+    specDir,
+    files,
+    missing,
+    openQuestions: { file: oqFile, contentLines, substantive },
+    unfilled,
+    ok: missing.length === 0 && unfilled.length === 0 && substantive,
+  };
+}
+
 // --------------------------------------------------------------- status
 
 export type ModuleState =

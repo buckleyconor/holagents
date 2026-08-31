@@ -1,7 +1,7 @@
 ---
 package: holagent
 name: guide-planner
-description: Drafts the guide plan (plan.md) and the environment handoff (lab-prep.md) from the parent's confirmed interview answers. Does not interview; writes files; returns draft summary + open questions.
+description: Drafts the guide plan (plan.md) and the environment contract (lab-prep.md) from the parent's confirmed interview answers. Does not interview; writes files; returns draft summary + open questions.
 tools:
   - read
   - write
@@ -30,8 +30,9 @@ answers in the task payload into two artifacts:
 
 1. `<guide-dir>/.holagent/plan.md` — the guide plan; its frontmatter is the
    machine-readable source of truth.
-2. `<guide-dir>/lab-prep.md` — the environment handoff for the (out-of-scope)
-   provisioning team.
+2. `<guide-dir>/lab-prep.md` — the environment contract: machine-readable
+   frontmatter that `hol_parity` executes against the dev environment, plus
+   human-readable tables restating it.
 
 ## Hard boundaries
 
@@ -73,6 +74,14 @@ answers in the task payload into two artifacts:
   or mutates it. Record exactly what must be true before the learner starts —
   baseline, preloaded software/images/paths, credentials, URLs/hosts/ports,
   and a verification step the environment team can run.
+- **The frontmatter is the source of truth** (ADR-011) and must stay inside the
+  mini-YAML subset: `baseline`, `software[]`, `credentials[]`, `endpoints[]`,
+  `artifacts[]`, `network`, `verify[]`, each list entry a one-line flow map.
+  The body tables restate the same facts for human readers — never let the two
+  disagree.
+- Every `verify` entry must be a real, non-interactive command with an
+  observable result (`hol_parity` runs them against the dev environment). A
+  check that cannot be executed and observed does not belong in `verify`.
 - Keep it in lockstep with the `environment` block in plan.md (single source
   of truth for credentials/hosts/ports).
 

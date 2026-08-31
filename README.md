@@ -128,7 +128,8 @@ Write confinement: the package writes only under `~/.holagent/` (or
 | "pi-subagents is not loaded — install/enable it and retry"                              | pi-subagents extension not installed/enabled                         | install/enable pi-subagents (hard peer of this package)                                                                                                                                                |
 | `scrape-website` bootstrap fails or no scraper binary                                   | first run without network, or network blocked                        | re-run with network access; the binary is verified against `scraper-manifest.json` (version + SHA-256) before use                                                                                      |
 | `shellcheck: "skipped (shellcheck not installed)"` in a lint report                     | shellcheck binary absent on the box                                  | `apt install shellcheck` — optional; only L014/W014 are affected                                                                                                                                       |
-| `E-PATH` from `/hol-status`, `/hol-validate`, or the tools                              | not inside a guide dir (no `guide.md` + `.holagent/`)                | run inside `guides/<slug>/`; a guide already renamed has left the pipeline — restore `guide.md` to re-enter (ADR-005)                                                                                  |
+| `E-PATH` from `/hol-validate`                                                           | not inside a guide dir (no `guide.md` + `.holagent/`)                | run inside `guides/<slug>/`; a released guide has no `guide.md` — restore it to re-enter the pipeline (ADR-005). `/hol-status` still works on a released guide and reports it as such (ADR-009)        |
+| `E-PATH` from `/hol-status` or `hol_scores`                                             | not inside a lab dir (no `.holagent/`)                               | run inside `guides/<slug>/`, or pass `guideDir`. Stages before `/hol-plan` need only `.holagent/` (ADR-009)                                                                                            |
 | a scorer entry recorded as `status: "escalated"`, finding `"scorer output unparseable"` | the scorer's trailing JSON block failed to parse twice (max 1 retry) | re-run that review with `--fresh` (or the module's fix loop); the contract is ADR-006                                                                                                                  |
 | a checklist scope that never converges                                                  | fix loop unproductive                                                | the loop escalates at round 5 without improvement; resolve per the report (fix the module plan + `--fresh`, hand-edit the section, or re-score)                                                        |
 | `grep -ri instruqt` finds hits in the package                                           | provenance record, not branding                                      | intentional: `scraper-manifest.json` records the upstream repo URL of the pinned scraper binary (a supply-chain dependency of record) and `scripts/package-smoke.mjs` checks that word; see Provenance |
@@ -143,7 +144,11 @@ Write confinement: the package writes only under `~/.holagent/` (or
   bundled in skills (ADR-002), no lifecycle scripts (ADR-003), line-based
   linter with no build (ADR-004), the `guide.md` → `<ID>-<Title>.md` rename
   gate (ADR-005), the trailing-JSON scorer contract (ADR-006), and
-  LLM-bypass extension commands (ADR-007).
+  LLM-bypass extension commands (ADR-007). ADR-008…012 extend it from guide
+  authoring to the full lab lifecycle: the external lab-repo reference
+  (ADR-008), the lifecycle state machine (ADR-009), the guide/lab-repo scope
+  split (ADR-010), `lab-prep.md` as a machine-readable contract (ADR-011),
+  and the dev-only execution boundary (ADR-012).
 - The content/format standard — house style, the linter rule set, and the
   evaluation rubrics — is the team's own, derived from four in-house sample
   guides (`skills/style-corpus/samples/`).

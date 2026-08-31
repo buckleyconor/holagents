@@ -24,7 +24,7 @@ import { runLint, type RunLintOptions } from './linter/index.ts';
 import { scanMarkdown } from './linter/scan.ts';
 import { moduleSections } from './linter/rules/l010.ts';
 import type { LintReport } from './linter/types.ts';
-import { isGuideDir, resolveGuideRoot } from './state.ts';
+import { isGuideDir, isLabDir, resolveGuideRoot, resolveLabRoot } from './state.ts';
 
 // ---------------------------------------------------------------- errors
 
@@ -62,15 +62,25 @@ function hasDotDotSegments(p: string): boolean {
 }
 
 /**
- * Resolve a guide dir from an optional user arg, confined to the session
+ * Resolve a lab/guide dir from an optional user arg, confined to the session
  * project root (spec §04 §3).
  *
  * - arg: must not contain `..` segments; must exist, be a directory, and its
  *   realpath must stay inside realpath(cwd) (symlink escape → E-PATH, T-35);
- *   must be a guide dir (guide.md + .holagent/).
- * - no arg: nearest guide root at/above cwd (E-PATH when none, T-36).
+ *   must satisfy `predicate`.
+ * - no arg: nearest matching root at/above cwd (E-PATH when none, T-36).
+ *
+ * Write confinement to the project root is deliberate and stays (ADR-008):
+ * an external lab repo is reached through `lab-ref.json`, never through this.
  */
-export function resolveGuidePath(cwd: string, arg?: string): string {
+function resolveConfinedRoot(
+  cwd: string,
+  arg: string | undefined,
+  predicate: (dir: string) => boolean,
+  finder: (cwd: string) => string | null,
+  noun: string,
+  requirement: string,
+): string {
   if (arg !== undefined && arg !== '') {
     if (hasDotDotSegments(arg)) {
       throw new HolError('E-PATH', `E-PATH: guideDir must not contain ".." segments: ${arg}`);
@@ -92,19 +102,43 @@ export function resolveGuidePath(cwd: string, arg?: string): string {
         `E-PATH: guide dir escapes the project root (realpath ${real} is outside ${rootReal})`,
       );
     }
-    if (!isGuideDir(real)) {
-      throw new HolError('E-PATH', `E-PATH: not a guide dir (needs guide.md + .holagent/): ${arg}`);
+    if (!predicate(real)) {
+      throw new HolError('E-PATH', `E-PATH: not a ${noun} dir (needs ${requirement}): ${arg}`);
     }
     return real;
   }
-  const root = resolveGuideRoot(cwd);
+  const root = finder(cwd);
   if (!root) {
     throw new HolError(
       'E-PATH',
-      'E-PATH: no guide root found from cwd — run inside a guide dir or pass guideDir',
+      `E-PATH: no ${noun} root found from cwd — run inside a ${noun} dir or pass guideDir`,
     );
   }
   return root;
+}
+
+/**
+ * Resolve a **guide** dir (guide.md + .holagent/) — for operations that need
+ * the guide file itself, i.e. the linter (`hol_validate`).
+ */
+export function resolveGuidePath(cwd: string, arg?: string): string {
+  return resolveConfinedRoot(
+    cwd,
+    arg,
+    isGuideDir,
+    resolveGuideRoot,
+    'guide',
+    'guide.md + .holagent/',
+  );
+}
+
+/**
+ * Resolve a **lab** dir (`.holagent/` only) — for operations that work across
+ * the whole lifecycle, including stages 1–3 that run before `guide.md` exists
+ * (`hol_status`, `hol_scores`). ADR-009.
+ */
+export function resolveLabPath(cwd: string, arg?: string): string {
+  return resolveConfinedRoot(cwd, arg, isLabDir, resolveLabRoot, 'lab', '.holagent/');
 }
 
 // ------------------------------------------------------------ validation
@@ -184,7 +218,15 @@ export interface ScoreEntry {
   updated_at: string;
 }
 
-const SCOPE_RE = /^(plan|guide|module-plan-\d{2}|module-\d{2}-[a-z0-9]+(?:-[a-z0-9]+)*)$/;
+const SCOPE_SLUG = '[a-z0-9]+(?:-[a-z0-9]+)*';
+/**
+ * Score scopes. The guide-stage scopes (plan, guide, module-*) are the
+ * originals; concept, sizing, spec, launch, `build-<slug>` and
+ * `platform-<slug>` are the lifecycle stages added in ADR-009.
+ */
+const SCOPE_RE = new RegExp(
+  `^(plan|guide|concept|sizing|spec|launch|module-plan-\\d{2}|module-\\d{2}-${SCOPE_SLUG}|build-${SCOPE_SLUG}|platform-${SCOPE_SLUG})$`,
+);
 const KINDS = ['checklist', 'analytic', 'holistic'] as const;
 const STATUSES = ['passed', 'failed', 'escalated'] as const;
 
@@ -201,7 +243,9 @@ export function validateScoreEntry(raw: unknown): string[] {
   const scope = str('scope');
   if (!scope) problems.push('scope: missing string');
   else if (!SCOPE_RE.test(scope))
-    problems.push(`scope: "${scope}" must match plan | guide | module-plan-NN | module-NN-slug`);
+    problems.push(
+      `scope: "${scope}" must match plan | guide | concept | sizing | spec | launch | module-plan-NN | module-NN-slug | build-slug | platform-slug`,
+    );
 
   const rubric = str('rubric');
   if (!rubric || !rubric.trim()) problems.push('rubric: missing non-empty string');
@@ -775,6 +819,104 @@ export function readModulePlan(guideDir: string, module: PlanModule): ModulePlan
   };
 }
 
+// -------------------------------------------------------------- lab ref
+
+/** Lifecycle stages that can be inherited from an already-built lab. */
+export type LifecycleStage = 'concept' | 'sizing' | 'spec' | 'build';
+
+const LIFECYCLE_STAGES: readonly LifecycleStage[] = ['concept', 'sizing', 'spec', 'build'];
+
+export interface LabEnvironment {
+  name: string;
+  /** `dev` is the only kind an executing tool may ever target (ADR-012). */
+  kind: 'dev' | 'prod';
+  endpoint?: string;
+  notes?: string;
+}
+
+/**
+ * `.holagent/lab-ref.json` — the pointer to the lab's own repository (ADR-008).
+ *
+ * hol-core only ever *reads* this. Write confinement to the project root is
+ * unchanged: the builder/QA agents reach the lab repo through ordinary tools,
+ * never through this module.
+ */
+export interface LabRef {
+  repo: string;
+  origin: 'generated' | 'adopted';
+  /** Stages inherited from an existing lab rather than produced here. */
+  adoptedStages: LifecycleStage[];
+  /** Spec dir, relative to `repo`. */
+  specDir: string;
+  platforms: string[];
+  environments: LabEnvironment[];
+}
+
+/**
+ * Read `.holagent/lab-ref.json`, normalising missing/By-hand fields to
+ * defaults. A corrupt or unreadable file degrades to `null` (same posture as
+ * last-validation.json) — never a crash.
+ */
+export function readLabRef(guideDir: string): LabRef | null {
+  const path = join(guideDir, '.holagent', 'lab-ref.json');
+  if (!existsSync(path)) return null;
+  let raw: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+    raw = parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  const repo = typeof raw.repo === 'string' ? raw.repo : '';
+  if (!repo) return null;
+  const strings = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  const envs: LabEnvironment[] = (Array.isArray(raw.environments) ? raw.environments : [])
+    .filter((e): e is Record<string, unknown> => typeof e === 'object' && e !== null)
+    .map((e) => ({
+      name: typeof e.name === 'string' ? e.name : '',
+      kind: (e.kind === 'dev' ? 'dev' : 'prod') as LabEnvironment['kind'],
+      ...(typeof e.endpoint === 'string' ? { endpoint: e.endpoint } : {}),
+      ...(typeof e.notes === 'string' ? { notes: e.notes } : {}),
+    }))
+    .filter((e) => e.name !== '');
+  return {
+    repo,
+    origin: raw.origin === 'adopted' ? 'adopted' : 'generated',
+    adoptedStages: strings(raw.adopted_stages).filter((x): x is LifecycleStage =>
+      (LIFECYCLE_STAGES as readonly string[]).includes(x),
+    ),
+    specDir: typeof raw.spec_dir === 'string' && raw.spec_dir.trim() ? raw.spec_dir : 'spec',
+    platforms: strings(raw.platforms),
+    environments: envs,
+  };
+}
+
+/**
+ * The one environment lookup every executing tool must go through (ADR-012):
+ * resolves a name to an environment and refuses anything not marked `dev`.
+ */
+export function resolveDevEnvironment(labRef: LabRef | null, name: string): LabEnvironment {
+  if (!labRef) {
+    throw new HolError('E-ARG', 'E-ARG: no lab-ref.json — register the lab repo first');
+  }
+  const env = labRef.environments.find((e) => e.name === name);
+  if (!env) {
+    const known = labRef.environments.map((e) => `${e.name} (${e.kind})`).join(', ') || 'none';
+    throw new HolError('E-ARG', `E-ARG: unknown environment "${name}" — known: ${known}`);
+  }
+  if (env.kind !== 'dev') {
+    throw new HolError(
+      'E-ARG',
+      `E-ARG: refusing to execute against environment "${name}" (kind: ${env.kind}) — ` +
+        'only dev environments may be targeted (ADR-012). Use /hol-qa-prod, which emits a ' +
+        'script for a human to run, for anything else.',
+    );
+  }
+  return env;
+}
+
 // --------------------------------------------------------------- status
 
 export type ModuleState =
@@ -792,8 +934,39 @@ export interface ModuleStatus {
   scores?: { checklist?: number; analyticMean?: number };
 }
 
+/**
+ * Lifecycle stage state (ADR-009). `n/a` means the lab has not opted into the
+ * lifecycle: it predates it, so stages 1-3 do not apply and `next` behaves
+ * exactly as it did before.
+ */
+export type StageState = 'n/a' | 'missing' | 'drafted' | 'approved' | 'adopted';
+export type BuildState = 'n/a' | 'missing' | 'adopted' | 'in-progress' | 'smoke-passed';
+export type GuideStageState = 'unplanned' | 'planned' | 'generating' | 'complete';
+
+export interface LifecycleStatus {
+  /**
+   * True once the lab has a concept, a sizing, or a registered lab repo.
+   * Until then holagent behaves exactly as the guide-only package did.
+   */
+  engaged: boolean;
+  concept: StageState;
+  sizing: StageState;
+  spec: StageState;
+  build: BuildState;
+  guide: GuideStageState;
+  ship: { platforms: string[]; launch: boolean };
+}
+
 export interface GuideStatus {
-  guide: { slug: string; id: string | null; title: string | null; file: 'guide.md' };
+  guide: {
+    slug: string;
+    id: string | null;
+    title: string | null;
+    /** The file status was read from: `guide.md`, the released name, or null. */
+    file: string | null;
+    /** True when the guide has been renamed and left the pipeline (ADR-005). */
+    released: boolean;
+  };
   research: { companies: string[]; products: string[] };
   plan: {
     exists: boolean;
@@ -804,6 +977,8 @@ export interface GuideStatus {
     objectives: number;
   };
   modules: ModuleStatus[];
+  lifecycle: LifecycleStatus;
+  labRef: LabRef | null;
   lastValidation: { ok: boolean; errors: number; warnings: number; at: string } | null;
   next: string;
 }
@@ -813,6 +988,18 @@ interface LastValidation {
   at: string;
   summary?: { errors: number; warnings: number };
   findings?: Array<{ rule: string; severity: string; line: number; message: string }>;
+}
+
+/** File names directly inside `dir` (empty when the dir is absent). */
+function listFiles(dir: string): string[] {
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isFile())
+      .map((d) => d.name)
+      .sort();
+  } catch {
+    return [];
+  }
 }
 
 function listSubdirs(dir: string): string[] {
@@ -835,11 +1022,35 @@ function listSubdirs(dir: string): string[] {
 export function readGuideStatus(guideDir: string): GuideStatus {
   const plan = readPlan(guideDir);
 
-  let guideText: string;
-  try {
-    guideText = readFileSync(join(guideDir, 'guide.md'), 'utf8');
-  } catch (e) {
-    throw new HolError('E-READ', `E-READ: cannot read guide.md: ${(e as Error).message}`);
+  // guide.md is absent in two very different situations, and conflating them
+  // produces a misleading status:
+  //   1. stages 1-3, before /hol-plan scaffolds it (ADR-009);
+  //   2. the guide was released — renamed to `<ID>-<Title>.md` (ADR-005).
+  // In case 2 the content still exists, so read it: module states stay
+  // accurate after release instead of collapsing back to "planned".
+  // Present-but-unreadable guide.md remains a hard error.
+  const guidePath = join(guideDir, 'guide.md');
+  let guideFile: string | null = null;
+  let released = false;
+  let guideText = '';
+  if (existsSync(guidePath)) {
+    guideFile = 'guide.md';
+    try {
+      guideText = readFileSync(guidePath, 'utf8');
+    } catch (e) {
+      throw new HolError('E-READ', `E-READ: cannot read guide.md: ${(e as Error).message}`);
+    }
+  } else {
+    const releasedName = listFiles(guideDir).find((f) => /^HOL-\d{4}-\d{2}[-_ ].*\.md$/i.test(f));
+    if (releasedName !== undefined) {
+      try {
+        guideText = readFileSync(join(guideDir, releasedName), 'utf8');
+        guideFile = releasedName;
+        released = true;
+      } catch {
+        guideText = '';
+      }
+    }
   }
   const config = loadFormatConfig();
   const scan = scanMarkdown(guideText.split(/\r?\n/), config);
@@ -952,16 +1163,102 @@ export function readGuideStatus(guideDir: string): GuideStatus {
     }
   }
 
+  // ---- lifecycle (ADR-009) ----------------------------------------------
+  const labRef = readLabRef(guideDir);
+  const holDir = join(guideDir, '.holagent');
+  const conceptExists = existsSync(join(holDir, 'concept.md'));
+  const sizingExists = existsSync(join(holDir, 'sizing.md'));
+  // A lab opts into the lifecycle by acquiring a concept, a sizing, or a
+  // registered lab repo. Guides that predate it stay on the old behaviour.
+  const engaged = conceptExists || sizingExists || labRef !== null;
+  const adopted = new Set<LifecycleStage>(labRef?.adoptedStages ?? []);
+
+  const stageState = (stage: LifecycleStage, exists: boolean): StageState => {
+    if (!engaged) return 'n/a';
+    if (adopted.has(stage)) return 'adopted';
+    if (!exists) return 'missing';
+    const entries = scores.filter((e) => e.scope === stage);
+    return entries.length > 0 && entries.every((e) => e.status === 'passed')
+      ? 'approved'
+      : 'drafted';
+  };
+
+  // The spec lives in the lab's own repo; existence is the only thing read
+  // across that boundary, and an unreadable path degrades to "missing".
+  let specExists = false;
+  if (labRef) {
+    try {
+      specExists =
+        statSync(join(labRef.repo, labRef.specDir), { throwIfNoEntry: false })?.isDirectory() ??
+        false;
+    } catch {
+      specExists = false;
+    }
+  }
+
+  let build: BuildState;
+  if (!engaged) build = 'n/a';
+  else if (adopted.has('build')) build = 'adopted';
+  else {
+    let smokePassed = false;
+    try {
+      const smoke = JSON.parse(readFileSync(join(holDir, 'qa', 'smoke.json'), 'utf8')) as {
+        ok?: unknown;
+      };
+      smokePassed = smoke?.ok === true;
+    } catch {
+      smokePassed = false;
+    }
+    if (smokePassed) build = 'smoke-passed';
+    else if (scores.some((e) => e.scope.startsWith('build-'))) build = 'in-progress';
+    else build = 'missing';
+  }
+
+  let guideStage: GuideStageState;
+  if (released) guideStage = 'complete';
+  else if (!plan.exists) guideStage = 'unplanned';
+  else if (modules.length > 0 && modules.every((m) => m.state === 'scored-passed'))
+    guideStage = 'complete';
+  else if (modules.some((m) => m.state !== 'unplanned' && m.state !== 'planned'))
+    guideStage = 'generating';
+  else guideStage = 'planned';
+
+  const platformFindings = listFiles(join(holDir, 'platform'))
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => f.replace(/\.json$/, ''));
+
+  const lifecycle: LifecycleStatus = {
+    engaged,
+    concept: stageState('concept', conceptExists),
+    sizing: stageState('sizing', sizingExists),
+    spec: stageState('spec', specExists),
+    build,
+    guide: guideStage,
+    ship: { platforms: platformFindings, launch: existsSync(join(guideDir, 'launch')) },
+  };
+
+  // ---- next ---------------------------------------------------------------
   const firstIncomplete = modules.find((m) => m.state !== 'scored-passed');
-  const next =
+  const guideNext =
     !plan.exists || plan.errors.length > 0
       ? '/hol-plan'
       : firstIncomplete
         ? `/hol-generate-module ${firstIncomplete.nn}-${firstIncomplete.slug}`
         : '/hol-review-guide';
 
+  // `next` never points backwards: once a plan exists the guide pipeline owns
+  // it, exactly as before. Stages 1-3 only claim `next` for an engaged lab
+  // that has not reached planning yet.
+  let next = guideNext;
+  if (released) {
+    next = `none — guide released as ${guideFile} (restore guide.md to re-enter the pipeline, ADR-005)`;
+  } else if (engaged && !plan.exists) {
+    if (lifecycle.concept === 'missing' || lifecycle.sizing === 'missing') next = '/hol-concept';
+    else if (lifecycle.spec === 'missing') next = '/hol-spec';
+  }
+
   return {
-    guide: { slug: basename(guideDir), id, title, file: 'guide.md' },
+    guide: { slug: basename(guideDir), id, title, file: guideFile, released },
     research: { companies, products: products.sort() },
     plan: {
       exists: plan.exists,
@@ -972,6 +1269,8 @@ export function readGuideStatus(guideDir: string): GuideStatus {
       objectives: plan.objectives,
     },
     modules,
+    lifecycle,
+    labRef,
     lastValidation,
     next,
   };

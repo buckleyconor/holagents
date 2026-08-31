@@ -25,6 +25,7 @@ import {
   readScores,
   removeScoresByScope,
   resolveGuidePath,
+  resolveLabPath,
   validateGuide,
 } from './hol-core.ts';
 import type { GuideStatus, ModuleStatus } from './hol-core.ts';
@@ -62,20 +63,62 @@ function statusModuleLine(m: ModuleStatus): string {
   return `  ${m.nn}-${m.slug}: ${m.state}${scores}`;
 }
 
+/** One-glyph summary per lifecycle stage, for the stage bar. */
+const STAGE_GLYPH: Record<string, string> = {
+  'n/a': '–',
+  missing: '○',
+  drafted: '◐',
+  approved: '✓',
+  adopted: '⊕',
+  'in-progress': '◐',
+  'smoke-passed': '✓',
+  unplanned: '○',
+  planned: '◐',
+  generating: '◐',
+  complete: '✓',
+};
+
+function stageBar(lc: GuideStatus['lifecycle']): string {
+  const cell = (label: string, state: string) => `${STAGE_GLYPH[state] ?? '?'} ${label}`;
+  const ship =
+    lc.ship.platforms.length > 0 || lc.ship.launch
+      ? `${lc.ship.launch ? '✓' : '◐'} ship`
+      : '○ ship';
+  return [
+    cell('concept', lc.concept),
+    cell('sizing', lc.sizing),
+    cell('spec', lc.spec),
+    cell('build', lc.build),
+    cell('guide', lc.guide),
+    ship,
+  ].join('  ·  ');
+}
+
 function statusText(status: GuideStatus): string {
   const research = `companies=[${status.research.companies.join(', ') || '—'}] products=[${status.research.products.join(', ') || '—'}]`;
   const lastVal = status.lastValidation
     ? `${status.lastValidation.ok ? 'ok' : 'failed'} (${status.lastValidation.errors} errors, ${status.lastValidation.warnings} warnings) at ${status.lastValidation.at}`
     : 'never recorded (run /hol-validate)';
-  return [
+  const lines = [
     `Guide: ${status.guide.slug} (${status.guide.id ?? 'no id'})${status.guide.title ? ` — ${status.guide.title}` : ''}`,
+  ];
+  if (status.lifecycle.engaged) {
+    lines.push(`Lifecycle: ${stageBar(status.lifecycle)}`);
+    if (status.labRef) {
+      const envs =
+        status.labRef.environments.map((e) => `${e.name} (${e.kind})`).join(', ') || 'none';
+      lines.push(`Lab repo: ${status.labRef.repo} [${status.labRef.origin}] — envs: ${envs}`);
+    }
+  }
+  lines.push(
     `Plan: ${status.plan.exists ? `${status.plan.moduleCount} modules, ${status.plan.objectives} objectives` : 'missing (run /hol-plan)'}`,
     'Modules:',
     ...status.modules.map(statusModuleLine),
     `Last validation: ${lastVal}`,
     `Research: ${research}`,
     `Next: ${status.next}`,
-  ].join('\n');
+  );
+  return lines.join('\n');
 }
 
 export default function holagentExtension(pi: PiExtensionAPI): void {
@@ -126,14 +169,14 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
     name: 'hol_status',
     label: 'hol_status',
     description:
-      'Determine holagent guide state (deterministic — files + scores only): plan, per-module state (unplanned → planned → generated → validated → scored-passed | scored-escalated), last linter validation, research profiles, and the next recommended command.',
+      'Determine holagent lab state (deterministic — files + scores only): lifecycle stages (concept, sizing, spec, build, guide, ship), plan, per-module state (unplanned → planned → generated → validated → scored-passed | scored-escalated), last linter validation, research profiles, and the next recommended command. Works before guide.md exists.',
     promptSnippet:
       'Read the lab-guide state machine (module states, last validation, next command)',
     parameters: Type.Object({
       guideDir: optGuideDir(GUIDE_DIR_DESC),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<PiToolResult> {
-      const guideDir = resolveGuidePath(
+      const guideDir = resolveLabPath(
         ctx.cwd,
         typeof params.guideDir === 'string' ? params.guideDir : undefined,
       );
@@ -146,7 +189,7 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
     name: 'hol_scores',
     label: 'hol_scores',
     description:
-      'Read, merge, or clear lab-guide scoring results in .holagent/scores.json. merge is atomic (all entries validated first; temp+rename) and keyed by scope/rubric (latest wins); remove drops every entry for one scope (the --fresh path). Scopes: "plan" | "module-plan-<NN>" | "module-<NN-slug>" | "guide".',
+      'Read, merge, or clear lab-guide scoring results in .holagent/scores.json. merge is atomic (all entries validated first; temp+rename) and keyed by scope/rubric (latest wins); remove drops every entry for one scope (the --fresh path). Scopes: "plan" | "guide" | "concept" | "sizing" | "spec" | "launch" | "module-plan-<NN>" | "module-<NN-slug>" | "build-<slug>" | "platform-<slug>".',
     promptSnippet:
       'Read, atomically merge, or clear (remove by scope) lab-guide scoring results (scores.json)',
     parameters: Type.Object({
@@ -165,7 +208,8 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
         Type.Array(
           Type.Object({
             scope: Type.String({
-              description: '"plan" | "module-plan-<NN>" | "module-<NN-slug>" | "guide"',
+              description:
+                '"plan" | "guide" | "concept" | "sizing" | "spec" | "launch" | "module-plan-<NN>" | "module-<NN-slug>" | "build-<slug>" | "platform-<slug>"',
             }),
             rubric: Type.String({ description: 'Rubric name, e.g. "analytic/step-clarity"' }),
             kind: StringEnum(['checklist', 'analytic', 'holistic']),
@@ -185,7 +229,7 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
       ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<PiToolResult> {
-      const guideDir = resolveGuidePath(
+      const guideDir = resolveLabPath(
         ctx.cwd,
         typeof params.guideDir === 'string' ? params.guideDir : undefined,
       );
@@ -270,10 +314,10 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
 
   pi.registerCommand('hol-status', {
     description:
-      'Show lab-guide state (plan, module states, validation, next step), no LLM: /hol-status [guideDir]',
+      'Show lab state (lifecycle stages, plan, module states, validation, next step), no LLM: /hol-status [guideDir]',
     handler: async (args, ctx) => {
       try {
-        const guideDir = resolveGuidePath(ctx.cwd, firstArg(args));
+        const guideDir = resolveLabPath(ctx.cwd, firstArg(args));
         const status = readGuideStatus(guideDir);
         ctx.ui.setWidget('holagent', statusText(status).split('\n'));
         ctx.ui.notify(`hol-status: next → ${status.next}`, 'info');

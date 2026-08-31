@@ -13,7 +13,7 @@ real content, and validate before proceeding to the next stage.
 | ------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `guide-plan.md`     | `guides/<slug>/.holagent/plan.md`                               | Guide plan — frontmatter is the machine-readable source of truth              |
 | `module-plan.md`    | `guides/<slug>/.holagent/<NN-slug>/plan.md`                     | Per-module plan — steps, environment delta, image checklist, success criteria |
-| `lab-prep.md`       | `guides/<slug>/lab-prep.md`                                     | Handoff artifact for the (out-of-scope) environment provisioning team         |
+| `lab-prep.md`       | `guides/<slug>/lab-prep.md`                                     | Environment **contract**: machine-readable frontmatter + human tables         |
 | `company.md`        | `~/.holagent/companies/<company-slug>/company.md`               | Company research output                                                       |
 | `product.md`        | `~/.holagent/products/<company-slug>/<product-slug>/product.md` | Product research output                                                       |
 | `style-guide.md`    | `~/.holagent/companies/<company-slug>/style-guide.md`           | Writing style distilled from scraped documentation                            |
@@ -52,7 +52,7 @@ keep the value on one line.
 ## Fill order for a new guide
 
 1. `guide-plan.md` → `.holagent/plan.md` (id, title, slug, modules)
-2. `lab-prep.md` → `lab-prep.md` (environment handoff)
+2. `lab-prep.md` → `lab-prep.md` (environment contract)
 3. `module-plan.md` → `.holagent/<NN-slug>/plan.md`, one per module
 4. `guide-scaffold.md` → `guide.md`, then expand Module 1 and add the rest
 5. Run `/hol-validate` — errors block, warnings advise

@@ -11,6 +11,8 @@ real content, and validate before proceeding to the next stage.
 
 | Template            | Copies to                                                       | Purpose                                                                       |
 | ------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `concept.md`        | `guides/<slug>/.holagent/concept.md`                            | Lab concept — business problem, personas, story beats, aha moment             |
+| `sizing.md`         | `guides/<slug>/.holagent/sizing.md`                             | Footprint — production vs minimal demo, reduction decisions, density          |
 | `guide-plan.md`     | `guides/<slug>/.holagent/plan.md`                               | Guide plan — frontmatter is the machine-readable source of truth              |
 | `module-plan.md`    | `guides/<slug>/.holagent/<NN-slug>/plan.md`                     | Per-module plan — steps, environment delta, image checklist, success criteria |
 | `lab-prep.md`       | `guides/<slug>/lab-prep.md`                                     | Environment **contract**: machine-readable frontmatter + human tables         |
@@ -49,8 +51,11 @@ keep the value on one line.
 3. Markers are `<< FILL: ... >>` — never unfinished-marker tokens in any
    template or in a filled guide (W008 forbids the three standard ones).
 
-## Fill order for a new guide
+## Fill order for a new lab
 
+0. `concept.md` → `.holagent/concept.md` and `sizing.md` → `.holagent/sizing.md`
+   (stage 1, `/hol-concept`) — the story and the footprint. Everything below
+   inherits from them; `lab-prep.md` is derived from the sizing at `/hol-spec`.
 1. `guide-plan.md` → `.holagent/plan.md` (id, title, slug, modules)
 2. `lab-prep.md` → `lab-prep.md` (environment contract)
 3. `module-plan.md` → `.holagent/<NN-slug>/plan.md`, one per module

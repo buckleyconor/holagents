@@ -33,6 +33,54 @@ against the runtime source + controlled runs; M7 gate finding, see
 
 ---
 
+## Template: `concept` scope
+
+```
+READ-ONLY scoring task — return findings only; do not edit or modify any file.
+Score the lab CONCEPT below against the rubric «rubric-name».
+
+### Scoring guide
+«contents of scoring-guide.md, verbatim»
+
+### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
+«rubric file content, verbatim»
+
+### Scope label
+scope: concept
+
+### Content — concept.md
+«full .holagent/concept.md: frontmatter + body, verbatim»
+
+### Output contract
+End with exactly one fenced JSON block; no prose after it. criterion_text
+copied verbatim; finding null on pass, concrete location otherwise.
+```
+
+## Template: `sizing` scope
+
+```
+READ-ONLY scoring task — return findings only; do not edit or modify any file.
+Score the lab SIZING below against the rubric «rubric-name».
+
+### Scoring guide
+«contents of scoring-guide.md, verbatim»
+
+### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
+«rubric file content, verbatim»
+
+### Scope label
+scope: sizing
+
+### Content — sizing.md
+«full .holagent/sizing.md: frontmatter + body, verbatim»
+«plus: the full .holagent/concept.md under a "### concept.md" sub-heading — the
+beats are what the footprint has to support, so the scorer needs both»
+
+### Output contract
+End with exactly one fenced JSON block; no prose after it. criterion_text
+copied verbatim; finding null on pass, concrete location otherwise.
+```
+
 ## Template: `plan` scope
 
 ```
@@ -174,6 +222,8 @@ nothing malformed reaches `scores.json`.
 
 | Scope              | Rubrics (one scorer each)                                                                                                             |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `concept`          | `checklist/concept-completeness` (1.0), `analytic/business-value` (4), `holistic/story-coherence` (4)                                 |
+| `sizing`           | `analytic/footprint-realism` (4)                                                                                                      |
 | `plan`             | `checklist/plan-completeness` (1.0), `analytic/learning-arc` (4), `analytic/environment-alignment` (4), `holistic/plan-coherence` (4) |
 | `module-plan-<NN>` | `checklist/module-plan-completeness` (1.0), `analytic/module-design` (4)                                                              |
 | `module-<NN-slug>` | `checklist/module-completeness` (1.0), `analytic/step-clarity` (4), `analytic/technical-accuracy` (4), `holistic/module-quality` (4)  |
@@ -183,7 +233,8 @@ nothing malformed reaches `scores.json`.
 rubric file is authoritative — re-read its `threshold` when building the
 task.)
 
-Each stage gate runs its scope's **full** fanout: `plan` at `/hol-plan`
+Each stage gate runs its scope's **full** fanout: `concept` and `sizing` at
+`/hol-concept` (re-review at `/hol-review-concept`); `plan` at `/hol-plan`
 Step 8 (standalone re-review at `/hol-review-plan`); `module-plan-<NN>` at
 `/hol-plan-module` (re-review at `/hol-review-module-plan`);
 `module-<NN>-<slug>` at `/hol-generate-module` Step 6 (re-review at

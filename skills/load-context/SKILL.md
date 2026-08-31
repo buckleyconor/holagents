@@ -46,18 +46,20 @@ knows what is available.
 **`-` means do not read it even if it exists — it is not useful for this task.**
 "relevant only" = only the products the guide covers (see Product filtering).
 
-| Command                   | Company           | Style             | Products          | Plan              | Module plans | Guide.md          | Scores/State |
-| ------------------------- | ----------------- | ----------------- | ----------------- | ----------------- | ------------ | ----------------- | ------------ |
-| `/hol-research-company`   | existing (update) | existing (update) | -                 | -                 | -            | -                 | -            |
-| `/hol-research-product`   | for extra sources | -                 | existing (update) | -                 | -            | -                 | -            |
-| `/hol-plan`               | yes               | yes               | relevant only     | existing (extend) | -            | existing (extend) | -            |
-| `/hol-plan-module`        | -                 | -                 | relevant only     | yes               | prior        | -                 | -            |
-| `/hol-generate-module`    | yes               | yes               | relevant only     | yes               | this + prior | this + prior      | -            |
-| `/hol-generate-all`       | yes               | yes               | relevant only     | yes               | all          | all               | -            |
-| `/hol-review-plan`        | yes               | yes               | relevant only     | yes               | -            | -                 | yes          |
-| `/hol-review-module-plan` | -                 | -                 | relevant only     | yes               | this         | -                 | yes          |
-| `/hol-review-module`      | yes               | yes               | relevant only     | yes               | this         | this              | yes          |
-| `/hol-review-guide`       | yes               | yes               | relevant only     | yes               | all          | all               | yes          |
+| Command                   | Company           | Style             | Products          | Concept/Sizing    | Plan              | Module plans | Guide.md          | Scores/State |
+| ------------------------- | ----------------- | ----------------- | ----------------- | ----------------- | ----------------- | ------------ | ----------------- | ------------ |
+| `/hol-research-company`   | existing (update) | existing (update) | -                 | -                 | -                 | -            | -                 | -            |
+| `/hol-research-product`   | for extra sources | -                 | existing (update) | -                 | -                 | -            | -                 | -            |
+| `/hol-concept`            | yes               | yes               | relevant only     | existing (extend) | -                 | -            | -                 | -            |
+| `/hol-review-concept`     | -                 | -                 | -                 | yes               | -                 | -            | -                 | yes          |
+| `/hol-plan`               | yes               | yes               | relevant only     | yes               | existing (extend) | -            | existing (extend) | -            |
+| `/hol-plan-module`        | -                 | -                 | relevant only     | -                 | yes               | prior        | -                 | -            |
+| `/hol-generate-module`    | yes               | yes               | relevant only     | -                 | yes               | this + prior | this + prior      | -            |
+| `/hol-generate-all`       | yes               | yes               | relevant only     | -                 | yes               | all          | all               | -            |
+| `/hol-review-plan`        | yes               | yes               | relevant only     | yes               | yes               | -            | -                 | yes          |
+| `/hol-review-module-plan` | -                 | -                 | relevant only     | -                 | yes               | this         | -                 | yes          |
+| `/hol-review-module`      | yes               | yes               | relevant only     | -                 | yes               | this         | this              | yes          |
+| `/hol-review-guide`       | yes               | yes               | relevant only     | -                 | yes               | all          | all               | yes          |
 
 "Scores/State" covers `scores.json` and `last-validation.json`.
 

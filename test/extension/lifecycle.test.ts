@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -13,6 +13,7 @@ import {
   validateScoreEntry,
 } from '../../extensions/hol-core.ts';
 import { isGuideDir, isLabDir } from '../../extensions/state.ts';
+import { parseFrontmatter } from '../../extensions/frontmatter.ts';
 
 /**
  * T-80…T-86: the lifecycle extension of the state machine (ADR-009), the
@@ -290,4 +291,43 @@ test('T-86: score scopes cover the lifecycle stages', () => {
   for (const scope of ['Concept', 'build', 'platform-', 'nonsense']) {
     assert.ok(validateScoreEntry({ ...base, scope }).length > 0, `${scope} must be rejected`);
   }
+});
+
+test('T-87: every rubric is well-formed and names a known scope family', () => {
+  const root = new URL('../../skills/evaluation/rubrics/', import.meta.url).pathname;
+  const kinds = new Set(['checklist', 'analytic', 'holistic']);
+  // Scope *families*, as used in rubric frontmatter. The per-entry score
+  // scopes they produce (module-plan-01, module-01-slug, …) are covered by T-86.
+  const families = new Set([
+    'concept',
+    'sizing',
+    'spec',
+    'plan',
+    'module-plan',
+    'module',
+    'guide',
+    'build',
+    'platform',
+    'launch',
+  ]);
+  let seen = 0;
+  for (const kind of readdirSync(root)) {
+    for (const file of readdirSync(join(root, kind))) {
+      if (!file.endsWith('.md')) continue;
+      seen += 1;
+      const where = `${kind}/${file}`;
+      const parsed = parseFrontmatter(readFileSync(join(root, kind, file), 'utf8'));
+      assert.ok(parsed, `${where}: frontmatter must parse`);
+      const fm = parsed.data as Record<string, unknown>;
+      assert.equal(fm.name, file.replace(/\.md$/, ''), `${where}: name must match filename`);
+      assert.equal(fm.kind, kind, `${where}: kind must match its directory`);
+      assert.ok(kinds.has(String(fm.kind)), `${where}: unknown kind ${String(fm.kind)}`);
+      assert.ok(families.has(String(fm.scope)), `${where}: unknown scope ${String(fm.scope)}`);
+      const threshold = Number(fm.threshold);
+      assert.ok(Number.isFinite(threshold), `${where}: threshold must be numeric`);
+      if (fm.kind === 'checklist') assert.equal(threshold, 1, `${where}: checklist threshold is 1`);
+      else assert.ok(threshold >= 1 && threshold <= 5, `${where}: threshold out of range`);
+    }
+  }
+  assert.ok(seen >= 17, `expected the full rubric set, saw ${seen}`);
 });

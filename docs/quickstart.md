@@ -362,6 +362,9 @@ installs or provisions (ADR-003, unchanged). What changed is that
 ## 10. Where to look next
 
 - `README.md` — install, the full command reference, troubleshooting.
+- `docs/user-guide.md` — **where to join the pipeline when you already have
+  part of a lab** (spec only, lab built but no guide, an existing environment
+  with no spec), the per-command preconditions, and worked scenarios.
 - `docs/adr/README.md` — the seventeen architecture decisions, indexed, with
   the shape they add up to.
 - `docs/linter-rules.md` — every linter rule with an example fix (generated

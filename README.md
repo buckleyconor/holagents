@@ -272,6 +272,7 @@ frontmatter, that no third-party branding leaked into shipped markdown, and
 that there are no runtime dependencies.
 
 Gate runbook: `docs/manual-e2e.md`. First-time user tour (the six stages,
-diagrams, agents, what you need up front): `docs/quickstart.md`. ADRs, indexed:
-`docs/adr/README.md`. The plan the lifecycle was built from:
-`docs/lifecycle-plan.md`. Spec: `spec/`.
+diagrams, agents, what you need up front): `docs/quickstart.md`. **Where to
+join the pipeline when you already have part of a lab, with worked scenarios:
+`docs/user-guide.md`.** ADRs, indexed: `docs/adr/README.md`. The plan the
+lifecycle was built from: `docs/lifecycle-plan.md`. Spec: `spec/`.

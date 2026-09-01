@@ -422,6 +422,8 @@ export interface PlanInfo {
   id: string | null;
   title: string | null;
   slug: string | null;
+  /** `duration_minutes` from the frontmatter; null when absent or invalid. */
+  durationMinutes: number | null;
   objectives: number;
   modules: PlanModule[];
   /** Frontmatter validation (M7): valid = no contract errors. */
@@ -553,6 +555,7 @@ export function readPlan(guideDir: string): PlanInfo {
       id: null,
       title: null,
       slug: null,
+      durationMinutes: null,
       objectives: 0,
       modules: [],
       valid: true,
@@ -596,6 +599,10 @@ export function readPlan(guideDir: string): PlanInfo {
     id: typeof data.id === 'string' ? data.id : null,
     title: typeof data.title === 'string' ? data.title : null,
     slug: typeof data.slug === 'string' ? data.slug : null,
+    durationMinutes:
+      typeof data.duration_minutes === 'number' && Number.isInteger(data.duration_minutes)
+        ? data.duration_minutes
+        : null,
     objectives,
     modules,
     valid: validation.valid,
@@ -827,6 +834,9 @@ export function readModulePlan(guideDir: string, module: PlanModule): ModulePlan
 export type LifecycleStage = 'concept' | 'sizing' | 'spec' | 'build';
 
 const LIFECYCLE_STAGES: readonly LifecycleStage[] = ['concept', 'sizing', 'spec', 'build'];
+
+/** Stages `stageState` derives; `launch` is scored but never inherited. */
+type ScoredStage = LifecycleStage | 'launch';
 
 export interface LabEnvironment {
   name: string;
@@ -1695,6 +1705,164 @@ export function checkPlatformFindings(labDir: string, platform: string): Platfor
   };
 }
 
+// -------------------------------------------------------- launch check
+
+/** Files `guides/<slug>/launch/` must carry. `enablement-brief.md` is optional. */
+const LAUNCH_REQUIRED = ['exec-summary.md', 'catalogue-description.md', 'social.md'] as const;
+
+/**
+ * The catalogue tile is a fixed-width field in someone else's system. A blurb
+ * that does not fit is not a style preference — it is truncated in front of a
+ * customer.
+ */
+export const MAX_SHORT_BLURB = 200;
+
+export interface LaunchCheck {
+  /** Absolute launch dir, whether or not it exists. */
+  dir: string;
+  exists: boolean;
+  files: string[];
+  missing: string[];
+  /** Lines still carrying an unfilled `<< FILL: … >>` marker (first 10). */
+  unfilled: string[];
+  /** Frontmatter problems in catalogue-description.md. */
+  problems: string[];
+  /**
+   * Where the collateral disagrees with the guide it describes — the check
+   * this gate exists for (ADR-017).
+   */
+  mismatches: string[];
+  shortBlurbLength: number;
+  ok: boolean;
+}
+
+/**
+ * Deterministic stage-5 gate (ADR-007/ADR-017): the launch collateral exists,
+ * is filled in, fits the catalogue's field, and **agrees with the guide it
+ * describes** — same ID, same title, same duration, same audience count.
+ *
+ * Whether the claims are true is `analytic/claim-traceability`'s job. Whether
+ * the collateral is describing this lab at all is decidable here, and drifting
+ * collateral is the failure that survives every review because nobody reads
+ * the two files side by side.
+ */
+export function checkLaunch(guideDir: string): LaunchCheck {
+  const dir = join(guideDir, 'launch');
+  const base: LaunchCheck = {
+    dir,
+    exists: false,
+    files: [],
+    missing: [...LAUNCH_REQUIRED],
+    unfilled: [],
+    problems: [],
+    mismatches: [],
+    shortBlurbLength: 0,
+    ok: false,
+  };
+  const files = listFiles(dir).filter((f) => f.endsWith('.md'));
+  if (files.length === 0) return base;
+
+  const missing = LAUNCH_REQUIRED.filter((f) => !files.includes(f));
+  const unfilled: string[] = [];
+  for (const f of files) {
+    try {
+      for (const line of readFileSync(join(dir, f), 'utf8').split(/\r?\n/)) {
+        if (line.includes('<< FILL: ')) unfilled.push(`${f}: ${line.trim()}`);
+      }
+    } catch {
+      /* unreadable file surfaces via `missing` instead */
+    }
+  }
+
+  const problems: string[] = [];
+  const mismatches: string[] = [];
+  let shortBlurbLength = 0;
+
+  const cataloguePath = join(dir, 'catalogue-description.md');
+  if (files.includes('catalogue-description.md')) {
+    let fm: Frontmatter | null = null;
+    try {
+      fm = parseFrontmatter(readFileSync(cataloguePath, 'utf8'));
+    } catch (e) {
+      problems.push(`catalogue-description.md frontmatter parse error: ${(e as Error).message}`);
+    }
+    if (fm === null && problems.length === 0) {
+      problems.push('catalogue-description.md has no frontmatter block');
+    }
+    if (fm) {
+      const data = fm.data;
+      const str = (k: string): string =>
+        typeof data[k] === 'string' ? String(data[k]).trim() : '';
+      const list = (k: string): string[] =>
+        Array.isArray(data[k])
+          ? (data[k] as unknown[]).filter(
+              (x): x is string => typeof x === 'string' && x.trim() !== '',
+            )
+          : [];
+
+      for (const key of ['id', 'title', 'short_blurb']) {
+        if (str(key) === '') problems.push(`catalogue-description.md: ${key} is required`);
+      }
+      const duration = data.duration_minutes;
+      if (typeof duration !== 'number' || !Number.isInteger(duration) || duration <= 0) {
+        problems.push('catalogue-description.md: duration_minutes must be a positive integer');
+      }
+      if (list('audience').length === 0) {
+        problems.push('catalogue-description.md: audience must be a non-empty list');
+      }
+      if (list('prerequisites').length === 0) {
+        problems.push(
+          'catalogue-description.md: prerequisites must be a non-empty list — "none" is an entry, not an omission',
+        );
+      }
+
+      const blurb = str('short_blurb');
+      shortBlurbLength = blurb.length;
+      if (blurb.length > MAX_SHORT_BLURB) {
+        problems.push(
+          `catalogue-description.md: short_blurb is ${blurb.length} characters, over the ${MAX_SHORT_BLURB}-character catalogue field`,
+        );
+      }
+
+      // ---- agreement with the guide (ADR-017) ----
+      const plan = readPlan(guideDir);
+      if (plan.exists) {
+        if (plan.id && str('id') !== '' && str('id') !== plan.id) {
+          mismatches.push(`id: collateral says ${str('id')}, plan.md says ${plan.id}`);
+        }
+        if (plan.title && str('title') !== '' && str('title') !== plan.title) {
+          mismatches.push(`title: collateral says "${str('title')}", plan.md says "${plan.title}"`);
+        }
+        if (
+          plan.durationMinutes !== null &&
+          typeof duration === 'number' &&
+          duration !== plan.durationMinutes
+        ) {
+          mismatches.push(
+            `duration_minutes: collateral says ${duration}, plan.md says ${plan.durationMinutes}`,
+          );
+        }
+      }
+    }
+  }
+
+  return {
+    dir,
+    exists: true,
+    files,
+    missing,
+    unfilled: unfilled.slice(0, 10),
+    problems,
+    mismatches,
+    shortBlurbLength,
+    ok:
+      missing.length === 0 &&
+      unfilled.length === 0 &&
+      problems.length === 0 &&
+      mismatches.length === 0,
+  };
+}
+
 // ------------------------------------------------------------------- QA
 
 export interface ParityCheck {
@@ -2145,7 +2313,8 @@ export interface LifecycleStatus {
   spec: StageState;
   build: BuildState;
   guide: GuideStageState;
-  ship: { platforms: string[]; launch: boolean };
+  /** Stage 5: platform reviews on file, and the launch collateral's state. */
+  ship: { platforms: string[]; launch: StageState };
 }
 
 export interface GuideStatus {
@@ -2417,14 +2586,16 @@ export function readGuideStatus(guideDir: string): GuideStatus {
   const holDir = join(guideDir, '.holagent');
   const conceptExists = existsSync(join(holDir, 'concept.md'));
   const sizingExists = existsSync(join(holDir, 'sizing.md'));
-  // A lab opts into the lifecycle by acquiring a concept, a sizing, or a
-  // registered lab repo. Guides that predate it stay on the old behaviour.
-  const engaged = conceptExists || sizingExists || labRef !== null;
+  const launchExists = existsSync(join(guideDir, 'launch'));
+  // A lab opts into the lifecycle by acquiring a concept, a sizing, a
+  // registered lab repo, or stage-5 collateral. Guides that predate it stay on
+  // the old behaviour.
+  const engaged = conceptExists || sizingExists || labRef !== null || launchExists;
   const adopted = new Set<LifecycleStage>(labRef?.adoptedStages ?? []);
 
-  const stageState = (stage: LifecycleStage, exists: boolean): StageState => {
+  const stageState = (stage: ScoredStage, exists: boolean): StageState => {
     if (!engaged) return 'n/a';
-    if (adopted.has(stage)) return 'adopted';
+    if (adopted.has(stage as LifecycleStage)) return 'adopted';
     if (!exists) return 'missing';
     const entries = scores.filter((e) => e.scope === stage);
     return entries.length > 0 && entries.every((e) => e.status === 'passed')
@@ -2475,7 +2646,7 @@ export function readGuideStatus(guideDir: string): GuideStatus {
     spec: stageState('spec', specExists),
     build,
     guide: guideStage,
-    ship: { platforms: platformFindings, launch: existsSync(join(guideDir, 'launch')) },
+    ship: { platforms: platformFindings, launch: stageState('launch', launchExists) },
   };
 
   // ---- next ---------------------------------------------------------------

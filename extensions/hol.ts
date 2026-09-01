@@ -14,6 +14,7 @@
  *   hol_parity     — execute lab-prep.md's verify checks against a DEV environment
  *   hol_qa_script  — render the same checks as a script for a human (never executes)
  *   hol_qa_record  — validated write of an asserted smoke / prod-e2e outcome
+ *   hol_launch_check — stage-5 gate: collateral is complete and agrees with the guide
  *
  * Commands (user-invoked, LLM-bypass — checked by pi before template
  * expansion, so no prompt template may reuse these names):
@@ -27,6 +28,7 @@ import { Type } from 'typebox';
 import {
   HolError,
   checkLabPrep,
+  checkLaunch,
   checkPlatformFindings,
   checkSpec,
   DEFAULT_EXEC_TIMEOUT_MS,
@@ -99,9 +101,11 @@ const STAGE_GLYPH: Record<string, string> = {
 function stageBar(lc: GuideStatus['lifecycle']): string {
   const cell = (label: string, state: string) => `${STAGE_GLYPH[state] ?? '?'} ${label}`;
   const ship =
-    lc.ship.platforms.length > 0 || lc.ship.launch
-      ? `${lc.ship.launch ? '✓' : '◐'} ship`
-      : '○ ship';
+    lc.ship.launch !== 'missing' && lc.ship.launch !== 'n/a'
+      ? cell('ship', lc.ship.launch)
+      : lc.ship.platforms.length > 0
+        ? '◐ ship'
+        : '○ ship';
   return [
     cell('concept', lc.concept),
     cell('sizing', lc.sizing),
@@ -649,6 +653,38 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
         `${record.checks.length} check(s) listed${failed.length > 0 ? `, ${failed.length} failed: ${failed.map((c) => c.name).join(', ')}` : ''}.`,
       ];
       return { content: [{ type: 'text', text: lines.join('\n') }], details: record };
+    },
+  });
+
+  pi.registerTool({
+    name: 'hol_launch_check',
+    label: 'hol_launch_check',
+    description:
+      "Deterministic stage-5 gate: the launch collateral in guides/<slug>/launch/ exists (exec-summary.md, catalogue-description.md, social.md), carries no unfilled << FILL: >> markers, has the catalogue frontmatter (id, title, duration_minutes, short_blurb within the 200-character catalogue field, audience, prerequisites), and — the check that matters — agrees with plan.md on ID, title and duration. Whether the claims are true is a rubric's job; whether the collateral is describing this lab at all is decided here.",
+    promptSnippet: 'Check the launch collateral for completeness and agreement with the guide',
+    parameters: Type.Object({
+      guideDir: optGuideDir(GUIDE_DIR_DESC),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<PiToolResult> {
+      const guideDir = resolveLabPath(
+        ctx.cwd,
+        typeof params.guideDir === 'string' ? params.guideDir : undefined,
+      );
+      const check = checkLaunch(guideDir);
+      const lines: string[] = [];
+      if (!check.exists) {
+        lines.push(`No launch collateral at ${check.dir} — run /hol-launch.`);
+      } else {
+        lines.push(`Launch check ${check.ok ? 'PASS' : 'FAIL'} — ${check.dir}`);
+        lines.push(`Files (${check.files.length}): ${check.files.join(', ')}`);
+        if (check.missing.length > 0) lines.push(`Missing: ${check.missing.join(', ')}`);
+        for (const m of check.mismatches) lines.push(`DISAGREES WITH THE GUIDE — ${m}`);
+        for (const p of check.problems) lines.push(`Problem — ${p}`);
+        for (const u of check.unfilled) lines.push(`Unfilled marker — ${u}`);
+        if (check.shortBlurbLength > 0)
+          lines.push(`short_blurb: ${check.shortBlurbLength} characters`);
+      }
+      return { content: [{ type: 'text', text: lines.join('\n') }], details: check };
     },
   });
 

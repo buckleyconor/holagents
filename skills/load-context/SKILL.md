@@ -26,6 +26,8 @@ Per-guide state under `guides/<slug>/`:
 - `.holagent/build/<slug>.json` — last recorded test run per build milestone
 - `.holagent/qa/parity.json` · `qa/smoke.json` · `qa/e2e-prod.json` — QA records
 - `.holagent/qa/verify-<env>.sh` — the rendered production verification script
+- `launch/` — stage-5 collateral (exec summary, catalogue description, social,
+  optional enablement brief)
 - `.holagent/scores.json` — scoring checkpoints
 - `.holagent/last-validation.json` — latest linter report
 
@@ -70,6 +72,8 @@ knows what is available.
 | `/hol-build-all`          | -                 | -                 | relevant only     | yes (sizing)      | -                 | -            | -                 | yes          |
 | `/hol-qa`                 | -                 | -                 | -                 | -                 | yes               | -            | -                 | yes          |
 | `/hol-qa-prod`            | -                 | -                 | -                 | -                 | -                 | -            | -                 | yes          |
+| `/hol-launch`             | yes               | yes               | relevant only     | yes               | yes               | -            | yes               | -            |
+| `/hol-review-launch`      | -                 | -                 | -                 | yes               | yes               | -            | yes               | yes          |
 | `/hol-plan`               | yes               | yes               | relevant only     | yes               | existing (extend) | -            | existing (extend) | -            |
 | `/hol-plan-module`        | -                 | -                 | relevant only     | -                 | yes               | prior        | -                 | -            |
 | `/hol-generate-module`    | yes               | yes               | relevant only     | -                 | yes               | this + prior | this + prior      | -            |

@@ -25,6 +25,7 @@ import {
   resolveDevEnvironment,
   resolveGuidePath,
   checkLabPrep,
+  checkLaunch,
   checkPlatformFindings,
   checkSpec,
   resolveLabPath,
@@ -347,7 +348,7 @@ test('T-87: every rubric is well-formed and names a known scope family', () => {
       else assert.ok(threshold >= 1 && threshold <= 5, `${where}: threshold out of range`);
     }
   }
-  assert.ok(seen >= 21, `expected the full rubric set, saw ${seen}`);
+  assert.ok(seen >= 23, `expected the full rubric set, saw ${seen}`);
 });
 
 test('T-88: the spec gate fails an empty open-questions section (ADR-007)', () => {
@@ -936,5 +937,162 @@ test('T-94: the prod path renders a script and never executes (ADR-012/ADR-016)'
     const st = readGuideStatus(lab);
     assert.equal(st.qa.smoke?.ok, true);
     assert.equal(st.lifecycle.build, 'smoke-passed');
+  });
+});
+
+test('T-95: the launch gate — collateral must be complete and agree with the guide (ADR-017)', () => {
+  withTmp((base) => {
+    const catalogue = (over: Record<string, string> = {}) => {
+      const fm: Record<string, string> = {
+        id: 'id: HOL-9999-01',
+        title: 'title: "Lifecycle Fixture"',
+        duration: 'duration_minutes: 30',
+        blurb:
+          "short_blurb: 'Restore a clean vault copy after a ransomware event, in thirty minutes.'",
+        ...over,
+      };
+      return [
+        '---',
+        fm.id,
+        fm.title,
+        fm.duration,
+        fm.blurb,
+        'audience:',
+        '  - "Backup administrators"',
+        'prerequisites:',
+        '  - "None"',
+        '---',
+        '',
+        '# Lifecycle Fixture',
+        '',
+        '## Abstract',
+        '',
+        'Real content.',
+        '',
+      ].join('\n');
+    };
+    const files = (over: Record<string, string> = {}) => ({
+      'guide.md': GUIDE_MD,
+      '.holagent/plan.md': PLAN_MD,
+      'launch/exec-summary.md': '# Exec summary\n\nThe problem, stated.\n',
+      'launch/catalogue-description.md': catalogue(),
+      'launch/social.md': '# Posts\n\nShort, medium, long.\n',
+      ...over,
+    });
+
+    let lab = makeLab(base, files(), 'launch-ok');
+    let c = checkLaunch(lab);
+    assert.equal(c.ok, true, `expected a pass: ${[...c.problems, ...c.mismatches].join('; ')}`);
+    assert.deepEqual(c.missing, []);
+    assert.deepEqual(c.mismatches, []);
+    assert.ok(c.shortBlurbLength > 0 && c.shortBlurbLength <= 200);
+
+    // the stage bar reflects it: drafted until the launch scope is scored
+    let st = readGuideStatus(lab);
+    assert.equal(st.lifecycle.ship.launch, 'drafted');
+
+    // a missing required file fails, and is named
+    lab = makeLab(base, files({ 'launch/social.md': '' }), 'no-social');
+    rmSync(join(lab, 'launch', 'social.md'));
+    c = checkLaunch(lab);
+    assert.equal(c.ok, false);
+    assert.deepEqual(c.missing, ['social.md']);
+
+    // ---- the checks this gate exists for: agreement with the guide ----
+    lab = makeLab(
+      base,
+      files({ 'launch/catalogue-description.md': catalogue({ id: 'id: HOL-1234-56' }) }),
+      'wrong-id',
+    );
+    c = checkLaunch(lab);
+    assert.equal(c.ok, false);
+    assert.ok(
+      c.mismatches.some((m) => m.startsWith('id:')),
+      c.mismatches.join('; '),
+    );
+
+    lab = makeLab(
+      base,
+      files({
+        'launch/catalogue-description.md': catalogue({ title: 'title: "A Different Lab"' }),
+      }),
+      'wrong-title',
+    );
+    assert.ok(checkLaunch(lab).mismatches.some((m) => m.startsWith('title:')));
+
+    lab = makeLab(
+      base,
+      files({ 'launch/catalogue-description.md': catalogue({ duration: 'duration_minutes: 90' }) }),
+      'wrong-duration',
+    );
+    c = checkLaunch(lab);
+    assert.equal(c.ok, false);
+    assert.ok(
+      c.mismatches.some((m) => m.includes('collateral says 90') && m.includes('plan.md says 30')),
+      c.mismatches.join('; '),
+    );
+
+    // the catalogue tile is a fixed-width field in someone else's system
+    const long = `short_blurb: '${'x'.repeat(201)}'`;
+    lab = makeLab(
+      base,
+      files({ 'launch/catalogue-description.md': catalogue({ blurb: long }) }),
+      'long-blurb',
+    );
+    c = checkLaunch(lab);
+    assert.equal(c.ok, false);
+    assert.equal(c.shortBlurbLength, 201);
+    assert.ok(c.problems.some((p) => p.includes('over the 200-character')));
+
+    // empty prerequisites is an omission, not an absence of prerequisites
+    const noPrereq = catalogue().replace(/prerequisites:\n  - "None"\n/, 'prerequisites: []\n');
+    lab = makeLab(base, files({ 'launch/catalogue-description.md': noPrereq }), 'no-prereq');
+    c = checkLaunch(lab);
+    assert.equal(c.ok, false);
+    assert.ok(c.problems.some((p) => p.includes('prerequisites')));
+
+    // leftover markers fail
+    lab = makeLab(
+      base,
+      files({ 'launch/exec-summary.md': '# Exec\n\n<< FILL: the problem >>\n' }),
+      'unfilled',
+    );
+    c = checkLaunch(lab);
+    assert.equal(c.ok, false);
+    assert.equal(c.unfilled.length, 1);
+
+    // no collateral at all is a clean "nothing to check"
+    const bare = makeLab(base, { 'guide.md': GUIDE_MD, '.holagent/plan.md': PLAN_MD }, 'no-launch');
+    c = checkLaunch(bare);
+    assert.equal(c.exists, false);
+    assert.equal(c.ok, false);
+    assert.equal(readGuideStatus(bare).lifecycle.ship.launch, 'n/a', 'not an engaged lab');
+
+    // and once the launch scope passes, the stage reads approved
+    lab = makeLab(
+      base,
+      {
+        ...files(),
+        '.holagent/concept.md': 'story',
+        '.holagent/scores.json': JSON.stringify({
+          version: 1,
+          entries: [
+            {
+              scope: 'launch',
+              rubric: 'checklist/launch-completeness',
+              kind: 'checklist',
+              status: 'passed',
+              score: 1,
+              rounds: 1,
+              findings: [],
+              updated_at: '2026-09-01T00:00:00Z',
+            },
+          ],
+        }),
+      },
+      'launch-approved',
+    );
+    st = readGuideStatus(lab);
+    assert.equal(st.lifecycle.ship.launch, 'approved');
   });
 });

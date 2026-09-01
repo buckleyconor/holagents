@@ -97,3 +97,8 @@ Corpus.md`) — and show the exact command:
   pipeline for this guide requires restoring `guide.md`."
   On decline: keep `guide.md` as-is; report the scorecard as the final
   review record.
+
+- **Either way, name what is left.** The guide is finished; stage 5 is not.
+  Point at `/hol-platform-check <platform>` (does this lab meet the platform
+  team's requirements?) and `/hol-launch` (the exec summary, catalogue
+  description and internal posts). `hol_status` reports both under `ship`.

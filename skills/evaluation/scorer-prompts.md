@@ -269,6 +269,36 @@ copied verbatim; finding null on pass, concrete location otherwise.
 
 ---
 
+## Template: `launch` scope
+
+```
+READ-ONLY scoring task — return findings only; do not edit or modify any file.
+Score the LAUNCH COLLATERAL below against the rubric «rubric-name».
+
+### Scoring guide
+«contents of scoring-guide.md, verbatim»
+
+### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
+«rubric file content, verbatim»
+
+### Scope label
+scope: launch
+
+### Content — collateral
+«every guides/<slug>/launch/*.md, each under a "### <filename>" sub-heading, verbatim»
+
+### Content — sources
+«full guide.md (or the released <ID>-<Title>.md), full .holagent/plan.md, full .holagent/sizing.md, full .holagent/concept.md when it exists, and lab-prep.md — each under its own sub-heading, verbatim. Traceability is unscoreable without them: a claim is untraceable when it cannot be located in these files, however plausible it sounds.»
+«when the lab was adopted and has no concept.md, say so explicitly here — the collateral is expected to name that gap rather than fill it»
+
+### Output contract
+End with exactly one fenced JSON block; no prose after it. criterion_text
+copied verbatim; finding null on pass, concrete location otherwise. Quote every
+untraceable claim verbatim in its finding.
+```
+
+---
+
 ## Fanout pattern (parent)
 
 One `runs.all` per scoring phase; stable keys = rubric names:
@@ -320,6 +350,7 @@ nothing malformed reaches `scores.json`.
 | `module-<NN-slug>` | `checklist/module-completeness` (1.0), `analytic/step-clarity` (4), `analytic/technical-accuracy` (4), `holistic/module-quality` (4)  |
 | `guide`            | `checklist/guide-completeness` (1.0), `analytic/terminology-consistency` (4), `holistic/guide-quality` (4)                            |
 | `build-<slug>`     | `checklist/milestone-completeness` (1.0), `analytic/spec-fidelity` (4)                                                                |
+| `launch`           | `checklist/launch-completeness` (1.0), `analytic/claim-traceability` (4)                                                              |
 | `platform-<name>`  | `checklist/platform-coverage` (1.0), `analytic/finding-actionability` (4)                                                             |
 
 (Thresholds in parentheses are the rubric frontmatter defaults at v1; the
@@ -340,7 +371,11 @@ is never scored, because the scorecard would be an opinion about code that
 does not work. `platform-<name>` at `/hol-platform-check`,
 behind the deterministic `hol_platform_findings` gate — there is no separate
 re-review command, because a review scores the lab as it was that day and
-re-scoring stale findings answers nothing; re-run the check instead.
+re-scoring stale findings answers nothing; re-run the check instead. `launch` at
+`/hol-launch`, behind the deterministic `hol_launch_check` gate (re-review at
+`/hol-review-launch`, which is worth running after any hand-edit and after the
+guide changes — a guide whose duration or title moved leaves the collateral
+describing something that no longer exists).
 
 ## Fix loop and caps (parent procedure)
 

@@ -71,6 +71,7 @@ test('extension loads and registers the deterministic surface', async () => {
 
   assert.deepEqual(tools.map((t) => t.name).sort(), [
     'hol_build_test',
+    'hol_launch_check',
     'hol_parity',
     'hol_platform_findings',
     'hol_prep_check',

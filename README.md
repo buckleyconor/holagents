@@ -53,6 +53,11 @@ between stages; every command re-detects state and resumes.
    order.)
 6. `/hol-review-guide` — guide-scope scoring (3 rubrics); on an all-passing
    scorecard it offers the final rename (you confirm — ADR-005).
+7. `/hol-launch` — `launch-writer` → `launch/exec-summary.md`,
+   `catalogue-description.md`, `social.md` (+ `--brief` for the SE talk track)
+   → `hol_launch_check` → launch scoring → your approval. The catalogue's ID,
+   title and duration are checked against `plan.md`, and every claim has to
+   trace to the guide, plan, sizing or concept (ADR-017).
 
 **Adopting an existing lab.** Most HOL environments already exist and have no
 spec documents. `/hol-adopt <slug> --repo <path>` enters the lifecycle at the
@@ -98,6 +103,8 @@ or an unambiguous title fragment; ambiguous input lists available modules.
 | `/hol-build-all`          | `[--fresh]`                  | State detection via `hol_build_test`; runs the milestone pipeline in build order; a failing test stops the run                                                              | pi-subagents                              |
 | `/hol-qa`                 | `--env <dev>`                | `hol_parity` executes `lab-prep.md`'s verify checks against a **dev** environment → `qa-runner` brings the lab up and exercises it → smoke record + dry-run material        | pi-subagents                              |
 | `/hol-qa-prod`            | `--env <prod>`               | Renders the same checks as a read-only script + human checklist; **executes nothing** — you run it, it records the outcome (ADR-012/016)                                    | —                                         |
+| `/hol-launch`             | `[--brief]`                  | `launch-writer` → `launch/` (exec summary, catalogue description, social, optional SE brief) → `hol_launch_check` gate → launch scoring (2 rubrics) → approval (ADR-017)    | pi-subagents                              |
+| `/hol-review-launch`      | —                            | Deterministic launch check + launch-scope (2 rubrics) re-score → scorecard, quoting every untraceable claim                                                                 | pi-subagents                              |
 | `/hol-review-spec`        | —                            | Deterministic spec check + spec-scope (3 rubrics) re-score → scorecard                                                                                                      | pi-subagents                              |
 | `/hol-plan`               | `[topic]`                    | Interview → `guide-planner` → plan scoring fanout → approval loop → `plan.md` + `lab-prep.md`                                                                               | pi-subagents                              |
 | `/hol-plan-module`        | `<module>`                   | `module-planner` → module plan file → light scoring (2 rubrics)                                                                                                             | pi-subagents                              |
@@ -114,9 +121,9 @@ or an unambiguous title fragment; ambiguous input lists available modules.
 
 The extension also registers the LLM-callable tools `hol_validate`,
 `hol_status`, `hol_scores`, `hol_spec_check`, `hol_prep_check`,
-`hol_platform_findings`, `hol_build_test`, `hol_parity`, `hol_qa_script`, and
-`hol_qa_record` — the same deterministic core that the prompt templates call
-(ADR-007).
+`hol_platform_findings`, `hol_build_test`, `hol_parity`, `hol_qa_script`,
+`hol_qa_record`, and `hol_launch_check` — the same deterministic core that the
+prompt templates call (ADR-007).
 
 ## Workflow notes
 
@@ -157,20 +164,25 @@ reader should see> >>` placeholders — one per item in the module plan's
 guides/<slug>/                      # one lab
 ├── guide.md                        # canonical during the pipeline (final: <ID>-<Title>.md)
 ├── lab-prep.md                     # environment contract (frontmatter + tables, ADR-011)
-└── .holagent/
-    ├── concept.md                  # stage 1 — story, personas, beats, aha moment
-    ├── sizing.md                   # stage 1 — footprint, reductions, density
-    ├── lab-ref.json                # pointer to the lab's own repo (ADR-008), when registered
-    ├── plan.md                     # guide plan (frontmatter + sections)
-    ├── <NN-slug>/plan.md           # per-module plan (frontmatter + sections)
-    ├── build/<slug>.json           # last test run per build milestone (ADR-015)
-    ├── qa/parity.json              # last dev parity run (ADR-016)
-    ├── qa/smoke.json               # dev bring-up outcome — moves build to smoke-passed
-    ├── qa/e2e-prod.json            # what a human reported after the prod script
-    ├── qa/verify-<env>.sh          # the rendered production verification script
-    ├── platform/<name>.json        # platform review findings (ADR-014)
-    ├── scores.json                 # scoring checkpoints (atomic writes)
-    └── last-validation.json        # latest linter report
+├── .holagent/
+│   ├── concept.md                  # stage 1 — story, personas, beats, aha moment
+│   ├── sizing.md                   # stage 1 — footprint, reductions, density
+│   ├── lab-ref.json                # pointer to the lab's own repo (ADR-008), when registered
+│   ├── plan.md                     # guide plan (frontmatter + sections)
+│   ├── <NN-slug>/plan.md           # per-module plan (frontmatter + sections)
+│   ├── build/<slug>.json           # last test run per build milestone (ADR-015)
+│   ├── qa/parity.json              # last dev parity run (ADR-016)
+│   ├── qa/smoke.json               # dev bring-up outcome — moves build to smoke-passed
+│   ├── qa/e2e-prod.json            # what a human reported after the prod script
+│   ├── qa/verify-<env>.sh          # the rendered production verification script
+│   ├── platform/<name>.json        # platform review findings (ADR-014)
+│   ├── scores.json                 # scoring checkpoints (atomic writes)
+│   └── last-validation.json        # latest linter report
+└── launch/                         # stage 5b collateral (ADR-017)
+    ├── exec-summary.md             # the business case, one page
+    ├── catalogue-description.md    # catalogue entry — frontmatter checked against plan.md
+    ├── social.md                   # internal announcement posts
+    └── enablement-brief.md         # optional: the SE talk track
 ```
 
 Write confinement: the package writes only under `~/.holagent/` (or

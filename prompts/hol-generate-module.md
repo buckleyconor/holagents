@@ -43,7 +43,14 @@ Follow the steps in order. Stop and report at the first hard failure.
 
 ## 3. Dry-run material (parent captures verbatim outputs)
 
-If the module's commands can be exercised locally (cross-check
+**Look for a QA run first.** If `.holagent/qa/smoke.json` records a passing
+run, the `qa-runner` already exercised this lab on a real, parity-verified dev
+environment and returned verbatim output grouped by module. That material is
+better than anything captured here — it came from the environment the guide is
+actually written against. Use it, and note in the payload that it is from
+`/hol-qa` on `<env>` at `<date>` rather than from this machine.
+
+Otherwise, if the module's commands can be exercised locally (cross-check
 `lab-prep.md`'s preloaded list against what is present on this machine):
 
 - Establish the `depends_on` end states first, then run this module's
@@ -52,7 +59,9 @@ If the module's commands can be exercised locally (cross-check
   done, leave the environment as found (containers stopped, ports free).
 - If the lab environment is not available locally, **skip this step**: the
   implementer names the signal instead of verbatim output (the module-plan
-  template's "not known yet — capture during the dry run" path).
+  template's "not known yet — capture during the dry run" path). When there is a
+  dev environment registered but no QA run, `/hol-qa --env <dev>` is the way to
+  get real output instead of a named signal.
 
 Never run commands that mutate shared state outside a throwaway resource.
 

@@ -24,6 +24,8 @@ Per-guide state under `guides/<slug>/`:
 - `.holagent/<NN-slug>/plan.md` — per-module plan
 - `.holagent/lab-ref.json` — pointer to the lab's own repo, its environments and platforms
 - `.holagent/build/<slug>.json` — last recorded test run per build milestone
+- `.holagent/qa/parity.json` · `qa/smoke.json` · `qa/e2e-prod.json` — QA records
+- `.holagent/qa/verify-<env>.sh` — the rendered production verification script
 - `.holagent/scores.json` — scoring checkpoints
 - `.holagent/last-validation.json` — latest linter report
 
@@ -66,6 +68,8 @@ knows what is available.
 | `/hol-platform-check`     | -                 | -                 | -                 | yes (sizing)      | -                 | -            | -                 | yes          |
 | `/hol-build`              | -                 | -                 | relevant only     | yes (sizing)      | -                 | -            | -                 | yes          |
 | `/hol-build-all`          | -                 | -                 | relevant only     | yes (sizing)      | -                 | -            | -                 | yes          |
+| `/hol-qa`                 | -                 | -                 | -                 | -                 | yes               | -            | -                 | yes          |
+| `/hol-qa-prod`            | -                 | -                 | -                 | -                 | -                 | -            | -                 | yes          |
 | `/hol-plan`               | yes               | yes               | relevant only     | yes               | existing (extend) | -            | existing (extend) | -            |
 | `/hol-plan-module`        | -                 | -                 | relevant only     | -                 | yes               | prior        | -                 | -            |
 | `/hol-generate-module`    | yes               | yes               | relevant only     | -                 | yes               | this + prior | this + prior      | -            |

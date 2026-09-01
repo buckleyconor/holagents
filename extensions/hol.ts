@@ -11,6 +11,9 @@
  *   hol_prep_check — the lab-prep.md environment contract is complete + runnable
  *   hol_platform_findings — platform review findings are shaped, traced, actionable
  *   hol_build_test — stage-3 gate: run one milestone's declared test in the lab repo
+ *   hol_parity     — execute lab-prep.md's verify checks against a DEV environment
+ *   hol_qa_script  — render the same checks as a script for a human (never executes)
+ *   hol_qa_record  — validated write of an asserted smoke / prod-e2e outcome
  *
  * Commands (user-invoked, LLM-bypass — checked by pi before template
  * expansion, so no prompt template may reuse these names):
@@ -32,9 +35,12 @@ import {
   mergeScores,
   readBuildSequence,
   readGuideStatus,
+  recordQaResult,
+  renderQaScript,
   readScores,
   resolveMilestoneSelector,
   runBuildTest,
+  runParity,
   removeScoresByScope,
   resolveGuidePath,
   resolveLabPath,
@@ -137,6 +143,18 @@ function statusText(status: GuideStatus): string {
   } else if (status.lifecycle.engaged && status.build.errors.length > 0) {
     lines.push(`Milestones: none readable — ${status.build.errors[0]}`);
   }
+  const qaLine = [
+    status.qa.parity
+      ? `parity ${status.qa.parity.ok ? 'ok' : 'FAILED'} on ${status.qa.parity.env} (${status.qa.parity.passed}/${status.qa.parity.passed + status.qa.parity.failed})`
+      : null,
+    status.qa.smoke
+      ? `smoke ${status.qa.smoke.ok ? 'ok' : 'FAILED'} on ${status.qa.smoke.env}`
+      : null,
+    status.qa.prod
+      ? `prod e2e ${status.qa.prod.ok ? 'ok' : 'FAILED'} on ${status.qa.prod.env}`
+      : null,
+  ].filter((x): x is string => x !== null);
+  if (qaLine.length > 0) lines.push(`QA: ${qaLine.join(' · ')}`);
   lines.push(
     `Plan: ${status.plan.exists ? `${status.plan.moduleCount} modules, ${status.plan.objectives} objectives` : 'missing (run /hol-plan)'}`,
     'Modules:',
@@ -501,6 +519,135 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
       if (record.stdout.trim()) lines.push('--- stdout (tail) ---', record.stdout.trimEnd());
       if (record.stderr.trim()) lines.push('--- stderr (tail) ---', record.stderr.trimEnd());
       lines.push(`Recorded: .holagent/build/${record.milestone}.json`);
+      return { content: [{ type: 'text', text: lines.join('\n') }], details: record };
+    },
+  });
+
+  pi.registerTool({
+    name: 'hol_parity',
+    label: 'hol_parity',
+    description:
+      'Execute the environment contract: run every `verify` check in lab-prep.md against a named DEV environment and record .holagent/qa/parity.json (ADR-011). Refuses any environment whose kind is not dev — there is no override (ADR-012); use hol_qa_script for anything else. Runs the checks the author declared and nothing composed here: what the contract declares but no check covers is reported as a coverage warning, not invented into a check.',
+    promptSnippet: "Run lab-prep.md's verify checks against a dev environment and record parity",
+    parameters: Type.Object({
+      guideDir: optGuideDir(GUIDE_DIR_DESC),
+      env: Type.String({
+        description: 'Environment name from lab-ref.json. Must be a dev environment (ADR-012).',
+      }),
+      timeoutMs: Type.Optional(
+        Type.Integer({
+          description: `Per-check timeout in milliseconds (default ${DEFAULT_EXEC_TIMEOUT_MS}, capped at 900000). A killed check counts as a failure.`,
+        }),
+      ),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<PiToolResult> {
+      const labDir = resolveLabPath(
+        ctx.cwd,
+        typeof params.guideDir === 'string' ? params.guideDir : undefined,
+      );
+      const record = runParity(
+        labDir,
+        String(params.env ?? ''),
+        typeof params.timeoutMs === 'number' ? params.timeoutMs : undefined,
+      );
+      const lines = [
+        `Parity ${record.ok ? 'PASS' : 'FAIL'} — ${record.env}${record.endpoint ? ` (${record.endpoint})` : ''}: ${record.summary.passed}/${record.summary.total} checks passed.`,
+      ];
+      for (const c of record.checks) {
+        lines.push(
+          `[${c.n}] ${c.ok ? 'pass' : c.timedOut ? 'FAIL (timed out)' : `FAIL (exit ${c.exitCode ?? '—'})`} — \`${c.check}\` (expect: ${c.expect})`,
+        );
+        if (!c.ok) {
+          if (c.stdout.trim())
+            lines.push(`      stdout: ${c.stdout.trim().split('\n').slice(-3).join(' | ')}`);
+          if (c.stderr.trim())
+            lines.push(`      stderr: ${c.stderr.trim().split('\n').slice(-3).join(' | ')}`);
+        }
+      }
+      const gaps = [
+        ...record.coverage.endpoints.map((e) => `endpoint ${e}`),
+        ...record.coverage.artifacts.map((a) => `artifact ${a}`),
+        ...record.coverage.software.map((s) => `software ${s}`),
+      ];
+      for (const g of gaps) lines.push(`warning: declared but no verify check covers it — ${g}`);
+      lines.push('Recorded: .holagent/qa/parity.json');
+      return { content: [{ type: 'text', text: lines.join('\n') }], details: record };
+    },
+  });
+
+  pi.registerTool({
+    name: 'hol_qa_script',
+    label: 'hol_qa_script',
+    description:
+      "Render lab-prep.md's verify checks as a self-contained read-only bash script plus a human checklist, and write it to .holagent/qa/verify-<env>.sh. Executes nothing — this is the production path, and production verification is a human act (ADR-012). Works for any environment in lab-ref.json, dev or prod, and reads the same checks hol_parity executes so the two cannot drift.",
+    promptSnippet: 'Render the environment contract as a verification script for a human to run',
+    parameters: Type.Object({
+      guideDir: optGuideDir(GUIDE_DIR_DESC),
+      env: Type.String({ description: 'Environment name from lab-ref.json (dev or prod).' }),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<PiToolResult> {
+      const labDir = resolveLabPath(
+        ctx.cwd,
+        typeof params.guideDir === 'string' ? params.guideDir : undefined,
+      );
+      const out = renderQaScript(labDir, String(params.env ?? ''));
+      const lines = [
+        `Verification script for ${out.env} (${out.kind}) written to ${out.path}.`,
+        'Nothing was executed. Run it yourself against that environment and report the summary line back.',
+        ...(out.checklist.length > 0
+          ? [
+              'Manual checklist — declared in lab-prep.md but no verify check covers it:',
+              ...out.checklist.map((c) => `  - ${c}`),
+            ]
+          : ['Every declared endpoint, artifact and software entry is covered by a verify check.']),
+        '--- script ---',
+        out.script,
+      ];
+      return { content: [{ type: 'text', text: lines.join('\n') }], details: out };
+    },
+  });
+
+  pi.registerTool({
+    name: 'hol_qa_record',
+    label: 'hol_qa_record',
+    description:
+      'Record an asserted QA outcome to .holagent/qa/smoke.json (dev bring-up) or .holagent/qa/e2e-prod.json (what a human reports after running the rendered script). Validated and atomic: the environment must exist in lab-ref.json and its kind must match the record — a production end-to-end result cannot be filed against a dev environment, or the reverse. smoke.json with ok:true is what moves the build stage to smoke-passed.',
+    promptSnippet: 'Record a smoke or production end-to-end QA outcome',
+    parameters: Type.Object({
+      guideDir: optGuideDir(GUIDE_DIR_DESC),
+      kind: StringEnum(['smoke', 'e2e-prod'], {
+        description:
+          'smoke: the dev bring-up result. e2e-prod: the outcome a human reports after running the /hol-qa-prod script against production.',
+      }),
+      env: Type.String({ description: 'Environment name from lab-ref.json.' }),
+      ok: Type.Boolean({ description: 'Did it pass? Must agree with the checks listed below.' }),
+      checks: Type.Optional(
+        Type.Array(
+          Type.Object({
+            name: Type.String(),
+            ok: Type.Boolean(),
+            note: Type.Optional(Type.String()),
+          }),
+        ),
+      ),
+      notes: Type.Optional(Type.String({ description: 'Anything the checks do not carry.' })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<PiToolResult> {
+      const labDir = resolveLabPath(
+        ctx.cwd,
+        typeof params.guideDir === 'string' ? params.guideDir : undefined,
+      );
+      const record = recordQaResult(labDir, params.kind as 'smoke' | 'e2e-prod', {
+        env: String(params.env ?? ''),
+        ok: params.ok as boolean,
+        checks: params.checks as { name: string; ok: boolean; note?: string }[] | undefined,
+        notes: typeof params.notes === 'string' ? params.notes : undefined,
+      });
+      const failed = record.checks.filter((c) => !c.ok);
+      const lines = [
+        `Recorded ${record.kind} ${record.ok ? 'PASS' : 'FAIL'} for ${record.env} at ${record.at} — .holagent/qa/${record.kind}.json`,
+        `${record.checks.length} check(s) listed${failed.length > 0 ? `, ${failed.length} failed: ${failed.map((c) => c.name).join(', ')}` : ''}.`,
+      ];
       return { content: [{ type: 'text', text: lines.join('\n') }], details: record };
     },
   });

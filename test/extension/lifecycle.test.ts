@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -9,8 +17,11 @@ import {
   listPlatformFindings,
   readBuildSequence,
   readLabRef,
+  recordQaResult,
+  renderQaScript,
   resolveMilestoneSelector,
   runBuildTest,
+  runParity,
   resolveDevEnvironment,
   resolveGuidePath,
   checkLabPrep,
@@ -743,5 +754,187 @@ test("T-92: the build gate runs the milestone's own test and records the result"
       'E-ARG',
       /no lab-ref\.json/,
     );
+  });
+});
+
+/** A lab with a registered dev+prod pair and a runnable environment contract. */
+function makeQaLab(base: string, verify: string, name = 'qa-lab'): string {
+  const prep = [
+    '---',
+    "baseline: 'Ubuntu 24.04 container'",
+    'software:',
+    "  - { name: Qdrant, version: '1.12.4', where: /opt/qdrant }",
+    'credentials: []',
+    'endpoints:',
+    "  - { url: 'http://localhost:6333', purpose: 'Qdrant REST' }",
+    'artifacts:',
+    "  - { path: /lab/corpus.json, purpose: 'document corpus' }",
+    "network: 'fully pre-wired'",
+    'verify:',
+    verify,
+    '---',
+    '',
+    '# Lab prep',
+    '',
+  ].join('\n');
+  return makeLab(
+    base,
+    {
+      'lab-prep.md': prep,
+      '.holagent/lab-ref.json': JSON.stringify({
+        repo: join(base, `${name}-repo`),
+        spec_dir: 'spec',
+        origin: 'generated',
+        environments: [
+          { name: 'dev-gb10', kind: 'dev', endpoint: 'https://dev.example' },
+          { name: 'prod-k8s', kind: 'prod', endpoint: 'https://prod.example' },
+        ],
+      }),
+    },
+    name,
+  );
+}
+
+test('T-93: parity executes the contract against dev, and refuses everything else (ADR-012)', () => {
+  withTmp((base) => {
+    const lab = makeQaLab(
+      base,
+      [
+        "  - { check: 'true', expect: 'exit 0' }",
+        "  - { check: 'grep -q 6333 lab-prep.md', expect: 'port declared' }",
+      ].join('\n'),
+    );
+
+    const rec = runParity(lab, 'dev-gb10');
+    assert.equal(rec.ok, true, 'both declared checks pass');
+    assert.equal(rec.summary.total, 2);
+    assert.equal(rec.summary.passed, 2);
+    assert.equal(rec.env, 'dev-gb10');
+    assert.equal(rec.endpoint, 'https://dev.example');
+    assert.equal(rec.checks[0]!.expect, 'exit 0', 'expect is recorded verbatim, never judged');
+    const onDisk = JSON.parse(
+      readFileSync(join(lab, '.holagent', 'qa', 'parity.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    assert.equal(onDisk.ok, true);
+
+    // the second check mentions 6333, so the endpoint is covered; nothing
+    // mentions the artifact path or the software, so those are warnings
+    assert.deepEqual(rec.coverage.endpoints, [], 'port 6333 is exercised by a check');
+    assert.deepEqual(rec.coverage.artifacts, ['/lab/corpus.json']);
+    assert.deepEqual(rec.coverage.software, ['Qdrant']);
+
+    // a coverage gap warns; it never fails parity, and never becomes a check
+    // this package invented
+    assert.equal(rec.ok, true);
+
+    let st = readGuideStatus(lab);
+    assert.equal(st.qa.parity?.ok, true);
+    assert.equal(st.qa.parity?.env, 'dev-gb10');
+
+    // a broken contract entry is what parity is for
+    const broken = makeQaLab(
+      base,
+      "  - { check: 'test -e /definitely/not/here', expect: 'artifact present' }",
+      'broken',
+    );
+    const bad = runParity(broken, 'dev-gb10');
+    assert.equal(bad.ok, false);
+    assert.equal(bad.summary.failed, 1);
+    assert.notEqual(bad.checks[0]!.exitCode, 0);
+
+    // ADR-012: prod is refused, and there is no parameter that changes that
+    assertHolError(() => runParity(lab, 'prod-k8s'), 'E-ARG', /only dev environments/);
+    assertHolError(() => runParity(lab, 'nope'), 'E-ARG', /unknown environment/);
+    assert.equal(
+      Object.keys(runParity).length + runParity.length,
+      3,
+      'runParity takes (labDir, env, timeoutMs) — no override argument exists',
+    );
+
+    // a contract with nothing to verify, or with a check that would hang,
+    // is refused before anything runs
+    const empty = makeQaLab(base, "  - { check: '', expect: 'x' }", 'empty');
+    assertHolError(() => runParity(empty, 'dev-gb10'), 'E-ARG', /verify/);
+    const hangs = makeQaLab(base, "  - { check: 'watch docker ps', expect: 'running' }", 'hangs');
+    assertHolError(() => runParity(hangs, 'dev-gb10'), 'E-ARG', /cannot run unattended/);
+
+    // a timed-out check is a failed check
+    const slow = makeQaLab(base, "  - { check: 'sleep 5', expect: 'quick' }", 'slow');
+    const killed = runParity(slow, 'dev-gb10', 1000);
+    assert.equal(killed.ok, false);
+    assert.equal(killed.checks[0]!.timedOut, true);
+  });
+});
+
+test('T-94: the prod path renders a script and never executes (ADR-012/ADR-016)', () => {
+  withTmp((base) => {
+    const lab = makeQaLab(
+      base,
+      [
+        "  - { check: 'curl -sf http://localhost:6333/healthz', expect: 'HTTP 200' }",
+        "  - { check: 'test -e /lab/corpus.json', expect: 'corpus present' }",
+      ].join('\n'),
+      'prod-lab',
+    );
+
+    // the prod environment, which parity refuses, is exactly what renders
+    const out = renderQaScript(lab, 'prod-k8s');
+    assert.equal(out.kind, 'prod');
+    assert.match(out.script, /^#!\/usr\/bin\/env bash/);
+    assert.match(out.script, /curl -sf http:\/\/localhost:6333\/healthz/);
+    assert.match(out.script, /test -e \/lab\/corpus\.json/);
+    assert.match(out.script, /HTTP 200/);
+    assert.ok(existsSync(out.path), 'the script is written for the human to run');
+    assert.match(String(out.path), /verify-prod-k8s\.sh$/);
+
+    // the checklist carries what no check covers — here, the software row
+    assert.ok(
+      out.checklist.some((c) => c.includes('Qdrant')),
+      out.checklist.join('; '),
+    );
+    assert.ok(!out.checklist.some((c) => c.includes('corpus.json')), 'covered by a check');
+
+    // dev renders too: the same reader, so the script and parity cannot drift
+    assert.equal(renderQaScript(lab, 'dev-gb10').kind, 'dev');
+    assertHolError(() => renderQaScript(lab, 'nope'), 'E-ARG', /unknown environment/);
+
+    // recording: kind and environment kind must agree
+    const rec = recordQaResult(lab, 'e2e-prod', {
+      env: 'prod-k8s',
+      ok: true,
+      checks: [{ name: 'healthz', ok: true }],
+      notes: 'run by hand',
+    });
+    assert.equal(rec.ok, true);
+    assert.equal(rec.env, 'prod-k8s');
+    assert.equal(readGuideStatus(lab).qa.prod?.ok, true);
+
+    assertHolError(
+      () => recordQaResult(lab, 'e2e-prod', { env: 'dev-gb10', ok: true }),
+      'E-ARG',
+      /belongs to a prod environment/,
+    );
+    assertHolError(
+      () => recordQaResult(lab, 'smoke', { env: 'prod-k8s', ok: true }),
+      'E-ARG',
+      /belongs to a dev environment/,
+    );
+    assertHolError(
+      () =>
+        recordQaResult(lab, 'smoke', {
+          env: 'dev-gb10',
+          ok: true,
+          checks: [{ name: 'ingest', ok: false }],
+        }),
+      'E-ARG',
+      /ok is true but a listed check failed/,
+    );
+
+    // a passing smoke record is what moves the build stage
+    assert.notEqual(readGuideStatus(lab).lifecycle.build, 'smoke-passed');
+    recordQaResult(lab, 'smoke', { env: 'dev-gb10', ok: true, checks: [{ name: 'up', ok: true }] });
+    const st = readGuideStatus(lab);
+    assert.equal(st.qa.smoke?.ok, true);
+    assert.equal(st.lifecycle.build, 'smoke-passed');
   });
 });

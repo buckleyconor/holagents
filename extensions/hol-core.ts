@@ -7,6 +7,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -1694,6 +1695,398 @@ export function checkPlatformFindings(labDir: string, platform: string): Platfor
   };
 }
 
+// ------------------------------------------------------------------- QA
+
+export interface ParityCheck {
+  n: number;
+  check: string;
+  expect: string;
+  ok: boolean;
+  exitCode: number | null;
+  timedOut: boolean;
+  durationMs: number;
+  stdout: string;
+  stderr: string;
+}
+
+/** Declared contract items no `verify` check so much as mentions. */
+export interface ParityCoverage {
+  endpoints: string[];
+  artifacts: string[];
+  software: string[];
+}
+
+export interface ParityRecord {
+  version: 1;
+  env: string;
+  endpoint: string | null;
+  at: string;
+  checks: ParityCheck[];
+  coverage: ParityCoverage;
+  summary: { total: number; passed: number; failed: number };
+  /** Every declared check passed. Coverage gaps warn; they do not fail. */
+  ok: boolean;
+}
+
+/** `lab-prep.md` rows, as the QA side needs them. */
+interface PrepRows {
+  verify: Array<{ check: string; expect: string }>;
+  endpoints: Array<{ url: string; purpose: string }>;
+  artifacts: Array<{ path: string; purpose: string }>;
+  software: Array<{ name: string; version: string; where: string }>;
+  baseline: string;
+}
+
+function rowStrings(data: FmMap, key: string, fields: readonly string[]): Record<string, string>[] {
+  const raw = data[key];
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((r): r is FmMap => typeof r === 'object' && r !== null && !Array.isArray(r))
+    .map((r) => {
+      const out: Record<string, string> = {};
+      for (const f of fields) out[f] = typeof r[f] === 'string' ? String(r[f]).trim() : '';
+      return out;
+    });
+}
+
+/**
+ * The single reader both QA paths go through. `hol_parity` executes what it
+ * returns against a dev environment; `hol_qa_script` renders the same list as
+ * a script for a human to run elsewhere. One reader means the executed checks
+ * and the production checklist cannot drift apart (ADR-016).
+ */
+function readPrepRows(labDir: string): PrepRows {
+  const text = readFileSync(join(labDir, 'lab-prep.md'), 'utf8');
+  const fm = parseFrontmatter(text);
+  const data = fm?.data ?? {};
+  return {
+    baseline: typeof data.baseline === 'string' ? data.baseline : '',
+    verify: rowStrings(data, 'verify', ['check', 'expect']) as PrepRows['verify'],
+    endpoints: rowStrings(data, 'endpoints', ['url', 'purpose']) as PrepRows['endpoints'],
+    artifacts: rowStrings(data, 'artifacts', ['path', 'purpose']) as PrepRows['artifacts'],
+    software: rowStrings(data, 'software', ['name', 'version', 'where']) as PrepRows['software'],
+  };
+}
+
+/** Tokens that would count as "this check exercises that declared item". */
+function coverageTokens(kind: keyof ParityCoverage, row: Record<string, string>): string[] {
+  if (kind === 'endpoints') {
+    const url = row.url ?? '';
+    const noScheme = url.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
+    const port = url.match(/:(\d{2,5})(?:\/|$)/)?.[1] ?? '';
+    return [url, noScheme, port].filter((t) => t.length >= 2);
+  }
+  if (kind === 'artifacts') {
+    const path = row.path ?? '';
+    return [path, path.split('/').filter(Boolean).pop() ?? ''].filter((t) => t.length >= 2);
+  }
+  return [row.name ?? '', row.version ?? ''].filter((t) => t.length >= 2);
+}
+
+/**
+ * What the contract declares but nothing checks. Reported as a warning, never
+ * as a synthesized check: `hol_parity` runs the checks the author wrote and
+ * nothing it composed itself, because only the author knows whether the QA
+ * host can reach a given path or port (ADR-016).
+ */
+function parityCoverage(rows: PrepRows): ParityCoverage {
+  const commands = rows.verify.map((v) => v.check.toLowerCase());
+  const uncovered = (kind: keyof ParityCoverage, list: Record<string, string>[], label: string) =>
+    list
+      .filter(
+        (row) =>
+          !coverageTokens(kind, row).some((t) => commands.some((c) => c.includes(t.toLowerCase()))),
+      )
+      .map((row) => row[label] ?? '')
+      .filter((s) => s !== '');
+  return {
+    endpoints: uncovered('endpoints', rows.endpoints, 'url'),
+    artifacts: uncovered('artifacts', rows.artifacts, 'path'),
+    software: uncovered('software', rows.software, 'name'),
+  };
+}
+
+/** Shared precondition: the contract must be readable and runnable. */
+function parityRows(labDir: string): PrepRows {
+  const prep = checkLabPrep(labDir);
+  if (!prep.exists) {
+    throw new HolError('E-READ', `E-READ: no lab-prep.md at ${prep.path} — nothing to verify`);
+  }
+  if (!prep.parsed) {
+    throw new HolError('E-READ', `E-READ: lab-prep.md ${prep.parseError}`);
+  }
+  const rows = readPrepRows(labDir);
+  if (rows.verify.length === 0) {
+    throw new HolError(
+      'E-ARG',
+      'E-ARG: lab-prep.md declares no verify checks — there is nothing to prove about this lab',
+    );
+  }
+  const blank = rows.verify
+    .map((v, i) => (v.check === '' || v.expect === '' ? `verify[${i}]` : null))
+    .filter((x): x is string => x !== null);
+  if (blank.length > 0) {
+    throw new HolError(
+      'E-ARG',
+      `E-ARG: lab-prep.md has verify entries with an empty check or expect (${blank.join(', ')}) — ` +
+        'run hol_prep_check and fix the contract before verifying against it',
+    );
+  }
+  if (prep.unrunnable.length > 0) {
+    throw new HolError(
+      'E-ARG',
+      `E-ARG: lab-prep.md has verify checks that cannot run unattended — ${prep.unrunnable.join('; ')}`,
+    );
+  }
+  return rows;
+}
+
+/**
+ * Execute the environment contract against a **dev** environment and record
+ * `.holagent/qa/parity.json` (ADR-011/ADR-012).
+ *
+ * Resolves the environment through `resolveDevEnvironment`, which refuses
+ * anything not marked `dev`. There is no override parameter, because a guard
+ * with an override is a guard a prompt can be talked past.
+ */
+export function runParity(labDir: string, envName: string, timeoutMs?: number): ParityRecord {
+  const env = resolveDevEnvironment(readLabRef(labDir), envName);
+  const rows = parityRows(labDir);
+  const checks: ParityCheck[] = rows.verify.map((v, i) => {
+    const res = runShell(v.check, { cwd: labDir, timeoutMs });
+    return {
+      n: i,
+      check: v.check,
+      expect: v.expect,
+      ok: res.ok,
+      exitCode: res.exitCode,
+      timedOut: res.timedOut,
+      durationMs: res.durationMs,
+      stdout: res.stdout,
+      stderr: res.stderr,
+    };
+  });
+  const passed = checks.filter((c) => c.ok).length;
+  const record: ParityRecord = {
+    version: 1,
+    env: env.name,
+    endpoint: env.endpoint ?? null,
+    at: new Date().toISOString(),
+    checks,
+    coverage: parityCoverage(rows),
+    summary: { total: checks.length, passed, failed: checks.length - passed },
+    ok: passed === checks.length,
+  };
+  atomicWriteJson(join(labDir, '.holagent', 'qa', 'parity.json'), record);
+  return record;
+}
+
+export interface QaScript {
+  env: string;
+  kind: 'dev' | 'prod';
+  /** Absolute path the script was written to. */
+  path: string;
+  script: string;
+  /** Items no check covers — the human checklist. */
+  checklist: string[];
+}
+
+function shQuote(s: string): string {
+  return `'${s.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * Render the same `verify` checks as a self-contained script plus a human
+ * checklist, for **any** environment. Executes nothing (ADR-012): this is the
+ * production path, and production verification is a human act.
+ */
+export function renderQaScript(labDir: string, envName: string): QaScript {
+  const labRef = readLabRef(labDir);
+  if (!labRef) {
+    throw new HolError('E-ARG', 'E-ARG: no lab-ref.json — register the lab repo first');
+  }
+  const env = labRef.environments.find((e) => e.name === envName);
+  if (!env) {
+    const known = labRef.environments.map((e) => `${e.name} (${e.kind})`).join(', ') || 'none';
+    throw new HolError('E-ARG', `E-ARG: unknown environment "${envName}" — known: ${known}`);
+  }
+  const rows = parityRows(labDir);
+  const coverage = parityCoverage(rows);
+
+  const lines: string[] = [
+    '#!/usr/bin/env bash',
+    '# Generated by holagent /hol-qa-prod — do not edit; regenerate instead.',
+    `# Lab: ${basename(labDir)}   Environment: ${env.name} (${env.kind})`,
+    env.endpoint ? `# Endpoint: ${env.endpoint}` : '# Endpoint: not recorded',
+    `# Baseline: ${rows.baseline || 'not recorded'}`,
+    '#',
+    '# Every check below is read-only and comes verbatim from lab-prep.md.',
+    '# Run it yourself against the environment above; nothing here is executed',
+    '# by an agent (ADR-012). Report the summary line back to /hol-qa-prod.',
+    '',
+    'set -uo pipefail  # deliberately not -e: every check runs, then we total up',
+    'pass=0; fail=0',
+    '',
+    'check() {  # check <n> <expected> <command…>',
+    '  local n="$1"; local expected="$2"; shift 2',
+    '  printf "\\n[%s] %s\\n" "$n" "$*"',
+    '  printf "    expect: %s\\n" "$expected"',
+    '  if "$@"; then pass=$((pass+1)); printf "    RESULT: pass\\n"',
+    '  else fail=$((fail+1)); printf "    RESULT: FAIL (exit %s)\\n" "$?"; fi',
+    '}',
+    '',
+  ];
+  rows.verify.forEach((v, i) => {
+    lines.push(`check ${i} ${shQuote(v.expect)} bash -c ${shQuote(v.check)}`);
+  });
+  lines.push(
+    '',
+    'printf "\\n=== %s: %s passed, %s failed ===\\n" ' + shQuote(env.name) + ' "$pass" "$fail"',
+    '[ "$fail" -eq 0 ]',
+    '',
+  );
+  const script = lines.join('\n');
+
+  const checklist: string[] = [
+    ...coverage.endpoints.map((u) => `Endpoint declared but no check covers it: ${u}`),
+    ...coverage.artifacts.map((p) => `Artifact declared but no check covers it: ${p}`),
+    ...coverage.software.map((s) => `Software declared but no check covers it: ${s}`),
+  ];
+
+  const path = join(labDir, '.holagent', 'qa', `verify-${env.name}.sh`);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, script, { mode: 0o755 });
+  chmodSync(path, 0o755);
+  return { env: env.name, kind: env.kind, path, script, checklist };
+}
+
+export type QaRecordKind = 'smoke' | 'e2e-prod';
+
+export interface QaResultRecord {
+  version: 1;
+  kind: QaRecordKind;
+  env: string;
+  at: string;
+  ok: boolean;
+  checks: Array<{ name: string; ok: boolean; note?: string }>;
+  notes: string;
+}
+
+/**
+ * Validated, atomic write of an asserted QA outcome —
+ * `.holagent/qa/smoke.json` (an agent's dev bring-up result) or
+ * `.holagent/qa/e2e-prod.json` (what a human reports after running the
+ * script). `smoke.json` is what moves the build stage to `smoke-passed`, so
+ * it goes through one checked path rather than an ad-hoc write.
+ *
+ * The environment's `kind` must match the record's: a production end-to-end
+ * result cannot be filed against a dev environment, or the reverse.
+ */
+export function recordQaResult(
+  labDir: string,
+  kind: QaRecordKind,
+  input: {
+    env: string;
+    ok: boolean;
+    checks?: Array<{ name: string; ok: boolean; note?: string }>;
+    notes?: string;
+  },
+): QaResultRecord {
+  if (kind !== 'smoke' && kind !== 'e2e-prod') {
+    throw new HolError('E-ARG', `E-ARG: kind must be "smoke" or "e2e-prod", got ${String(kind)}`);
+  }
+  const labRef = readLabRef(labDir);
+  if (!labRef) {
+    throw new HolError('E-ARG', 'E-ARG: no lab-ref.json — register the lab repo first');
+  }
+  const env = labRef.environments.find((e) => e.name === input?.env);
+  if (!env) {
+    const known = labRef.environments.map((e) => `${e.name} (${e.kind})`).join(', ') || 'none';
+    throw new HolError('E-ARG', `E-ARG: unknown environment "${input?.env}" — known: ${known}`);
+  }
+  const expected = kind === 'e2e-prod' ? 'prod' : 'dev';
+  if (env.kind !== expected) {
+    throw new HolError(
+      'E-ARG',
+      `E-ARG: a "${kind}" result belongs to a ${expected} environment, but "${env.name}" is ` +
+        `${env.kind} — recording it here would misstate what was verified`,
+    );
+  }
+  if (typeof input?.ok !== 'boolean') {
+    throw new HolError('E-ARG', 'E-ARG: ok must be true or false — an unstated outcome is not one');
+  }
+  const checks = (Array.isArray(input.checks) ? input.checks : [])
+    .filter((c): c is { name: string; ok: boolean; note?: string } => {
+      return (
+        typeof c === 'object' &&
+        c !== null &&
+        typeof (c as { name?: unknown }).name === 'string' &&
+        String((c as { name: string }).name).trim() !== '' &&
+        typeof (c as { ok?: unknown }).ok === 'boolean'
+      );
+    })
+    .map((c) => ({
+      name: c.name.trim(),
+      ok: c.ok,
+      ...(typeof c.note === 'string' && c.note.trim() ? { note: c.note.trim() } : {}),
+    }));
+  if (input.ok && checks.some((c) => !c.ok)) {
+    throw new HolError(
+      'E-ARG',
+      'E-ARG: ok is true but a listed check failed — record the outcome the checks show',
+    );
+  }
+  const record: QaResultRecord = {
+    version: 1,
+    kind,
+    env: env.name,
+    at: new Date().toISOString(),
+    ok: input.ok,
+    checks,
+    notes: typeof input.notes === 'string' ? input.notes : '',
+  };
+  atomicWriteJson(join(labDir, '.holagent', 'qa', `${kind}.json`), record);
+  return record;
+}
+
+/** Last recorded QA outcomes, for `hol_status`. Corrupt files read as absent. */
+function readQaSummary(labDir: string): GuideStatus['qa'] {
+  const read = (file: string): Record<string, unknown> | null => {
+    try {
+      const raw: unknown = JSON.parse(readFileSync(join(labDir, '.holagent', 'qa', file), 'utf8'));
+      return typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+        ? (raw as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
+  };
+  const outcome = (file: string) => {
+    const d = read(file);
+    if (!d) return null;
+    return {
+      ok: d.ok === true,
+      env: typeof d.env === 'string' ? d.env : '',
+      at: typeof d.at === 'string' ? d.at : '',
+    };
+  };
+  const p = read('parity.json');
+  const summary = (p?.summary ?? {}) as { passed?: unknown; failed?: unknown };
+  return {
+    parity: p
+      ? {
+          ok: p.ok === true,
+          env: typeof p.env === 'string' ? p.env : '',
+          at: typeof p.at === 'string' ? p.at : '',
+          passed: Number(summary.passed) || 0,
+          failed: Number(summary.failed) || 0,
+        }
+      : null,
+    smoke: outcome('smoke.json'),
+    prod: outcome('e2e-prod.json'),
+  };
+}
+
 // --------------------------------------------------------------- status
 
 export type ModuleState =
@@ -1778,6 +2171,12 @@ export interface GuideStatus {
   /** Stage-3 milestones from the spec's build sequence (empty when there is none). */
   milestones: MilestoneStatus[];
   build: { valid: boolean; errors: string[]; warnings: string[] };
+  /** Last recorded QA outcomes (stage 3 / stage 5). */
+  qa: {
+    parity: { ok: boolean; env: string; at: string; passed: number; failed: number } | null;
+    smoke: { ok: boolean; env: string; at: string } | null;
+    prod: { ok: boolean; env: string; at: string } | null;
+  };
   lifecycle: LifecycleStatus;
   labRef: LabRef | null;
   lastValidation: { ok: boolean; errors: number; warnings: number; at: string } | null;
@@ -2011,6 +2410,8 @@ export function readGuideStatus(guideDir: string): GuideStatus {
     }
   }
 
+  const qa = readQaSummary(guideDir);
+
   // ---- lifecycle (ADR-009) ----------------------------------------------
   const labRef = readLabRef(guideDir);
   const holDir = join(guideDir, '.holagent');
@@ -2048,19 +2449,10 @@ export function readGuideStatus(guideDir: string): GuideStatus {
   if (!engaged) build = 'n/a';
   else if (adopted.has('build')) build = 'adopted';
   else {
-    let smokePassed = false;
-    try {
-      const smoke = JSON.parse(readFileSync(join(holDir, 'qa', 'smoke.json'), 'utf8')) as {
-        ok?: unknown;
-      };
-      smokePassed = smoke?.ok === true;
-    } catch {
-      smokePassed = false;
-    }
     const started =
       milestones.some((m) => m.state !== 'pending') ||
       scores.some((e) => e.scope.startsWith('build-'));
-    if (smokePassed) build = 'smoke-passed';
+    if (qa.smoke?.ok === true) build = 'smoke-passed';
     else if (started) build = 'in-progress';
     else build = 'missing';
   }
@@ -2120,6 +2512,7 @@ export function readGuideStatus(guideDir: string): GuideStatus {
     modules,
     milestones,
     build: { valid: buildSeq.valid, errors: buildSeq.errors, warnings: buildSeq.warnings },
+    qa,
     lifecycle,
     labRef,
     lastValidation,

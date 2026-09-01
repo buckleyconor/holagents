@@ -62,6 +62,16 @@ guide stage: `lab-surveyor` reconstructs `lab-prep.md` and an observed
 concept/spec/build as **inherited** rather than fabricating them (ADR-013).
 From there `/hol-plan` onwards is unchanged.
 
+**Building the lab.** With an approved spec, `/hol-build <milestone>` has
+`lab-builder` implement one build-sequence milestone in the lab repo and gates
+it on that milestone's own declared test (`hol_build_test`); `/hol-build-all`
+resumes the whole sequence. Then `/hol-qa --env <dev>` executes `lab-prep.md`'s
+verify checks against the dev environment and has `qa-runner` exercise the lab
+end to end — which is also where `/hol-generate-module`'s dry-run material now
+comes from. `/hol-qa-prod --env <prod>` renders the same checks as a script for
+you to run; it executes nothing (ADR-012). The build track and the guide track
+are independent: an approved spec unblocks both.
+
 **Platform fit.** `/hol-platform-init <platform>` interviews a platform team
 into `~/.holagent/platforms/<name>/requirements.md`; `/hol-platform-check
 <platform>` reviews a lab against **that file only** and produces
@@ -86,6 +96,8 @@ or an unambiguous title fragment; ambiguous input lists available modules.
 | `/hol-spec`               | —                            | `spec-author` → spec set in the lab repo + derived `lab-prep.md` → `hol_spec_check` gate → spec scoring → approval                                                          | pi-subagents                              |
 | `/hol-build`              | `<milestone> [--fresh]`      | `lab-builder` implements one build-sequence milestone in the lab repo → `hol_build_test` runs its own declared test → build scoring (2 rubrics) → capped fix loop (ADR-015) | pi-subagents                              |
 | `/hol-build-all`          | `[--fresh]`                  | State detection via `hol_build_test`; runs the milestone pipeline in build order; a failing test stops the run                                                              | pi-subagents                              |
+| `/hol-qa`                 | `--env <dev>`                | `hol_parity` executes `lab-prep.md`'s verify checks against a **dev** environment → `qa-runner` brings the lab up and exercises it → smoke record + dry-run material        | pi-subagents                              |
+| `/hol-qa-prod`            | `--env <prod>`               | Renders the same checks as a read-only script + human checklist; **executes nothing** — you run it, it records the outcome (ADR-012/016)                                    | —                                         |
 | `/hol-review-spec`        | —                            | Deterministic spec check + spec-scope (3 rubrics) re-score → scorecard                                                                                                      | pi-subagents                              |
 | `/hol-plan`               | `[topic]`                    | Interview → `guide-planner` → plan scoring fanout → approval loop → `plan.md` + `lab-prep.md`                                                                               | pi-subagents                              |
 | `/hol-plan-module`        | `<module>`                   | `module-planner` → module plan file → light scoring (2 rubrics)                                                                                                             | pi-subagents                              |
@@ -102,8 +114,9 @@ or an unambiguous title fragment; ambiguous input lists available modules.
 
 The extension also registers the LLM-callable tools `hol_validate`,
 `hol_status`, `hol_scores`, `hol_spec_check`, `hol_prep_check`,
-`hol_platform_findings`, and `hol_build_test` — the same deterministic core
-that the prompt templates call (ADR-007).
+`hol_platform_findings`, `hol_build_test`, `hol_parity`, `hol_qa_script`, and
+`hol_qa_record` — the same deterministic core that the prompt templates call
+(ADR-007).
 
 ## Workflow notes
 
@@ -151,6 +164,10 @@ guides/<slug>/                      # one lab
     ├── plan.md                     # guide plan (frontmatter + sections)
     ├── <NN-slug>/plan.md           # per-module plan (frontmatter + sections)
     ├── build/<slug>.json           # last test run per build milestone (ADR-015)
+    ├── qa/parity.json              # last dev parity run (ADR-016)
+    ├── qa/smoke.json               # dev bring-up outcome — moves build to smoke-passed
+    ├── qa/e2e-prod.json            # what a human reported after the prod script
+    ├── qa/verify-<env>.sh          # the rendered production verification script
     ├── platform/<name>.json        # platform review findings (ADR-014)
     ├── scores.json                 # scoring checkpoints (atomic writes)
     └── last-validation.json        # latest linter report

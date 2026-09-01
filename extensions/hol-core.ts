@@ -5,6 +5,7 @@
  * Contracts: spec §02 §4.1–4.3 (tools), §3.6 (state machine), §04 §3 (path
  * validation), §05 T-33…T-41.
  */
+import { spawnSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -1003,6 +1004,347 @@ export function checkSpec(labDir: string): SpecCheck {
   };
 }
 
+// ------------------------------------------------------- build sequence
+
+/**
+ * One milestone of `<lab-repo>/<spec-dir>/07-build-sequence.md`.
+ *
+ * The build sequence carries mini-YAML frontmatter for the same reason
+ * `plan.md` does: `/hol-build` consumes it one unit at a time, and "each
+ * milestone is independently testable" is only true if each milestone says
+ * how it is tested. `test` is that command (ADR-015).
+ */
+export interface BuildMilestone {
+  n: number;
+  slug: string;
+  title: string;
+  deliverable: string;
+  exit: string;
+  /** The milestone's own test command, run in the lab repo. */
+  test: string;
+  dependsOn: number[];
+}
+
+export interface BuildSequence {
+  /** Absolute path to the build-sequence file, or null when unresolvable. */
+  path: string | null;
+  exists: boolean;
+  milestones: BuildMilestone[];
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+const MILESTONE_FIELDS = ['title', 'deliverable', 'exit', 'test'] as const;
+
+/**
+ * Read + validate the build sequence from the registered lab repo (ADR-008).
+ *
+ * Errors are machine-contract violations: they block `/hol-build`, exactly as
+ * plan errors block the guide pipeline. A build sequence with no frontmatter
+ * is not an error condition to crash on — it is an older or hand-written spec,
+ * reported as invalid with the reason, so the command can say what to fix.
+ */
+export function readBuildSequence(labDir: string): BuildSequence {
+  const empty = (over: Partial<BuildSequence> = {}): BuildSequence => ({
+    path: null,
+    exists: false,
+    milestones: [],
+    valid: false,
+    errors: [],
+    warnings: [],
+    ...over,
+  });
+  const labRef = readLabRef(labDir);
+  if (!labRef) {
+    return empty({ errors: ['no lab-ref.json — run /hol-lab-register or /hol-adopt'] });
+  }
+  const specDir = join(labRef.repo, labRef.specDir);
+  const file = listFiles(specDir).find((f) => f.startsWith('07-') && f.endsWith('.md'));
+  if (!file) {
+    return empty({
+      path: null,
+      errors: [`no 07-*.md build sequence in ${specDir} — run /hol-spec`],
+    });
+  }
+  const path = join(specDir, file);
+  let text: string;
+  try {
+    text = readFileSync(path, 'utf8');
+  } catch (e) {
+    return empty({ path, errors: [`cannot read ${file}: ${(e as Error).message}`] });
+  }
+
+  let fm: Frontmatter | null;
+  try {
+    fm = parseFrontmatter(text);
+  } catch (e) {
+    return empty({
+      path,
+      exists: true,
+      errors: [`frontmatter parse error: ${(e as Error).message}`],
+    });
+  }
+  if (!fm || !Array.isArray(fm.data.milestones)) {
+    return empty({
+      path,
+      exists: true,
+      errors: [
+        `${file} has no machine-readable \`milestones\` frontmatter — /hol-build needs one entry ` +
+          'per milestone with n, slug, title, deliverable, exit and test (ADR-015)',
+      ],
+    });
+  }
+
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const milestones: BuildMilestone[] = [];
+  const seenN = new Set<number>();
+  const seenSlug = new Set<string>();
+
+  (fm.data.milestones as unknown[]).forEach((raw, i) => {
+    const where = `milestones[${i}]`;
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      errors.push(`${where}: not a flow map — write one \`{ … }\` per milestone`);
+      return;
+    }
+    const m = raw as FmMap;
+    const n = Number(m.n);
+    if (!Number.isInteger(n) || n < 1) {
+      errors.push(`${where}: n must be an integer >= 1 (got ${JSON.stringify(m.n ?? null)})`);
+      return;
+    }
+    if (seenN.has(n)) errors.push(`${where}: duplicate n ${n}`);
+    seenN.add(n);
+    const slug = typeof m.slug === 'string' ? m.slug.trim() : '';
+    if (!SLUG_RE.test(slug)) {
+      errors.push(`${where}: slug must be kebab-case (got ${JSON.stringify(m.slug ?? null)})`);
+      return;
+    }
+    if (seenSlug.has(slug)) errors.push(`${where}: duplicate slug "${slug}"`);
+    seenSlug.add(slug);
+    const values: Record<string, string> = {};
+    for (const field of MILESTONE_FIELDS) {
+      const v = m[field];
+      if (typeof v !== 'string' || v.trim() === '') {
+        errors.push(`${where} (${slug}): ${field} is required`);
+        values[field] = '';
+      } else {
+        values[field] = v.trim();
+      }
+    }
+    const dependsOn = (Array.isArray(m.depends_on) ? m.depends_on : [])
+      .map((d) => Number(d))
+      .filter((d) => Number.isInteger(d) && d >= 1);
+    milestones.push({
+      n,
+      slug,
+      title: values.title ?? '',
+      deliverable: values.deliverable ?? '',
+      exit: values.exit ?? '',
+      test: values.test ?? '',
+      dependsOn,
+    });
+  });
+
+  if (milestones.length === 0 && errors.length === 0) {
+    errors.push('milestones is empty — a build sequence with no milestones cannot be built');
+  }
+  const numbers = new Set(milestones.map((m) => m.n));
+  for (const m of milestones) {
+    for (const d of m.dependsOn) {
+      if (!numbers.has(d)) errors.push(`${m.slug}: depends_on ${d}, which is not a milestone`);
+      if (d >= m.n) warnings.push(`${m.slug}: depends_on ${d} is not earlier in the sequence`);
+    }
+  }
+
+  return {
+    path,
+    exists: true,
+    milestones: milestones.sort((a, b) => a.n - b.n),
+    valid: errors.length === 0,
+    errors,
+    warnings,
+  };
+}
+
+function milestoneList(milestones: BuildMilestone[]): string {
+  return milestones.map((m) => `${String(m.n).padStart(2, '0')}-${m.slug} (${m.title})`).join(', ');
+}
+
+/**
+ * Resolve a `<milestone>` selector — `2`, `02-core-services`, or an
+ * unambiguous case-insensitive title fragment. Mirrors the module selector so
+ * `/hol-build` and `/hol-generate-module` accept the same shapes.
+ */
+export function resolveMilestoneSelector(
+  milestones: BuildMilestone[] | null,
+  arg: string,
+): BuildMilestone {
+  const selector = (arg ?? '').trim();
+  if (!milestones || milestones.length === 0) {
+    throw new HolError('E-ARG', 'E-ARG: no build milestones — run /hol-spec first');
+  }
+  const available = `available milestones: ${milestoneList(milestones)}`;
+  if (NN_RE.test(selector)) {
+    const n = Number(selector);
+    const hit = milestones.find((m) => m.n === n);
+    if (!hit) throw new HolError('E-ARG', `E-ARG: no milestone ${n} — ${available}`);
+    return hit;
+  }
+  if (NN_SLUG_RE.test(selector)) {
+    const m = selector.match(/^(\d{2})-(.+)$/)!;
+    const n = Number(m[1]);
+    const hit = milestones.find((x) => x.n === n && x.slug === m[2]);
+    if (!hit) throw new HolError('E-ARG', `E-ARG: no milestone "${selector}" — ${available}`);
+    return hit;
+  }
+  const frag = selector.toLowerCase();
+  const hits = milestones.filter((m) => m.title.toLowerCase().includes(frag));
+  if (hits.length === 1) return hits[0]!;
+  throw new HolError('E-ARG', `E-ARG: ambiguous or unknown milestone "${arg}" — ${available}`);
+}
+
+// -------------------------------------------------------- shell execution
+
+export interface ShellResult {
+  command: string;
+  cwd: string;
+  /** Process exit code; null when it was killed (timeout or signal). */
+  exitCode: number | null;
+  timedOut: boolean;
+  durationMs: number;
+  /** Tail of the stream, truncated to `MAX_CAPTURE` characters. */
+  stdout: string;
+  stderr: string;
+  truncated: boolean;
+  ok: boolean;
+}
+
+const MAX_CAPTURE = 4000;
+export const DEFAULT_EXEC_TIMEOUT_MS = 120_000;
+export const MAX_EXEC_TIMEOUT_MS = 900_000;
+
+function tail(s: string): { text: string; truncated: boolean } {
+  const text = s ?? '';
+  return text.length <= MAX_CAPTURE
+    ? { text, truncated: false }
+    : { text: text.slice(text.length - MAX_CAPTURE), truncated: true };
+}
+
+/**
+ * Run one command through `bash -c` and capture it. The single place this
+ * package executes anything, so the timeout, the capture limit and the
+ * "killed counts as failure" rule are decided once.
+ */
+export function runShell(command: string, opts: { cwd: string; timeoutMs?: number }): ShellResult {
+  const timeoutMs = Math.min(
+    Math.max(Number(opts.timeoutMs) || DEFAULT_EXEC_TIMEOUT_MS, 1_000),
+    MAX_EXEC_TIMEOUT_MS,
+  );
+  const started = Date.now();
+  const res = spawnSync('bash', ['-c', command], {
+    cwd: opts.cwd,
+    timeout: timeoutMs,
+    encoding: 'utf8',
+    maxBuffer: 8 * 1024 * 1024,
+    killSignal: 'SIGKILL',
+  });
+  const out = tail(res.stdout ?? '');
+  const err = tail(res.stderr ?? (res.error ? String(res.error.message) : ''));
+  const timedOut = res.error !== undefined && /ETIMEDOUT|timed? ?out/i.test(String(res.error));
+  return {
+    command,
+    cwd: opts.cwd,
+    exitCode: typeof res.status === 'number' ? res.status : null,
+    timedOut: timedOut || (res.status === null && res.signal !== null),
+    durationMs: Date.now() - started,
+    stdout: out.text,
+    stderr: err.text,
+    truncated: out.truncated || err.truncated,
+    ok: res.status === 0,
+  };
+}
+
+// ------------------------------------------------------------ build test
+
+export interface BuildTestRecord {
+  version: 1;
+  milestone: string;
+  n: number;
+  title: string;
+  at: string;
+  repo: string;
+  test: string;
+  ok: boolean;
+  exitCode: number | null;
+  timedOut: boolean;
+  durationMs: number;
+  stdout: string;
+  stderr: string;
+}
+
+/** `.holagent/build/<slug>.json` — the last recorded test run for a milestone. */
+export function readBuildRecord(labDir: string, slug: string): BuildTestRecord | null {
+  try {
+    const raw: unknown = JSON.parse(
+      readFileSync(join(labDir, '.holagent', 'build', `${slug}.json`), 'utf8'),
+    );
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
+    return raw as BuildTestRecord;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Run one milestone's declared `test` command in the lab repo and record the
+ * result to `.holagent/build/<slug>.json` — the deterministic stage-3 gate
+ * (ADR-007/ADR-015), the build track's equivalent of `hol_validate`.
+ *
+ * The lab repo is local code the user registered and confirmed (ADR-008); this
+ * is not an environment execution, so ADR-012 does not apply. It runs the
+ * command the spec declared, and nothing it composed itself.
+ */
+export function runBuildTest(
+  labDir: string,
+  milestone: BuildMilestone,
+  timeoutMs?: number,
+): BuildTestRecord {
+  const labRef = readLabRef(labDir);
+  if (!labRef) {
+    throw new HolError('E-ARG', 'E-ARG: no lab-ref.json — register the lab repo first');
+  }
+  if (!statSync(labRef.repo, { throwIfNoEntry: false })?.isDirectory()) {
+    throw new HolError('E-PATH', `E-PATH: lab repo is not a directory: ${labRef.repo}`);
+  }
+  if (!milestone.test) {
+    throw new HolError(
+      'E-ARG',
+      `E-ARG: milestone "${milestone.slug}" declares no test command — a milestone that ` +
+        'cannot be tested on its own is a phase, not a milestone (ADR-015)',
+    );
+  }
+  const result = runShell(milestone.test, { cwd: labRef.repo, timeoutMs });
+  const record: BuildTestRecord = {
+    version: 1,
+    milestone: milestone.slug,
+    n: milestone.n,
+    title: milestone.title,
+    at: new Date().toISOString(),
+    repo: labRef.repo,
+    test: milestone.test,
+    ok: result.ok,
+    exitCode: result.exitCode,
+    timedOut: result.timedOut,
+    durationMs: result.durationMs,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
+  atomicWriteJson(join(labDir, '.holagent', 'build', `${milestone.slug}.json`), record);
+  return record;
+}
+
 // ----------------------------------------------------- lab-prep check
 
 /**
@@ -1370,6 +1712,27 @@ export interface ModuleStatus {
 }
 
 /**
+ * Milestone state (stage 3), derived exactly as module state is — from the
+ * recorded test run and `scores.json`, never from the model's word for it.
+ * `pending` covers "not started" and "started but never tested"; whether code
+ * exists in the lab repo is not this package's to assert.
+ */
+export type MilestoneState =
+  'pending' | 'test-failed' | 'tested' | 'scored-passed' | 'scored-escalated';
+
+export interface MilestoneStatus {
+  n: number;
+  slug: string;
+  title: string;
+  /** Zero-padded NN (for commands: /hol-build NN-slug). */
+  nn: string;
+  state: MilestoneState;
+  test: string;
+  lastTest: { ok: boolean; at: string; exitCode: number | null; timedOut: boolean } | null;
+  scores?: { checklist?: number; analyticMean?: number };
+}
+
+/**
  * Lifecycle stage state (ADR-009). `n/a` means the lab has not opted into the
  * lifecycle: it predates it, so stages 1-3 do not apply and `next` behaves
  * exactly as it did before.
@@ -1412,6 +1775,9 @@ export interface GuideStatus {
     objectives: number;
   };
   modules: ModuleStatus[];
+  /** Stage-3 milestones from the spec's build sequence (empty when there is none). */
+  milestones: MilestoneStatus[];
+  build: { valid: boolean; errors: string[]; warnings: string[] };
   lifecycle: LifecycleStatus;
   labRef: LabRef | null;
   lastValidation: { ok: boolean; errors: number; warnings: number; at: string } | null;
@@ -1589,6 +1955,53 @@ export function readGuideStatus(guideDir: string): GuideStatus {
     return status;
   });
 
+  // ---- milestones (stage 3, ADR-015) ------------------------------------
+  const buildSeq = readBuildSequence(guideDir);
+  const milestones: MilestoneStatus[] = buildSeq.milestones.map((m) => {
+    const scope = `build-${m.slug}`;
+    const entries = scores.filter((e) => e.scope === scope);
+    const record = readBuildRecord(guideDir, m.slug);
+    const anyEscalated = entries.some((e) => e.status === 'escalated');
+    const allPassed = entries.length > 0 && entries.every((e) => e.status === 'passed');
+
+    let state: MilestoneState;
+    if (anyEscalated) state = 'scored-escalated';
+    else if (allPassed && record?.ok === true) state = 'scored-passed';
+    else if (record === null) state = 'pending';
+    else state = record.ok ? 'tested' : 'test-failed';
+
+    const status: MilestoneStatus = {
+      n: m.n,
+      slug: m.slug,
+      title: m.title,
+      nn: String(m.n).padStart(2, '0'),
+      state,
+      test: m.test,
+      lastTest: record
+        ? {
+            ok: Boolean(record.ok),
+            at: typeof record.at === 'string' ? record.at : '',
+            exitCode: typeof record.exitCode === 'number' ? record.exitCode : null,
+            timedOut: Boolean(record.timedOut),
+          }
+        : null,
+    };
+    const scoresOut: { checklist?: number; analyticMean?: number } = {};
+    const checklist = entries.filter((e) => e.kind === 'checklist');
+    if (checklist.length > 0) {
+      scoresOut.checklist = [...checklist].sort((a, b) =>
+        (b.updated_at ?? '').localeCompare(a.updated_at ?? ''),
+      )[0]!.score;
+    }
+    const analytic = entries.filter((e) => e.kind === 'analytic');
+    if (analytic.length > 0) {
+      scoresOut.analyticMean = analytic.reduce((sum, e) => sum + e.score, 0) / analytic.length;
+    }
+    if (scoresOut.checklist !== undefined || scoresOut.analyticMean !== undefined)
+      status.scores = scoresOut;
+    return status;
+  });
+
   const dataDir = holagentDataDir();
   const companies = listSubdirs(join(dataDir, 'companies'));
   const products: string[] = [];
@@ -1644,8 +2057,11 @@ export function readGuideStatus(guideDir: string): GuideStatus {
     } catch {
       smokePassed = false;
     }
+    const started =
+      milestones.some((m) => m.state !== 'pending') ||
+      scores.some((e) => e.scope.startsWith('build-'));
     if (smokePassed) build = 'smoke-passed';
-    else if (scores.some((e) => e.scope.startsWith('build-'))) build = 'in-progress';
+    else if (started) build = 'in-progress';
     else build = 'missing';
   }
 
@@ -1702,6 +2118,8 @@ export function readGuideStatus(guideDir: string): GuideStatus {
       objectives: plan.objectives,
     },
     modules,
+    milestones,
+    build: { valid: buildSeq.valid, errors: buildSeq.errors, warnings: buildSeq.warnings },
     lifecycle,
     labRef,
     lastValidation,

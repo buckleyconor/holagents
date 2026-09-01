@@ -7,7 +7,10 @@ import {
   HolError,
   readGuideStatus,
   listPlatformFindings,
+  readBuildSequence,
   readLabRef,
+  resolveMilestoneSelector,
+  runBuildTest,
   resolveDevEnvironment,
   resolveGuidePath,
   checkLabPrep,
@@ -333,7 +336,7 @@ test('T-87: every rubric is well-formed and names a known scope family', () => {
       else assert.ok(threshold >= 1 && threshold <= 5, `${where}: threshold out of range`);
     }
   }
-  assert.ok(seen >= 19, `expected the full rubric set, saw ${seen}`);
+  assert.ok(seen >= 21, `expected the full rubric set, saw ${seen}`);
 });
 
 test('T-88: the spec gate fails an empty open-questions section (ADR-007)', () => {
@@ -573,5 +576,172 @@ test('T-90: the platform-review gate — findings must be traced, owned and acti
     // a recorded review shows up on the lifecycle ship stage
     write(doc());
     assert.deepEqual(readGuideStatus(lab).lifecycle.ship.platforms, ['k8s']);
+  });
+});
+
+/** A lab whose registered repo has a spec dir with a build sequence. */
+function makeBuildLab(
+  base: string,
+  frontmatter: string,
+  name = 'build-lab',
+): { lab: string; repo: string } {
+  const repo = join(base, `${name}-repo`);
+  mkdirSync(join(repo, 'spec'), { recursive: true });
+  writeFileSync(
+    join(repo, 'spec', '07-build-sequence.md'),
+    `---\n${frontmatter}---\n\n# Build sequence\n\nprose\n`,
+  );
+  const lab = makeLab(
+    base,
+    { '.holagent/lab-ref.json': JSON.stringify({ repo, spec_dir: 'spec', origin: 'generated' }) },
+    name,
+  );
+  return { lab, repo };
+}
+
+const MILESTONES = [
+  'milestones:\n',
+  "  - { n: 1, slug: core-services, title: 'Core services up', deliverable: 'containers start', exit: 'health 200', test: 'true', depends_on: [] }\n",
+  "  - { n: 2, slug: ingest, title: 'Corpus ingestion', deliverable: 'CLI ingests', exit: 'count matches', test: 'false', depends_on: [1] }\n",
+].join('');
+
+test('T-91: the build sequence is a machine-readable contract (ADR-015)', () => {
+  withTmp((base) => {
+    const { lab } = makeBuildLab(base, MILESTONES);
+    const seq = readBuildSequence(lab);
+    assert.equal(seq.valid, true, `expected a valid sequence: ${seq.errors.join('; ')}`);
+    assert.equal(seq.milestones.length, 2);
+    assert.equal(seq.milestones[0]!.slug, 'core-services');
+    assert.equal(seq.milestones[0]!.test, 'true');
+    assert.deepEqual(seq.milestones[1]!.dependsOn, [1]);
+
+    // the selector accepts the same shapes as the module selector
+    assert.equal(resolveMilestoneSelector(seq.milestones, '2').slug, 'ingest');
+    assert.equal(resolveMilestoneSelector(seq.milestones, '01-core-services').n, 1);
+    assert.equal(resolveMilestoneSelector(seq.milestones, 'ingestion').slug, 'ingest');
+    assertHolError(() => resolveMilestoneSelector(seq.milestones, '9'), 'E-ARG', /no milestone 9/);
+    assertHolError(() => resolveMilestoneSelector([], '1'), 'E-ARG', /run \/hol-spec/);
+
+    // every required field is required — a milestone with no test is a phase
+    const missingTest = MILESTONES.replace(", test: 'true'", '');
+    let bad = readBuildSequence(makeBuildLab(base, missingTest, 'no-test').lab);
+    assert.equal(bad.valid, false);
+    assert.ok(
+      bad.errors.some((e) => e.includes('test is required')),
+      bad.errors.join('; '),
+    );
+
+    // duplicate slugs would collide in the score scope and the build record
+    const dupe = MILESTONES.replace('slug: ingest,', 'slug: core-services,');
+    bad = readBuildSequence(makeBuildLab(base, dupe, 'dupe').lab);
+    assert.equal(bad.valid, false);
+    assert.ok(bad.errors.some((e) => e.includes('duplicate slug')));
+
+    // depends_on must name a real milestone
+    const badDep = MILESTONES.replace('depends_on: [1] }', 'depends_on: [7] }');
+    bad = readBuildSequence(makeBuildLab(base, badDep, 'bad-dep').lab);
+    assert.equal(bad.valid, false);
+    assert.ok(bad.errors.some((e) => e.includes('not a milestone')));
+
+    // a spec that predates ADR-015 is reported, not crashed on
+    bad = readBuildSequence(makeBuildLab(base, 'title: Build sequence\n', 'legacy').lab);
+    assert.equal(bad.exists, true);
+    assert.equal(bad.valid, false);
+    assert.ok(bad.errors.some((e) => e.includes('machine-readable')));
+
+    // no lab-ref, and no 07 file, each degrade with a reason
+    assert.match(readBuildSequence(makeLab(base, {}, 'no-ref-b')).errors[0]!, /lab-ref/);
+    const noFile = makeLab(
+      base,
+      {
+        '.holagent/lab-ref.json': JSON.stringify({
+          repo: join(base, 'empty-repo'),
+          spec_dir: 'spec',
+        }),
+      },
+      'no-07',
+    );
+    assert.match(readBuildSequence(noFile).errors[0]!, /no 07-\*\.md/);
+  });
+});
+
+test("T-92: the build gate runs the milestone's own test and records the result", () => {
+  withTmp((base) => {
+    const { lab, repo } = makeBuildLab(base, MILESTONES, 'gate');
+    const seq = readBuildSequence(lab);
+    const [first, second] = seq.milestones;
+
+    // milestone 1 declares `true` — it passes, and the run is recorded
+    const pass = runBuildTest(lab, first!);
+    assert.equal(pass.ok, true);
+    assert.equal(pass.exitCode, 0);
+    assert.equal(pass.repo, repo);
+    const recorded = JSON.parse(
+      readFileSync(join(lab, '.holagent', 'build', 'core-services.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    assert.equal(recorded.ok, true);
+    assert.equal(recorded.test, 'true');
+
+    let st = readGuideStatus(lab);
+    assert.equal(st.milestones.length, 2);
+    assert.equal(st.milestones[0]!.state, 'tested');
+    assert.equal(st.milestones[1]!.state, 'pending');
+    assert.equal(st.lifecycle.build, 'in-progress', 'a tested milestone means building started');
+
+    // milestone 2 declares `false` — it fails, and that is recorded too
+    const fail = runBuildTest(lab, second!);
+    assert.equal(fail.ok, false);
+    assert.notEqual(fail.exitCode, 0);
+    assert.equal(readGuideStatus(lab).milestones[1]!.state, 'test-failed');
+
+    // a passing test plus passing scores is the only route to scored-passed
+    const entry = (scope: string, status: string) => ({
+      scope,
+      rubric: 'checklist/milestone-completeness',
+      kind: 'checklist',
+      status,
+      score: status === 'passed' ? 1 : 0,
+      rounds: 1,
+      findings: [],
+      updated_at: '2026-09-01T00:00:00Z',
+    });
+    writeFileSync(
+      join(lab, '.holagent', 'scores.json'),
+      JSON.stringify({
+        version: 1,
+        entries: [entry('build-core-services', 'passed'), entry('build-ingest', 'passed')],
+      }),
+    );
+    st = readGuideStatus(lab);
+    assert.equal(st.milestones[0]!.state, 'scored-passed');
+    assert.equal(
+      st.milestones[1]!.state,
+      'test-failed',
+      'passing scores never outrank a failing test',
+    );
+
+    // output is captured, and a command that never returns is a failed test
+    const noisy = { ...first!, test: 'echo hello; echo oops >&2; exit 3' };
+    const out = runBuildTest(lab, noisy);
+    assert.equal(out.exitCode, 3);
+    assert.match(out.stdout, /hello/);
+    assert.match(out.stderr, /oops/);
+
+    const hangs = { ...first!, test: 'sleep 5' };
+    const killed = runBuildTest(lab, hangs, 1000);
+    assert.equal(killed.ok, false);
+    assert.equal(killed.timedOut, true);
+
+    // a milestone with no test command cannot be gated, and says so
+    assertHolError(
+      () => runBuildTest(lab, { ...first!, test: '' }),
+      'E-ARG',
+      /declares no test command/,
+    );
+    assertHolError(
+      () => runBuildTest(makeLab(base, {}, 'unregistered'), first!),
+      'E-ARG',
+      /no lab-ref\.json/,
+    );
   });
 });

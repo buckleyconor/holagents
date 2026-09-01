@@ -34,7 +34,10 @@ one-line rationale. Nothing is specified as `latest` or left unversioned.
 ### build-sequence-testable
 
 The build sequence is an ordered milestone list where each milestone names
-a deliverable and an exit criterion that can be checked on its own.
+a deliverable and an exit criterion that can be checked on its own, and
+§7 carries `milestones[]` frontmatter in which every entry has `n`, `slug`,
+`title`, `deliverable`, `exit` and a `test` command specific to that
+milestone.
 
 ### test-cases-tabulated
 

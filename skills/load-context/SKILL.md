@@ -23,6 +23,7 @@ Per-guide state under `guides/<slug>/`:
 - `.holagent/plan.md` — guide plan (frontmatter + sections)
 - `.holagent/<NN-slug>/plan.md` — per-module plan
 - `.holagent/lab-ref.json` — pointer to the lab's own repo, its environments and platforms
+- `.holagent/build/<slug>.json` — last recorded test run per build milestone
 - `.holagent/scores.json` — scoring checkpoints
 - `.holagent/last-validation.json` — latest linter report
 
@@ -63,6 +64,8 @@ knows what is available.
 | `/hol-adopt`              | -                 | -                 | -                 | -                 | -                 | -            | -                 | -            |
 | `/hol-platform-init`      | -                 | -                 | -                 | -                 | -                 | -            | -                 | -            |
 | `/hol-platform-check`     | -                 | -                 | -                 | yes (sizing)      | -                 | -            | -                 | yes          |
+| `/hol-build`              | -                 | -                 | relevant only     | yes (sizing)      | -                 | -            | -                 | yes          |
+| `/hol-build-all`          | -                 | -                 | relevant only     | yes (sizing)      | -                 | -            | -                 | yes          |
 | `/hol-plan`               | yes               | yes               | relevant only     | yes               | existing (extend) | -            | existing (extend) | -            |
 | `/hol-plan-module`        | -                 | -                 | relevant only     | -                 | yes               | prior        | -                 | -            |
 | `/hol-generate-module`    | yes               | yes               | relevant only     | -                 | yes               | this + prior | this + prior      | -            |

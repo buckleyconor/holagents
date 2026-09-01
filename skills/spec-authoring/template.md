@@ -91,7 +91,59 @@ Output the following sections, in this order:
 - Do not write application code yet — this is the spec only.
 - If you recommend a stack where I gave none, justify it briefly.
 
-```
+````
+
+---
+
+## Section 7 is machine-readable
+
+`/hol-build` consumes the build sequence one milestone at a time and
+`/hol-build-all` resumes from it, so `07-build-sequence.md` carries mini-YAML
+frontmatter as its source of truth — the same arrangement `plan.md` uses for
+modules (ADR-015). The prose below the frontmatter explains the milestones;
+the frontmatter is what the pipeline reads.
+
+```yaml
+---
+milestones:
+  - {
+      n: 1,
+      slug: core-services,
+      title: 'Core services up',
+      deliverable: 'Qdrant + API containers start from compose and answer /health',
+      exit: 'both containers healthy; /health returns 200',
+      test: 'make test-core',
+      depends_on: [],
+    }
+  - {
+      n: 2,
+      slug: ingest-pipeline,
+      title: 'Corpus ingestion',
+      deliverable: 'CLI ingests the sample corpus into the collection',
+      exit: 'collection reports the expected document count',
+      test: 'pytest tests/test_ingest.py',
+      depends_on: [1],
+    }
+---
+````
+
+Every field is required except `depends_on`:
+
+- `n` — integer, unique, the build order.
+- `slug` — kebab-case, unique. It is the score scope (`build-<slug>`) and the
+  build record filename, so it does not change once building starts.
+- `title`, `deliverable`, `exit` — what it is, what it produces, how you know
+  it is done.
+- `test` — **the command that proves this milestone, run in the lab repo
+  root.** `hol_build_test` executes exactly this string and the exit code is
+  the gate. It must be non-interactive, return on its own, and fail loudly.
+  A milestone whose test is `true`, or whose test is the whole suite, is not
+  independently testable — and "independently testable" is the whole property
+  the build sequence exists to guarantee.
+- `depends_on` — earlier milestone numbers, when order matters beyond `n`.
+
+Keep the frontmatter inside the mini-YAML subset (`guide-scaffolds`,
+"Frontmatter subset rule"): one flow map per entry.
 
 ---
 
@@ -113,35 +165,41 @@ Output the following sections, in this order:
 Answer these before filling the template. Skipping one usually shows up later as a wrong assumption in the spec.
 
 ### Purpose & scope
+
 - [ ] In one sentence, what does the app do?
 - [ ] Who are the users, and how technical are they?
 - [ ] What are the 3–5 core features, in priority order?
-- [ ] What is explicitly *out of scope* for the first build?
+- [ ] What is explicitly _out of scope_ for the first build?
 - [ ] What does "done and working" look like (success criteria)?
 
 ### Technical
+
 - [ ] Do you have a required language/framework, or should the model recommend one?
 - [ ] Where does it run — local CLI, web app, mobile, container, cloud, edge device?
 - [ ] Any existing code, systems, or APIs it must fit into?
 - [ ] What external services or third-party APIs are involved?
 
 ### Data
+
 - [ ] What kinds of data does it store or process?
 - [ ] Is any of it sensitive (personal data/PII, credentials, payment, health)?
 - [ ] Are there compliance rules to honour (e.g. GDPR)?
 - [ ] How long must data be kept, and can it be deleted?
 
 ### Scale & operations
+
 - [ ] Rough expected number of users / requests / data volume?
 - [ ] Single user, small team, or public internet?
 - [ ] How will it be deployed and updated?
 
 ### Security
+
 - [ ] Does it need user accounts / login? Multiple permission levels?
 - [ ] Is it internet-facing or behind a trusted network?
 - [ ] What's the worst outcome if it's compromised? (This sets the security bar.)
 
 ### Constraints
+
 - [ ] Budget, timeline, or hard deadlines?
 - [ ] Team's existing skills/preferences to stay within?
 - [ ] Anything the previous attempt (if any) got wrong that you want avoided?
@@ -150,5 +208,8 @@ Answer these before filling the template. Skipping one usually shows up later as
 
 ### A note on quality, since you're newer to this
 
-The single most valuable section in the output is **Open Questions & Assumptions**. A good spec doesn't just answer — it surfaces what it *didn't* know. If that section is empty, the model probably hid guesses inside the design. Push back and ask it what it assumed.
+The single most valuable section in the output is **Open Questions & Assumptions**. A good spec doesn't just answer — it surfaces what it _didn't_ know. If that section is empty, the model probably hid guesses inside the design. Push back and ask it what it assumed.
+
+```
+
 ```

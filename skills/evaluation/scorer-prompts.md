@@ -139,6 +139,38 @@ End with exactly one fenced JSON block; no prose after it. criterion_text
 copied verbatim; finding null on pass, concrete location otherwise.
 ```
 
+## Template: `build-<slug>` scope
+
+```
+READ-ONLY scoring task — return findings only; do not edit or modify any file.
+Score the BUILD MILESTONE below against the rubric «rubric-name».
+
+### Scoring guide
+«contents of scoring-guide.md, verbatim»
+
+### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
+«rubric file content, verbatim»
+
+### Scope label
+scope: build-«slug»
+
+### Content — milestone
+«the milestone's frontmatter entry from 07-build-sequence.md, verbatim: n, slug, title, deliverable, exit, test, depends_on»
+
+### Content — what was built
+«the files the builder created or changed, with their content — or, for a large milestone, the diff; plus the builder's final report verbatim»
+
+### Content — test result
+«the hol_build_test record: the command, exit code, and the stdout/stderr tails»
+
+### Content — spec sections
+«§2 architecture, §3 build decisions, §4 security, §5 test strategy and §9 environment & footprint, verbatim — the contract this milestone is scored against»
+
+### Output contract
+End with exactly one fenced JSON block; no prose after it. criterion_text
+copied verbatim; finding null on pass, concrete location otherwise.
+```
+
 ## Template: `plan` scope
 
 ```
@@ -287,6 +319,7 @@ nothing malformed reaches `scores.json`.
 | `module-plan-<NN>` | `checklist/module-plan-completeness` (1.0), `analytic/module-design` (4)                                                              |
 | `module-<NN-slug>` | `checklist/module-completeness` (1.0), `analytic/step-clarity` (4), `analytic/technical-accuracy` (4), `holistic/module-quality` (4)  |
 | `guide`            | `checklist/guide-completeness` (1.0), `analytic/terminology-consistency` (4), `holistic/guide-quality` (4)                            |
+| `build-<slug>`     | `checklist/milestone-completeness` (1.0), `analytic/spec-fidelity` (4)                                                                |
 | `platform-<name>`  | `checklist/platform-coverage` (1.0), `analytic/finding-actionability` (4)                                                             |
 
 (Thresholds in parentheses are the rubric frontmatter defaults at v1; the
@@ -301,7 +334,10 @@ Step 8 (standalone re-review at `/hol-review-plan`); `module-plan-<NN>` at
 `/hol-plan-module` (re-review at `/hol-review-module-plan`);
 `module-<NN>-<slug>` at `/hol-generate-module` Step 6 (re-review at
 `/hol-review-module`); `guide` at `/hol-review-guide` (final pass +
-ADR-005 rename). `platform-<name>` at `/hol-platform-check`,
+ADR-005 rename); `build-<slug>` at `/hol-build`, behind the deterministic
+`hol_build_test` gate — a milestone that does not pass its own declared test
+is never scored, because the scorecard would be an opinion about code that
+does not work. `platform-<name>` at `/hol-platform-check`,
 behind the deterministic `hol_platform_findings` gate — there is no separate
 re-review command, because a review scores the lab as it was that day and
 re-scoring stale findings answers nothing; re-run the check instead.

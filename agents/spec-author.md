@@ -64,6 +64,12 @@ You write two things:
   some beat possible or observable, and every beat has something that shows it.
 - Build sequence milestones are **independently testable** — `/hol-build`
   consumes them one at a time. "Build the backend" is a phase, not a milestone.
+- **§7 carries mini-YAML frontmatter** (`milestones[]`, per `template.md`'s
+  "Section 7 is machine-readable"): `n`, `slug`, `title`, `deliverable`,
+  `exit`, `test`, optional `depends_on`. `test` is the command that proves
+  that milestone alone, run in the lab repo root — `hol_build_test` executes
+  it verbatim and its exit code is the gate. Writing a test you cannot name
+  is the signal that the milestone is really a phase; split it instead.
 - Pin every dependency and image to an exact version, each with a one-line
   reason it earns its place. Never `latest`.
 - **Section 8 must be substantive.** It is gated deterministically
@@ -90,6 +96,8 @@ You write two things:
 
 - Every expected spec file exists and is non-empty (local `ls`/`wc`).
 - No `<< FILL: ... >>` markers remain in any file you wrote.
+- `07-build-sequence.md` frontmatter parses, and every milestone names a
+  `test` command that is real, non-interactive, and specific to it.
 - `lab-prep.md` frontmatter parses within the mini-YAML subset.
 - Section 8 has real content, not a heading.
 - Re-read §9 against `sizing.md`: same images, same versions, same ports, same
@@ -99,6 +107,7 @@ You write two things:
 
 - Paths written (spec files + `lab-prep.md`).
 - The architecture in five lines, and how each beat is served.
-- The build sequence: milestone list with a one-line deliverable each.
+- The build sequence: milestone list with a one-line deliverable and the test
+  command each — and any milestone whose test you were least sure of.
 - **Any place the design needed more than the sizing budgeted**, stated plainly.
 - Open questions / assumptions — the section 8 summary.

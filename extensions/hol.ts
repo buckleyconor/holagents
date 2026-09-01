@@ -10,6 +10,7 @@
  *   hol_spec_check — stage-2 gate: the spec set is complete and owns its guesses
  *   hol_prep_check — the lab-prep.md environment contract is complete + runnable
  *   hol_platform_findings — platform review findings are shaped, traced, actionable
+ *   hol_build_test — stage-3 gate: run one milestone's declared test in the lab repo
  *
  * Commands (user-invoked, LLM-bypass — checked by pi before template
  * expansion, so no prompt template may reuse these names):
@@ -25,17 +26,21 @@ import {
   checkLabPrep,
   checkPlatformFindings,
   checkSpec,
+  DEFAULT_EXEC_TIMEOUT_MS,
   ensureHolagentDataDir,
   listPlatformFindings,
   mergeScores,
+  readBuildSequence,
   readGuideStatus,
   readScores,
+  resolveMilestoneSelector,
+  runBuildTest,
   removeScoresByScope,
   resolveGuidePath,
   resolveLabPath,
   validateGuide,
 } from './hol-core.ts';
-import type { GuideStatus, ModuleStatus } from './hol-core.ts';
+import type { GuideStatus, MilestoneStatus, ModuleStatus } from './hol-core.ts';
 import type { PiExtensionAPI, PiToolResult } from './pi-types.ts';
 
 /**
@@ -101,6 +106,16 @@ function stageBar(lc: GuideStatus['lifecycle']): string {
   ].join('  ·  ');
 }
 
+function statusMilestoneLine(m: MilestoneStatus): string {
+  const scores = m.scores
+    ? ` [checklist ${m.scores.checklist ?? '—'}${m.scores.analyticMean !== undefined ? `, analytic ${m.scores.analyticMean}` : ''}]`
+    : '';
+  const last = m.lastTest
+    ? ` (last test ${m.lastTest.ok ? 'passed' : m.lastTest.timedOut ? 'timed out' : `exit ${m.lastTest.exitCode ?? '—'}`} at ${m.lastTest.at})`
+    : '';
+  return `  ${m.nn}-${m.slug}: ${m.state}${scores}${last}`;
+}
+
 function statusText(status: GuideStatus): string {
   const research = `companies=[${status.research.companies.join(', ') || '—'}] products=[${status.research.products.join(', ') || '—'}]`;
   const lastVal = status.lastValidation
@@ -116,6 +131,11 @@ function statusText(status: GuideStatus): string {
         status.labRef.environments.map((e) => `${e.name} (${e.kind})`).join(', ') || 'none';
       lines.push(`Lab repo: ${status.labRef.repo} [${status.labRef.origin}] — envs: ${envs}`);
     }
+  }
+  if (status.milestones.length > 0) {
+    lines.push('Milestones:', ...status.milestones.map(statusMilestoneLine));
+  } else if (status.lifecycle.engaged && status.build.errors.length > 0) {
+    lines.push(`Milestones: none readable — ${status.build.errors[0]}`);
   }
   lines.push(
     `Plan: ${status.plan.exists ? `${status.plan.moduleCount} modules, ${status.plan.objectives} objectives` : 'missing (run /hol-plan)'}`,
@@ -417,6 +437,71 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
         for (const p of check.problems) lines.push(`Malformed — ${p}`);
       }
       return { content: [{ type: 'text', text: lines.join('\n') }], details: check };
+    },
+  });
+
+  pi.registerTool({
+    name: 'hol_build_test',
+    label: 'hol_build_test',
+    description:
+      "Deterministic stage-3 gate: run one build milestone's own declared test command in the registered lab repo and record the result to .holagent/build/<slug>.json. The build track's equivalent of hol_validate — the milestone either passes its test or it does not. Runs the command the spec's build sequence declares and nothing composed here; the lab repo is local code, so this is not an environment execution (ADR-012 governs those). Omit `milestone` to list the sequence and each milestone's state.",
+    promptSnippet: "Run a build milestone's declared test in the lab repo and record the result",
+    parameters: Type.Object({
+      guideDir: optGuideDir(GUIDE_DIR_DESC),
+      milestone: Type.Optional(
+        Type.String({
+          description:
+            'Milestone selector: "2", "02-core-services", or an unambiguous title fragment. Omit to list the build sequence.',
+        }),
+      ),
+      timeoutMs: Type.Optional(
+        Type.Integer({
+          description: `Per-test timeout in milliseconds (default ${DEFAULT_EXEC_TIMEOUT_MS}, capped at 900000). A killed test counts as a failure.`,
+        }),
+      ),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<PiToolResult> {
+      const labDir = resolveLabPath(
+        ctx.cwd,
+        typeof params.guideDir === 'string' ? params.guideDir : undefined,
+      );
+      const seq = readBuildSequence(labDir);
+      if (typeof params.milestone !== 'string' || params.milestone.trim() === '') {
+        const status = readGuideStatus(labDir);
+        const lines = [
+          seq.valid
+            ? `Build sequence: ${seq.milestones.length} milestone(s) — ${seq.path}`
+            : `Build sequence unusable — ${seq.errors.join('; ')}`,
+          ...status.milestones.map(statusMilestoneLine),
+          ...seq.warnings.map((w) => `warning: ${w}`),
+        ];
+        return {
+          content: [{ type: 'text', text: lines.join('\n') }],
+          details: { sequence: seq, milestones: status.milestones },
+        };
+      }
+      if (!seq.valid) {
+        throw new HolError(
+          'E-ARG',
+          `E-ARG: build sequence is not usable — ${seq.errors.join('; ')}`,
+        );
+      }
+      const milestone = resolveMilestoneSelector(seq.milestones, params.milestone);
+      const record = runBuildTest(
+        labDir,
+        milestone,
+        typeof params.timeoutMs === 'number' ? params.timeoutMs : undefined,
+      );
+      const lines = [
+        `Milestone ${record.n}-${record.milestone} test ${record.ok ? 'PASS' : 'FAIL'} — \`${record.test}\` in ${record.repo}`,
+        record.timedOut
+          ? `Killed after ${record.durationMs}ms (timeout) — a test that does not return is a failed test.`
+          : `exit ${record.exitCode ?? '—'} in ${record.durationMs}ms`,
+      ];
+      if (record.stdout.trim()) lines.push('--- stdout (tail) ---', record.stdout.trimEnd());
+      if (record.stderr.trim()) lines.push('--- stderr (tail) ---', record.stderr.trimEnd());
+      lines.push(`Recorded: .holagent/build/${record.milestone}.json`);
+      return { content: [{ type: 'text', text: lines.join('\n') }], details: record };
     },
   });
 

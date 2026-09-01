@@ -121,7 +121,9 @@ isolated context (`inheritProjectContext: false`, `inheritSkills: false`,
 `systemPromptMode: replace`) and **cannot spawn further subagents**
 (`maxSubagentDepth: 0`) — orchestration stays in your session (ADR-001). The
 only thing a child gets that is not in its task is the **skills** listed in
-its frontmatter, plus its tool allowlist.
+its frontmatter, plus its tool allowlist. For how the parent actually moves state
+between them — the dispatch shape, the three handoff media, and why there is no
+flow configuration — see `docs/user-guide.md` §6.
 
 | Stage | Agent                         | Responsibility                                                                                                                    |
 | ----- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |

@@ -318,28 +318,127 @@ this command has no path that would.
 
 ---
 
-## 6. Calling agents directly
+## 6. How the pipeline is wired
 
-Agents are pi subagents named `holagent.<name>`, dispatched with the
-`subagent` tool. You _can_ call one directly. You usually should not, and it
-is worth knowing why.
+### Nothing hands off to anything
 
-Every agent is **parent-fed**: it does not interview, does not read the
-conversation, and does not discover state. The prompt template that normally
-dispatches it assembles a self-contained payload — the confirmed interview
-answers, the full text of the files it needs, the absolute paths it may write
-to, and the reminders that keep it inside its boundaries (ADR-001). Calling the
-agent directly means hand-assembling that payload, and an under-specified
-payload is how an agent invents a version number or writes to the wrong path.
+There is no agent-to-agent handoff configuration, because no agent can invoke
+another. All fourteen carry `maxSubagentDepth: 0` in their frontmatter — that
+is enforcement, not convention.
 
-You also lose everything around the dispatch: the deterministic gate, the
-scoring fanout, the fix loop, and the merge into `scores.json`.
+The extension does not orchestrate either. `extensions/hol.ts` registers tools
+and commands; its only mention of `subagent` is a `session_start` check for
+whether pi-subagents is installed at all.
+
+```
+                    ┌──────────────────────────────────────┐
+   you ───────────▶ │  PARENT SESSION                      │
+   /hol-concept     │  runs prompts/hol-concept.md,         │
+                    │  step by step                         │
+                    └───┬──────────────────────────────┬────┘
+                        │ subagent (blocking)          │ ▲
+                        ▼                              │ │ final report
+              ┌───────────────────┐                    │ │ (transient)
+              │  holagent.<agent> │────────────────────┘ │
+              │  no context,      │──────────────────────┘
+              │  no children      │
+              └─────────┬─────────┘
+                        │ writes
+                        ▼
+            ┌───────────────────────────┐
+            │  files on disk            │  ◀── the durable handoff:
+            │  .holagent/, lab-prep.md  │      the parent reads these and
+            └───────────────────────────┘      inlines them into the next payload
+```
+
+### The flow lives in the prompt templates
+
+`prompts/*.md` are the orchestration layer. They are prose the **parent
+session** executes, and the numbered steps _are_ the sequence. Every dispatch
+in the package has the same shape:
+
+```
+`subagent` tool — agent: "holagent.<name>", async: false
+```
+
+`async: false` means blocking: the parent waits for the agent's report before
+moving to the next step. Scorer dispatches add **`acceptance: false`**, which
+is mandatory — without it the harness strips the trailing JSON block and the
+score is lost.
+
+Agent names are derived, not configured. `package.json` declares
+`"pi-subagents": { "agents": ["./agents"] }`, which loads the directory; each
+file's frontmatter (`package: holagent` plus `name: spec-author`) yields the
+runtime name `holagent.spec-author`. So any dispatch line in a prompt tells you
+exactly which file to read.
+
+### The parent is the only integration point
+
+Every agent runs with `inheritProjectContext: false` and
+`inheritSkills: false`. It sees its task payload and the skills its frontmatter
+lists — nothing else. No conversation history, no ambient project context, no
+other agent's output. Everything that crosses a boundary crosses it because the
+parent carried it, by one of three routes:
+
+| Medium                       | Carries                                                                                    | Survives `/clear`? |
+| ---------------------------- | ------------------------------------------------------------------------------------------ | ------------------ |
+| **Files on disk**            | The real handoff: A writes, the parent reads, the parent inlines the text into B's payload | **yes**            |
+| **The agent's final report** | Findings, decisions it made, dry-run output, conflicts it found                            | no                 |
+| **Parent-captured data**     | Your interview answers, `hol_*` tool results                                               | no                 |
+
+Only the first survives a cleared session, which is why every durable artifact
+is a file and why `hol_status` can reconstruct the whole state machine from
+disk.
+
+### A worked trace
+
+`/hol-concept` is the clearest two-agent sequence in the package:
+
+- **Step 6** dispatches `concept-author` with your confirmed interview answers
+  and an absolute path to write `.holagent/concept.md`.
+- **Step 7** dispatches `sizing-architect` with, in the prompt's own words,
+  _"the **full text of `.holagent/concept.md`**"_.
+
+That is the handoff: the parent read the file the first agent wrote and pasted
+it into the second agent's payload. `sizing-architect` has a `read` tool and
+could open the file itself — but it is told to _"work strictly from the task
+payload"_, and that discipline is what makes a dispatch reproducible from its
+payload alone.
+
+The fix loop is the same shape reversed. Scorer findings come back in the
+parent's context, and the parent re-dispatches the writer _"carrying the
+failing findings verbatim, grouped by rubric"_ — the agent never sees the
+scorer, only what the parent chose to forward.
+
+### Why it is built this way
+
+ADR-001. The upstream plugin had review agents spawning their own scorers as
+grandchildren; that was dropped for three reasons: pi-subagents policy keeps
+orchestration in the parent, the parent must own the merge and the fix loop and
+the escalation state anyway, and a payload the parent composes is one it can
+reproduce and test.
+
+The cost is recorded there too, and it is real: the parent's context carries
+every task payload, and a guide-scope scoring task inlines the whole guide.
+
+### Calling agents directly
+
+You _can_ dispatch an agent yourself with the `subagent` tool. You usually
+should not, and the machinery above is why.
+
+Calling an agent directly means hand-assembling the payload the prompt template
+would have built — the confirmed answers, the full text of every file it needs,
+the absolute paths it may write to, and the reminders that keep it inside its
+boundaries. An under-specified payload is how an agent invents a version number
+or writes to the wrong path. You also lose everything around the dispatch: the
+deterministic gate, the scoring fanout, the fix loop, and the merge into
+`scores.json`.
 
 **When it is reasonable:**
 
-- **Re-running one scorer** whose output was unparseable, when you want the
-  raw JSON. Dispatch `holagent.scorer` with `acceptance: false` — mandatory, or
-  the harness strips the trailing JSON block and the score is lost.
+- **Re-running one scorer** whose output was unparseable, when you want the raw
+  JSON. Dispatch `holagent.scorer` with `acceptance: false` — mandatory, or the
+  trailing JSON block is stripped and the score is lost.
 - **A one-off survey** of a repo you are not adopting: `holagent.lab-surveyor`
   with explicit paths, to see what it reconstructs.
 - **Debugging a stage** — dispatch the agent with the payload the prompt built,

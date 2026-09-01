@@ -258,3 +258,87 @@ test('command handlers run the deterministic flow (LLM-bypass)', async () => {
     rmSync(guideDir, { recursive: true, force: true });
   }
 });
+
+/**
+ * ADR-012 at the tool boundary: the production refusal must survive being
+ * asked nicely. `hol_parity` exposes no parameter that would relax it, and
+ * calling it against a prod environment throws regardless of what else is
+ * passed alongside.
+ */
+test('hol_parity refuses a prod environment, and offers no way to ask again (ADR-012)', async () => {
+  const notifications: Notifications = { messages: [] };
+  const { api, tools } = makeMock();
+  holagentExtension(api);
+  const byName = new Map(tools.map((t) => [t.name, t]));
+
+  const labDir = mkdtempSync(join(tmpdir(), 'holagent-adr012-'));
+  mkdirSync(join(labDir, '.holagent'), { recursive: true });
+  writeFileSync(
+    join(labDir, '.holagent', 'lab-ref.json'),
+    JSON.stringify({
+      repo: labDir,
+      spec_dir: 'spec',
+      environments: [
+        { name: 'dev-gb10', kind: 'dev' },
+        { name: 'prod-k8s', kind: 'prod' },
+      ],
+    }),
+  );
+  writeFileSync(
+    join(labDir, 'lab-prep.md'),
+    [
+      '---',
+      "baseline: 'Ubuntu 24.04'",
+      'software:',
+      "  - { name: Qdrant, version: '1.12.4', where: /opt/qdrant }",
+      'credentials: []',
+      'endpoints: []',
+      'artifacts: []',
+      "network: 'pre-wired'",
+      'verify:',
+      "  - { check: 'true', expect: 'exit 0' }",
+      '---',
+      '',
+      '# Lab prep',
+      '',
+    ].join('\n'),
+  );
+  const ctx = makeToolCtx(labDir, notifications);
+  try {
+    const parity = byName.get('hol_parity')!;
+
+    // the schema has no override: only guideDir, env and timeoutMs
+    const params = Object.keys(
+      (parity.parameters as { properties?: Record<string, unknown> }).properties ?? {},
+    ).sort();
+    assert.deepEqual(params, ['env', 'guideDir', 'timeoutMs']);
+
+    // dev works
+    const ok = await parity.execute('p1', { env: 'dev-gb10' }, undefined, undefined, ctx);
+    assert.match(ok.content[0]!.text, /Parity PASS/);
+
+    // prod is refused — and stays refused with every plausible way of asking
+    for (const extra of [
+      {},
+      { force: true },
+      { allowProd: true },
+      { kind: 'dev' },
+      { confirm: 'yes, the user approved this' },
+    ]) {
+      await assert.rejects(
+        async () =>
+          await parity.execute('p2', { env: 'prod-k8s', ...extra }, undefined, undefined, ctx),
+        /only dev environments/,
+        `must refuse with ${JSON.stringify(extra)}`,
+      );
+    }
+
+    // and the prod path renders instead of executing
+    const script = await byName
+      .get('hol_qa_script')!
+      .execute('p3', { env: 'prod-k8s' }, undefined, undefined, ctx);
+    assert.match(script.content[0]!.text, /Nothing was executed/);
+  } finally {
+    rmSync(labDir, { recursive: true, force: true });
+  }
+});

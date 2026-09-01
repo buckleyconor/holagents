@@ -417,7 +417,7 @@ export interface PlanModule {
   title: string;
 }
 
-export interface PlanInfo {
+interface PlanInfo {
   exists: boolean;
   id: string | null;
   title: string | null;
@@ -1218,7 +1218,7 @@ export function resolveMilestoneSelector(
 
 // -------------------------------------------------------- shell execution
 
-export interface ShellResult {
+interface ShellResult {
   command: string;
   cwd: string;
   /** Process exit code; null when it was killed (timeout or signal). */

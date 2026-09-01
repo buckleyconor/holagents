@@ -250,7 +250,15 @@ npm run format       # prettier
 npm run test:corpus  # corpus regression (baselines must not move)
 npm run lint:corpus  # run the linter over the style-corpus samples (triage aid)
 npm run docs:rules   # regenerate docs/linter-rules.md from format.json
+
+# maintenance, occasional — both change committed files, so review the diff
+npm run corpus:sync     # lab-guides/*.md → skills/style-corpus/samples/
+npm run corpus:baseline # rewrite test/corpus/expected/*.json from current linter output
 ```
+
+`corpus:baseline` is the escape hatch for a **deliberate** rule change: it
+rewrites the regression baselines, so run it only after triaging the diff and
+confirming every changed finding is intended rather than a silent regression.
 
 `docs/linter-rules.md` is generated, and the generator's column padding is not
 prettier's — always run `npm run docs:rules && npm run format` together, or the

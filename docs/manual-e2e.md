@@ -708,3 +708,79 @@ Embedded Document Corpus.md"`; verified with `ls`. The guide has left
   unchanged).
 - **Status**: PASS / gate CLOSED (2026-08-26). Rubric wording
   human-approved; M10 may proceed.
+
+---
+
+## Phases A–E — lab lifecycle (concept → ship, v0.2.0)
+
+- **Date**: 2026-09-01
+- **Scope**: `docs/lifecycle-plan.md` Phases A–D, plus a hardening/release
+  pass (E). Extends holagent from guide authoring to the whole lab lifecycle.
+  Eight commits: A0–A2, B0, B1, C0, C1, D, E.
+- **Delivered**:
+  - **A0** lifecycle core — `isLabDir` split from `isGuideDir`, the lifecycle
+    block on `GuideStatus`, `lab-ref.json` (ADR-008), `resolveDevEnvironment`
+    (ADR-012), `lab-prep.md` frontmatter as a contract (ADR-011).
+  - **A1** `/hol-concept` — `concept-author` + `sizing-architect`, the
+    `solution-story` and `lab-sizing` skills, 4 rubrics.
+  - **A2** `/hol-spec` + `/hol-lab-register` — `spec-author`, the
+    `spec-authoring` skill, `hol_spec_check` (section 8 must be substantive),
+    3 rubrics.
+  - **B0** `/hol-adopt` — `lab-surveyor`, `hol_prep_check`, ADR-013.
+  - **B1** `/hol-platform-init` + `/hol-platform-check` — `platform-reviewer`,
+    the `platform-requirements` skill, `hol_platform_findings`, 2 rubrics,
+    ADR-014.
+  - **C0** `/hol-build` + `/hol-build-all` — `lab-builder`, machine-readable
+    §7 milestones, `hol_build_test`, 2 rubrics, ADR-015.
+  - **C1** `/hol-qa` + `/hol-qa-prod` — `qa-runner`, `hol_parity`,
+    `hol_qa_script`, `hol_qa_record`, ADR-016.
+  - **D** `/hol-launch` + `/hol-review-launch` — `launch-writer`, the
+    `launch-collateral` skill, `hol_launch_check`, 2 rubrics, ADR-017.
+  - **E** release pass — `package.json` reframed to the lifecycle and bumped
+    to 0.2.0, README front matter/prerequisites/ADR paragraph/Develop section
+    updated, `docs/quickstart.md` rewritten for the six stages,
+    `docs/adr/README.md` index added.
+- **Totals now**: 24 prompt templates · 14 agents · 18 skills · 11 extension
+  tools + 2 LLM-bypass commands · 26 rubrics across 10 scopes · 17 ADRs.
+- **Final battery (gate)**:
+  - `npm test` (typecheck + node:test): **124/124**.
+  - `prettier --check .`: clean.
+  - `npm pack` + `scripts/package-smoke.mjs` on
+    `holagent-lab-guides-0.2.0.tgz`: **OK** (manifest paths, skill/agent
+    frontmatter, zero third-party branding in shipped markdown, no runtime
+    dependencies).
+  - Corpus: `test/corpus` **7/7**; `lint:corpus` baselines unchanged.
+  - `npm run docs:rules` + `npm run format`: no diff (25 rules).
+  - **A0 regression**: the 107 pre-lifecycle tests still pass unmodified;
+    `next` is byte-identical for guides that never opted into the lifecycle
+    (T-81), and stages 1–3 only claim `next` for an engaged lab with no plan
+    (T-82).
+  - New deterministic-gate coverage: T-88 spec · T-89 lab-prep · T-90 platform
+    findings · T-91 build sequence · T-92 build test · T-93 parity ·
+    T-94 prod render + QA records · T-95 launch. Plus the ADR-012 negative
+    test at the tool boundary (`hol_parity` rejects a prod environment with
+    `force`, `allowProd`, `kind` and a `confirm` string claiming user
+    approval; `hol_qa_script` renders the same environment instead).
+- **NOT RUN — the live gates.** `docs/lifecycle-plan.md` §Verification
+  specifies an end-to-end pass per phase against a real lab. **None of it has
+  been executed.** Nothing in Phases B, C or D has been run against a real
+  repo, a real dev environment, or a real platform team. Specifically
+  outstanding:
+  - **Phase A**: `/hol-concept` → `/hol-lab-register` → `/hol-spec` →
+    `/hol-plan` on a real lab, with `/clear` between stages.
+  - **Phase B**: `/hol-adopt sign-tutor --repo ~/projects/sign-tutor` —
+    then **verify every inferred version and path by hand** against
+    `SOFTWARE_INVENTORY.md` and `docker-compose.yml`. This is where
+    reverse-engineering accuracy actually gets judged, and it is the single
+    highest-value unrun gate. Also `/hol-platform-init k8s` →
+    `/hol-platform-check` against `~/projects/nemoclaw-lab-cl`, confirming the
+    append-new-requirements loop.
+  - **Phase C**: `/hol-build` one milestone → tests pass. `/hol-qa --env
+<dev>` against a **deliberately broken** `lab-prep.md` entry, to confirm
+    `parity.json` flags it. `/hol-qa-prod` → run the emitted script by hand.
+  - **Phase D**: `/hol-launch` with a **planted unverifiable claim**, to
+    confirm `analytic/claim-traceability` catches it.
+- **Status**: automated battery **PASS** (2026-09-01); `v0.2.0` tagged.
+  Live E2E **PENDING** — this release is verified by unit/integration tests
+  and deterministic gates only. Treat the lifecycle commands as unexercised
+  against real infrastructure until the section above is closed.

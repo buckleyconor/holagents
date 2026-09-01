@@ -348,7 +348,7 @@ test('T-87: every rubric is well-formed and names a known scope family', () => {
       else assert.ok(threshold >= 1 && threshold <= 5, `${where}: threshold out of range`);
     }
   }
-  assert.ok(seen >= 23, `expected the full rubric set, saw ${seen}`);
+  assert.ok(seen >= 26, `expected the full rubric set, saw ${seen}`);
 });
 
 test('T-88: the spec gate fails an empty open-questions section (ADR-007)', () => {

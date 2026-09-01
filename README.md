@@ -1,28 +1,36 @@
 # holagent-lab-guides
 
-**What it is.** holagent is a Pi agent package that produces
-production-quality hands-on lab guides end-to-end: it researches the
-vendor/product context, interviews you into a guide plan, generates the
-guide module-by-module against a pre-provisioned lab environment, and
-validates (deterministic linter) and scores (rubric fanout) the result
-before the final user-confirmed rename. It is one install — prompt
-templates, subagents, skills, and a thin deterministic extension — with
-zero runtime dependencies.
+**What it is.** holagent is a Pi agent package that runs the whole HOL lab
+lifecycle end-to-end — **concept → spec → build → QA → guide → ship**. It
+interviews you into a demo story and a footprint, turns those into a build
+spec and a machine-readable environment contract, builds the lab milestone by
+milestone against that spec, verifies the running environment, writes the
+guide module by module, reviews the lab against a platform team's
+requirements, and produces the launch collateral. Every stage ends at a
+deterministic gate and a scorecard, and then waits for you.
+
+Existing labs enter at the guide stage: `/hol-adopt` reverse-engineers the
+environment contract from a repo and a running dev instance rather than
+requiring a spec that was never written (ADR-013).
+
+It is one install — prompt templates, subagents, skills, and a thin
+deterministic extension — with zero runtime dependencies.
 
 ## Prerequisites
 
-| Requirement                                        | Needed for                         | What degrades without it                                                                                                                                         |
-| -------------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pi with the **pi-subagents** extension (hard peer) | every plan/generate/review command | those commands stop at their prerequisites step ("pi-subagents is not loaded"); `/hol-validate`, `/hol-status`, and the linter CLI still work                    |
-| **Node 22** (bundled with Pi)                      | linter, extension, tests           | nothing runs (`--experimental-strip-types`, erasable TS, no build)                                                                                               |
-| `shellcheck` (optional — `apt install shellcheck`) | L014/W014 on guide inline commands | the report shows `shellcheck: "skipped (shellcheck not installed)"`; all other rules unaffected                                                                  |
-| Docker / the target lab environment                | dry-run capture during generation  | the parent can't capture verbatim expected outputs; a guide with unseen outputs must not ship (the templates have an explicit "capture during the dry run" path) |
+| Requirement                                            | Needed for                         | What degrades without it                                                                                                                                                |
+| ------------------------------------------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pi with the **pi-subagents** extension (hard peer)     | every plan/generate/review command | those commands stop at their prerequisites step ("pi-subagents is not loaded"); `/hol-validate`, `/hol-status`, and the linter CLI still work                           |
+| **Node 22** (bundled with Pi)                          | linter, extension, tests           | nothing runs (`--experimental-strip-types`, erasable TS, no build)                                                                                                      |
+| `shellcheck` (optional — `apt install shellcheck`)     | L014/W014 on guide inline commands | the report shows `shellcheck: "skipped (shellcheck not installed)"`; all other rules unaffected                                                                         |
+| A registered **dev** lab environment                   | `/hol-qa` parity + dry-run capture | `hol_parity` has nothing to verify against and `/hol-generate-module` falls back to named signals instead of verbatim output; a guide with unseen outputs must not ship |
+| A lab repository (`/hol-lab-register` or `/hol-adopt`) | stages 2, 3 and platform review    | `/hol-spec`, `/hol-build` and `/hol-platform-check` stop at their state check — there is nowhere to write the spec and nothing to review                                |
 
 ## Install
 
 ```
-pi install git:<repo>@v0.1.0       # user scope
-pi install git:<repo>@v0.1.0 -l    # project scope
+pi install git:<repo>@v0.2.0       # user scope
+pi install git:<repo>@v0.2.0 -l    # project scope
 ```
 
 Verify in any guide dir: `/hol-status` prints the plan validity, per-module
@@ -213,11 +221,15 @@ confirmation (ADR-008).
   bundled in skills (ADR-002), no lifecycle scripts (ADR-003), line-based
   linter with no build (ADR-004), the `guide.md` → `<ID>-<Title>.md` rename
   gate (ADR-005), the trailing-JSON scorer contract (ADR-006), and
-  LLM-bypass extension commands (ADR-007). ADR-008…012 extend it from guide
+  LLM-bypass extension commands (ADR-007). ADR-008…017 extend it from guide
   authoring to the full lab lifecycle: the external lab-repo reference
   (ADR-008), the lifecycle state machine (ADR-009), the guide/lab-repo scope
   split (ADR-010), `lab-prep.md` as a machine-readable contract (ADR-011),
-  and the dev-only execution boundary (ADR-012).
+  the dev-only execution boundary (ADR-012), adoption as a confirmed proposal
+  (ADR-013), platform requirements as an interviewed knowledge base
+  (ADR-014), milestones that declare their own test (ADR-015), parity that
+  executes only the declared contract (ADR-016), and collateral checked
+  against the guide it describes (ADR-017). See `docs/adr/README.md`.
 - `skills/spec-authoring/worked-example.md` is the filled architect prompt that
   generated this package's own `spec/` (previously `spec_builder_prompt.md` at
   the repo root). Two references to the upstream project's name were generalised
@@ -233,11 +245,25 @@ confirmation (ADR-008).
 
 ```bash
 npm install
-npm test           # typecheck + unit/integration (node:test, type-stripped TS)
-npm run lint:corpus # run the linter over the style-corpus samples (triage aid)
-npm run docs:rules  # regenerate docs/linter-rules.md from format.json
+npm test             # typecheck + unit/integration (node:test, type-stripped TS)
+npm run format       # prettier
+npm run test:corpus  # corpus regression (baselines must not move)
+npm run lint:corpus  # run the linter over the style-corpus samples (triage aid)
+npm run docs:rules   # regenerate docs/linter-rules.md from format.json
 ```
 
-Milestone-gate runbook: `docs/manual-e2e.md`. First-time user tour (components,
-diagrams, agents, what you need up front): `docs/quickstart.md`. ADRs:
-`docs/adr/`. Spec: `spec/`.
+`docs/linter-rules.md` is generated, and the generator's column padding is not
+prettier's — always run `npm run docs:rules && npm run format` together, or the
+next `format:check` fails on a file nobody edited.
+
+Full release battery: `npm test`, `npm run format:check`,
+`npm run test:corpus`, `npm run docs:rules && npm run format` (no diff), and
+`npm pack` piped through `node scripts/package-smoke.mjs <tgz>` — which checks
+that every `pi.*` manifest path ships, that every skill and agent has valid
+frontmatter, that no third-party branding leaked into shipped markdown, and
+that there are no runtime dependencies.
+
+Gate runbook: `docs/manual-e2e.md`. First-time user tour (the six stages,
+diagrams, agents, what you need up front): `docs/quickstart.md`. ADRs, indexed:
+`docs/adr/README.md`. The plan the lifecycle was built from:
+`docs/lifecycle-plan.md`. Spec: `spec/`.

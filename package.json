@@ -1,12 +1,13 @@
 {
   "name": "holagent-lab-guides",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
-  "description": "holagent: Pi agent package that produces hands-on lab guides end-to-end (research, plan, generate, validate, score)",
+  "description": "holagent: Pi agent package that runs the whole HOL lab lifecycle end-to-end (concept, spec, build, QA, guide, ship) with a deterministic gate at every stage",
   "keywords": [
     "pi-package",
     "pi",
     "agent",
+    "lab-lifecycle",
     "lab-guides"
   ],
   "license": "UNLICENSED",

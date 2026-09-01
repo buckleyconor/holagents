@@ -1,6 +1,6 @@
 ---
 name: evaluation
-description: Holagent scoring system — how lab guides, plans, and module plans are scored. Use when running or interpreting scorer fanout (review/generate commands), writing or editing rubrics, or handling score entries and fix loops. Rubrics live under rubrics/{checklist,analytic,holistic}/ for the four scopes: plan, module-plan, module, guide.
+description: Holagent scoring system — how every stage of the lab lifecycle is scored. Use when running or interpreting scorer fanout (any generate/review/stage command), writing or editing rubrics, or handling score entries and fix loops. Rubrics live under rubrics/{checklist,analytic,holistic}/ for ten scopes: concept, sizing, spec, build-<slug>, plan, module-plan-<NN>, module-<NN-slug>, guide, platform-<name>, launch.
 ---
 
 # Evaluation
@@ -99,8 +99,9 @@ unparseable"` rather than guessing. (ADR-006: no reliance on per-item
 ## Files in this skill
 
 - `scoring-guide.md` — the scorer's behavior guide (inlined into every task).
-- `scorer-prompts.md` — the four task-payload templates (plan / module-plan /
-  module / guide).
+- `scorer-prompts.md` — one task-payload template per scope (concept, sizing,
+  spec, platform, build, launch, plan, module-plan, module, guide), the
+  mandatory dispatch contract, the fanout table, and the fix-loop caps.
 - `rubrics/checklist/*.md`, `rubrics/analytic/*.md`, `rubrics/holistic/*.md`
   — the rubric set. Each: frontmatter (`name`, `kind`, `scope`, `threshold`)
   - purpose + criteria with anchors. Rubric wording is the human-approved

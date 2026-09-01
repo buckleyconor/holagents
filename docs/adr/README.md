@@ -6,7 +6,8 @@ decision that changes gets a new record that supersedes the old one, so the
 reasoning stays readable in order.
 
 ADR-001…007 come from the original build, when holagent authored guides.
-ADR-008…017 extend it to the full lab lifecycle.
+ADR-008…017 extend it to the full lab lifecycle. ADR-018 onwards are ordinary
+corrections and reversals — including of the original spec.
 
 ## The guide pipeline (001–007)
 
@@ -34,6 +35,12 @@ ADR-008…017 extend it to the full lab lifecycle.
 | [015](0015-milestones-declare-their-own-test.md)          | Milestones declare their own test       | "Independently testable" becomes a property the pipeline checks, not a phrase in a template.                  |
 | [016](0016-parity-executes-only-the-declared-contract.md) | Parity executes the declared contract   | Only the author's `verify` checks run; what nothing covers is a warning, and one reader serves both QA paths. |
 | [017](0017-collateral-must-agree-with-the-guide.md)       | Collateral is checked against the guide | ID, title and duration are compared to `plan.md`; every claim must name a source or come out.                 |
+
+## Corrections (018–)
+
+| #                                    | Decision              | In one line                                                                                  |
+| ------------------------------------ | --------------------- | -------------------------------------------------------------------------------------------- |
+| [018](0018-tests-are-not-shipped.md) | Tests are not shipped | The shipped suite could not run; CI verifies the repo, `package-smoke` verifies the tarball. |
 
 ## The shape of these decisions
 

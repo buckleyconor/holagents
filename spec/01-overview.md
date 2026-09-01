@@ -1,5 +1,15 @@
 # 01 — Overview
 
+> **Status: this spec describes the v0.1.0 guide-authoring build (milestones
+> M0–M11), which shipped as specified.** It is the historical build contract and
+> is still cited by code comments (`spec §02 §4.1`, `spec 07 M9`), so its section
+> numbering is load-bearing — but it does **not** describe the package as it stands.
+>
+> v0.2.0 extended holagent from guide authoring to the whole lab lifecycle
+> (concept → spec → build → QA → guide → ship). For that work see
+> `docs/lifecycle-plan.md` (the plan), `docs/adr/README.md` (ADRs 008–017, the
+> decisions), and `README.md` / `docs/quickstart.md` (the current shape).
+
 ## Problem
 
 Authoring hands-on lab guides (HOL) for Dell AI solutions is currently manual: each guide

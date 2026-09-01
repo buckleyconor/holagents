@@ -44,7 +44,7 @@ export class HolError extends Error {
 // ------------------------------------------------------------- data dir
 
 /** `~/.holagent/` (override: `HOLAGENT_DATA_DIR`). Spec §04 §4/§5. */
-export function holagentDataDir(): string {
+function holagentDataDir(): string {
   const env = process.env.HOLAGENT_DATA_DIR;
   if (env && env.trim()) return resolve(env.trim());
   return join(homedir(), '.holagent');
@@ -182,7 +182,7 @@ export async function validateGuide(
 // ------------------------------------------------------------- atomics
 
 /** Atomic JSON write: same-dir temp file + rename. Never leaves partial state. */
-export function atomicWriteJson(filePath: string, value: unknown): void {
+function atomicWriteJson(filePath: string, value: unknown): void {
   const dir = dirname(filePath);
   mkdirSync(dir, { recursive: true });
   const tmp = join(dir, `.${basename(filePath)}.tmp-${process.pid}-${Date.now()}`);
@@ -547,7 +547,7 @@ export function validatePlanFrontmatter(fm: Frontmatter | null): PlanValidation 
 }
 
 /** Parse `.holagent/plan.md` frontmatter (missing file → exists:false). */
-export function readPlan(guideDir: string): PlanInfo {
+function readPlan(guideDir: string): PlanInfo {
   const path = join(guideDir, '.holagent', 'plan.md');
   if (!existsSync(path)) {
     return {
@@ -1234,7 +1234,7 @@ export interface ShellResult {
 
 const MAX_CAPTURE = 4000;
 export const DEFAULT_EXEC_TIMEOUT_MS = 120_000;
-export const MAX_EXEC_TIMEOUT_MS = 900_000;
+const MAX_EXEC_TIMEOUT_MS = 900_000;
 
 function tail(s: string): { text: string; truncated: boolean } {
   const text = s ?? '';
@@ -1248,7 +1248,7 @@ function tail(s: string): { text: string; truncated: boolean } {
  * package executes anything, so the timeout, the capture limit and the
  * "killed counts as failure" rule are decided once.
  */
-export function runShell(command: string, opts: { cwd: string; timeoutMs?: number }): ShellResult {
+function runShell(command: string, opts: { cwd: string; timeoutMs?: number }): ShellResult {
   const timeoutMs = Math.min(
     Math.max(Number(opts.timeoutMs) || DEFAULT_EXEC_TIMEOUT_MS, 1_000),
     MAX_EXEC_TIMEOUT_MS,
@@ -1296,7 +1296,7 @@ export interface BuildTestRecord {
 }
 
 /** `.holagent/build/<slug>.json` — the last recorded test run for a milestone. */
-export function readBuildRecord(labDir: string, slug: string): BuildTestRecord | null {
+function readBuildRecord(labDir: string, slug: string): BuildTestRecord | null {
   try {
     const raw: unknown = JSON.parse(
       readFileSync(join(labDir, '.holagent', 'build', `${slug}.json`), 'utf8'),
@@ -1715,7 +1715,7 @@ const LAUNCH_REQUIRED = ['exec-summary.md', 'catalogue-description.md', 'social.
  * that does not fit is not a style preference — it is truncated in front of a
  * customer.
  */
-export const MAX_SHORT_BLURB = 200;
+const MAX_SHORT_BLURB = 200;
 
 export interface LaunchCheck {
   /** Absolute launch dir, whether or not it exists. */

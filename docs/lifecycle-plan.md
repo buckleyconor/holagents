@@ -1,8 +1,23 @@
 # holagent → HOL lab lifecycle — project context & plan
 
-> **Self-contained briefing document.** Written to be pasted into a fresh chat with no prior context.
-> Part 1 describes the repository as it exists. Part 2 describes the human workflow it is meant to automate
-> and where the gaps are. Part 3 is the proposed plan. Nothing has been implemented yet.
+> **Status: executed and shipped in v0.2.0 (2026-09-01).** This document is kept
+> as the historical record of the plan, not as a description of the repository.
+> Phases A–D landed across eight commits (A0–A2, B0, B1, C0, C1, D), plus a
+> hardening pass; ADRs 008–017 record the decisions made while building them.
+> **The live end-to-end gates in §Verification have not been run** — see the
+> "Phases A–E" entry in `docs/manual-e2e.md` for exactly what is and is not
+> verified.
+>
+> **Part 1 is now out of date.** It describes the package as it stood before
+> this plan (6 agents, 13 skills, 10 commands, 3 extension tools); the package
+> today has 14 agents, 18 skills, 24 commands and 11 tools. For the current
+> shape read `README.md` and `docs/quickstart.md`. Part 2 (the human workflow
+> and its gaps) and Part 3 (the plan itself) are unchanged and still accurate
+> as a record of the reasoning.
+>
+> Originally written as a self-contained briefing to be pasted into a fresh chat
+> with no prior context. Do not use it that way any more without reading this
+> header first.
 
 ---
 

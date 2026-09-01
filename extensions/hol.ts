@@ -7,6 +7,8 @@
  *   hol_validate — run the guide linter; record .holagent/last-validation.json
  *   hol_status   — derive per-module state (files + scores + last validation)
  *   hol_scores   — read / atomically merge .holagent/scores.json
+ *   hol_spec_check — stage-2 gate: the spec set is complete and owns its guesses
+ *   hol_prep_check — the lab-prep.md environment contract is complete + runnable
  *
  * Commands (user-invoked, LLM-bypass — checked by pi before template
  * expansion, so no prompt template may reuse these names):
@@ -19,6 +21,7 @@
 import { Type } from 'typebox';
 import {
   HolError,
+  checkLabPrep,
   checkSpec,
   ensureHolagentDataDir,
   mergeScores,
@@ -317,6 +320,44 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
                   : ' — TOO THIN: the spec is hiding its assumptions'
               }`,
         );
+      }
+      return { content: [{ type: 'text', text: lines.join('\n') }], details: check };
+    },
+  });
+
+  pi.registerTool({
+    name: 'hol_prep_check',
+    label: 'hol_prep_check',
+    description:
+      "Deterministic check on the lab's environment contract: does lab-prep.md carry frontmatter that parses, name all seven keys (baseline, software, credentials, endpoints, artifacts, network, verify), fill every field of every row, and declare verify checks a machine can run unattended? The gate for /hol-adopt, where the contract is reverse-engineered, and for the lab-prep.md /hol-spec derives from the sizing.",
+    promptSnippet:
+      'Check lab-prep.md — the environment contract — for a complete, runnable frontmatter',
+    parameters: Type.Object({
+      guideDir: optGuideDir(GUIDE_DIR_DESC),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<PiToolResult> {
+      const labDir = resolveLabPath(
+        ctx.cwd,
+        typeof params.guideDir === 'string' ? params.guideDir : undefined,
+      );
+      const check = checkLabPrep(labDir);
+      const lines: string[] = [];
+      if (!check.exists) {
+        lines.push(`No lab-prep.md at ${check.path} — nothing to check.`);
+      } else {
+        lines.push(`Lab-prep check ${check.ok ? 'PASS' : 'FAIL'} — ${check.path}`);
+        if (check.parseError) lines.push(`Frontmatter: ${check.parseError}`);
+        else
+          lines.push(
+            `Rows: ${Object.entries(check.counts)
+              .map(([k, n]) => `${k} ${n}`)
+              .join(', ')}`,
+          );
+        if (check.missing.length > 0) lines.push(`Missing keys: ${check.missing.join(', ')}`);
+        if (check.empty.length > 0) lines.push(`Empty keys: ${check.empty.join(', ')}`);
+        for (const p of check.incomplete) lines.push(`Incomplete — ${p}`);
+        for (const p of check.unrunnable) lines.push(`Not runnable unattended — ${p}`);
+        for (const l of check.unfilled) lines.push(`Unfilled marker — ${l}`);
       }
       return { content: [{ type: 'text', text: lines.join('\n') }], details: check };
     },

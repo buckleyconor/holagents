@@ -70,6 +70,7 @@ test('extension loads and registers the deterministic surface', async () => {
   holagentExtension(api);
 
   assert.deepEqual(tools.map((t) => t.name).sort(), [
+    'hol_prep_check',
     'hol_scores',
     'hol_spec_check',
     'hol_status',

@@ -18,7 +18,7 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { parseFrontmatter, type Frontmatter } from './frontmatter.ts';
+import { parseFrontmatter, type FmMap, type Frontmatter } from './frontmatter.ts';
 import { loadFormatConfig } from './linter/config.ts';
 import { runLint, type RunLintOptions } from './linter/index.ts';
 import { scanMarkdown } from './linter/scan.ts';
@@ -1000,6 +1000,201 @@ export function checkSpec(labDir: string): SpecCheck {
     openQuestions: { file: oqFile, contentLines, substantive },
     unfilled,
     ok: missing.length === 0 && unfilled.length === 0 && substantive,
+  };
+}
+
+// ----------------------------------------------------- lab-prep check
+
+/**
+ * The seven `lab-prep.md` frontmatter keys (ADR-011). `baseline` and
+ * `network` are scalars; the rest are lists of one-line flow maps.
+ */
+const PREP_LIST_FIELDS: Record<string, readonly string[]> = {
+  software: ['name', 'version', 'where'],
+  credentials: ['user', 'secret', 'applies_to'],
+  endpoints: ['url', 'purpose'],
+  artifacts: ['path', 'purpose'],
+  verify: ['check', 'expect'],
+};
+
+const PREP_SCALARS = ['baseline', 'network'] as const;
+
+/**
+ * Keys that may not be empty. A lab with no credentials, no endpoints or no
+ * preloaded artifacts is a real lab; a lab with no software or nothing to
+ * verify is an unfinished contract.
+ */
+const PREP_REQUIRED_NONEMPTY = new Set(['baseline', 'network', 'software', 'verify']);
+
+/**
+ * `verify` entries `hol_parity` could not run unattended. This is a
+ * runnability check, not a prose detector: whether the command *says*
+ * something useful is a rubric's job (`checklist/spec-completeness`,
+ * criterion `verify-entries-executable`); whether it would hang a
+ * non-interactive run is decidable here, so it is decided here (ADR-007).
+ */
+const UNRUNNABLE: ReadonlyArray<{ re: RegExp; why: string }> = [
+  { re: /(^|[;|&]\s*)sudo\b(?![^;|&]*\s-n\b)/, why: 'sudo without -n prompts for a password' },
+  {
+    re: /(^|[;|&]\s*)ssh\b(?![^;|&]*BatchMode=yes)/,
+    why: 'ssh without -o BatchMode=yes can block on a prompt',
+  },
+  { re: /(^|[;|&\s])(vi|vim|nano|emacs|less|more|top|htop|watch)\b/, why: 'interactive program' },
+  { re: /\btail\b[^;|&]*\s-f\b/, why: 'tail -f never exits' },
+  { re: /(^|[;|&]\s*)read\b/, why: 'read waits for input' },
+  { re: /\bapt(-get)?\s+install\b(?![^;|&]*\s-y\b)/, why: 'apt install without -y prompts' },
+  {
+    re: /\bdocker\s+(run|exec)\b[^;|&]*(\s-[a-zA-Z]*t[a-zA-Z]*\b|--tty\b)/,
+    why: 'docker with a TTY (-t) needs a terminal',
+  },
+  { re: /\?\s*$/, why: 'reads as a question, not a command' },
+];
+
+export interface LabPrepCheck {
+  /** Absolute path to `lab-prep.md`, whether or not it exists. */
+  path: string;
+  exists: boolean;
+  /** Frontmatter present and inside the mini-YAML subset. */
+  parsed: boolean;
+  parseError: string | null;
+  /** Required keys with no entry at all. */
+  missing: string[];
+  /** Required keys present but empty (no rows, or a blank scalar). */
+  empty: string[];
+  /** Rows missing a required field, e.g. `software[1]: missing version`. */
+  incomplete: string[];
+  /** Lines still carrying an unfilled `<< FILL: … >>` marker (first 10). */
+  unfilled: string[];
+  /** `verify` entries `hol_parity` could not run unattended. */
+  unrunnable: string[];
+  counts: Record<string, number>;
+  ok: boolean;
+}
+
+/**
+ * Deterministic check on the environment contract (ADR-011): does
+ * `lab-prep.md` carry frontmatter that parses, name all seven keys, fill
+ * every field of every row, and declare `verify` checks a machine can
+ * actually run?
+ *
+ * The gate for `/hol-adopt`, where the whole file is reverse-engineered
+ * guesswork until a human confirms it, and a re-usable check for `/hol-spec`,
+ * which derives the same file from the sizing.
+ */
+export function checkLabPrep(labDir: string): LabPrepCheck {
+  const path = join(labDir, 'lab-prep.md');
+  const base: LabPrepCheck = {
+    path,
+    exists: false,
+    parsed: false,
+    parseError: null,
+    missing: [...PREP_SCALARS, ...Object.keys(PREP_LIST_FIELDS)],
+    empty: [],
+    incomplete: [],
+    unfilled: [],
+    unrunnable: [],
+    counts: {},
+    ok: false,
+  };
+  let text: string;
+  try {
+    text = readFileSync(path, 'utf8');
+  } catch {
+    return base;
+  }
+
+  const unfilled = text
+    .split(/\r?\n/)
+    .filter((l) => l.includes('<< FILL: '))
+    .map((l) => l.trim())
+    .slice(0, 10);
+
+  let fm: Frontmatter | null;
+  try {
+    fm = parseFrontmatter(text);
+  } catch (e) {
+    return {
+      ...base,
+      exists: true,
+      unfilled,
+      parseError: `frontmatter outside the mini-YAML subset: ${(e as Error).message}`,
+    };
+  }
+  if (!fm) {
+    return { ...base, exists: true, unfilled, parseError: 'no frontmatter block' };
+  }
+
+  const data = fm.data;
+  const missing: string[] = [];
+  const empty: string[] = [];
+  const incomplete: string[] = [];
+  const unrunnable: string[] = [];
+  const counts: Record<string, number> = {};
+
+  for (const key of PREP_SCALARS) {
+    const v = data[key];
+    if (v === undefined) missing.push(key);
+    else if (typeof v !== 'string' || v.trim() === '') empty.push(key);
+  }
+
+  for (const [key, fields] of Object.entries(PREP_LIST_FIELDS)) {
+    const v = data[key];
+    if (v === undefined) {
+      missing.push(key);
+      continue;
+    }
+    // `key:` with nothing under it parses as the empty string, not a list.
+    const rows = Array.isArray(v) ? v : [];
+    counts[key] = rows.length;
+    if (rows.length === 0) {
+      empty.push(key);
+      continue;
+    }
+    rows.forEach((row, i) => {
+      const where = `${key}[${i}]`;
+      if (typeof row !== 'object' || row === null || Array.isArray(row)) {
+        incomplete.push(`${where}: not a flow map — write one \`{ … }\` per entry`);
+        return;
+      }
+      const map = row as FmMap;
+      for (const field of fields) {
+        const value = map[field];
+        if (value === undefined) incomplete.push(`${where}: missing ${field}`);
+        else if (typeof value === 'string' && value.trim() === '')
+          incomplete.push(`${where}: empty ${field}`);
+      }
+      if (key === 'verify') {
+        const check = typeof map.check === 'string' ? map.check.trim() : '';
+        if (check !== '') {
+          for (const { re, why } of UNRUNNABLE) {
+            if (re.test(check)) {
+              unrunnable.push(`${where}: ${why} — \`${check}\``);
+              break;
+            }
+          }
+        }
+      }
+    });
+  }
+
+  const requiredEmpty = empty.filter((k) => PREP_REQUIRED_NONEMPTY.has(k));
+  return {
+    path,
+    exists: true,
+    parsed: true,
+    parseError: null,
+    missing,
+    empty,
+    incomplete,
+    unfilled,
+    unrunnable,
+    counts,
+    ok:
+      missing.length === 0 &&
+      requiredEmpty.length === 0 &&
+      incomplete.length === 0 &&
+      unfilled.length === 0 &&
+      unrunnable.length === 0,
   };
 }
 

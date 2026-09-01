@@ -9,6 +9,7 @@ import {
   readLabRef,
   resolveDevEnvironment,
   resolveGuidePath,
+  checkLabPrep,
   checkSpec,
   resolveLabPath,
   validateScoreEntry,
@@ -388,5 +389,92 @@ test('T-88: the spec gate fails an empty open-questions section (ADR-007)', () =
     const none = checkSpec(bare);
     assert.equal(none.specDir, null);
     assert.equal(none.ok, false);
+  });
+});
+
+test('T-89: the lab-prep gate — the environment contract must parse and be runnable', () => {
+  withTmp((base) => {
+    const prep = (fm: string) => `---\n${fm}---\n\n# Lab prep\n\nbody\n`;
+    const GOOD = [
+      "baseline: 'Ubuntu 24.04 container, Docker 29.0'\n",
+      'software:\n',
+      "  - { name: Qdrant, version: '1.12.4', where: /opt/qdrant }\n",
+      'credentials:\n',
+      "  - { user: demouser, secret: 'Password123!', applies_to: 'sandbox shell' }\n",
+      'endpoints:\n',
+      "  - { url: 'http://localhost:6333', purpose: 'Qdrant REST' }\n",
+      'artifacts:\n',
+      "  - { path: /lab/corpus.json, purpose: 'document corpus' }\n",
+      "network: 'fully pre-wired — no learner network config'\n",
+      'verify:\n',
+      "  - { check: 'curl -sf http://localhost:6333/healthz', expect: 'HTTP 200' }\n",
+    ].join('');
+
+    const lab = makeLab(base, { 'lab-prep.md': prep(GOOD) }, 'prep');
+    let c = checkLabPrep(lab);
+    assert.equal(c.ok, true, 'a complete contract passes');
+    assert.deepEqual(c.missing, []);
+    assert.deepEqual(c.incomplete, []);
+    assert.equal(c.counts.verify, 1);
+
+    const write = (fm: string) => writeFileSync(join(lab, 'lab-prep.md'), prep(fm));
+
+    // a missing key fails, and is named
+    write(GOOD.replace(/network: .*\n/, ''));
+    c = checkLabPrep(lab);
+    assert.equal(c.ok, false);
+    assert.deepEqual(c.missing, ['network']);
+
+    // a row missing a field fails, located by index
+    write(GOOD.replace(", version: '1.12.4'", ''));
+    c = checkLabPrep(lab);
+    assert.equal(c.ok, false);
+    assert.deepEqual(c.incomplete, ['software[0]: missing version']);
+
+    // an empty credentials list is a real lab; an empty verify list is not
+    write(GOOD.replace(/credentials:\n.*\n/, 'credentials: []\n'));
+    assert.equal(checkLabPrep(lab).ok, true, 'a lab with no credentials is legitimate');
+    write(GOOD.replace(/verify:\n.*\n/, 'verify: []\n'));
+    c = checkLabPrep(lab);
+    assert.equal(c.ok, false, 'nothing to verify is an unfinished contract');
+    assert.deepEqual(c.empty, ['verify']);
+
+    // checks hol_parity could not run unattended fail (ADR-012 runs them headless)
+    for (const check of [
+      'sudo systemctl status qdrant',
+      'ssh node1 uptime',
+      'watch docker ps',
+      'tail -f /var/log/lab.log',
+      'docker exec -it lab true',
+      'Is the Qdrant service up?',
+    ]) {
+      write(GOOD.replace('curl -sf http://localhost:6333/healthz', check));
+      const r = checkLabPrep(lab);
+      assert.equal(r.ok, false, `must reject: ${check}`);
+      assert.equal(r.unrunnable.length, 1, `must flag once: ${check}`);
+    }
+    // …and the non-interactive spellings of the same commands pass
+    for (const check of ['sudo -n systemctl is-active qdrant', 'docker exec lab true']) {
+      write(GOOD.replace('curl -sf http://localhost:6333/healthz', check));
+      assert.equal(checkLabPrep(lab).ok, true, `must accept: ${check}`);
+    }
+
+    // leftover markers fail — a reverse-engineered contract must not ship gaps
+    write(GOOD.replace('/lab/corpus.json', '<< FILL: corpus path >>'));
+    c = checkLabPrep(lab);
+    assert.equal(c.ok, false);
+    assert.equal(c.unfilled.length, 1);
+
+    // frontmatter outside the mini-YAML subset is reported, not thrown
+    writeFileSync(join(lab, 'lab-prep.md'), '---\nsoftware:\n  - name: Qdrant\n    x: 1\n---\n');
+    c = checkLabPrep(lab);
+    assert.equal(c.parsed, false);
+    assert.match(String(c.parseError), /mini-YAML subset/);
+
+    // no file at all is a clean "nothing to check", not a crash
+    const bare = makeLab(base, {}, 'no-prep');
+    c = checkLabPrep(bare);
+    assert.equal(c.exists, false);
+    assert.equal(c.ok, false);
   });
 });

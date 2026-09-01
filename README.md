@@ -54,34 +54,43 @@ between stages; every command re-detects state and resumes.
 6. `/hol-review-guide` — guide-scope scoring (3 rubrics); on an all-passing
    scorecard it offers the final rename (you confirm — ADR-005).
 
+**Adopting an existing lab.** Most HOL environments already exist and have no
+spec documents. `/hol-adopt <slug> --repo <path>` enters the lifecycle at the
+guide stage: `lab-surveyor` reconstructs `lab-prep.md` and an observed
+`sizing.md` from the repo's deployment artifacts and (read-only) a running
+`dev` instance, you confirm it row by row, and `lab-ref.json` records
+concept/spec/build as **inherited** rather than fabricating them (ADR-013).
+From there `/hol-plan` onwards is unchanged.
+
 ## Command reference
 
 `<module>` accepts `NN` (e.g. `2`), `NN-slug` (e.g. `02-upload-documents`),
 or an unambiguous title fragment; ambiguous input lists available modules.
 
-| Command                   | Arg                          | What it does                                                                                                            | Prerequisites                             |
-| ------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| `/hol-concept`            | `[topic]`                    | Interview → `concept-author` + `sizing-architect` → concept/sizing scoring → approval loop → `concept.md` + `sizing.md` | pi-subagents                              |
-| `/hol-review-concept`     | —                            | Concept-scope (3 rubrics) + sizing-scope (1 rubric) re-score → scorecard                                                | pi-subagents                              |
-| `/hol-lab-register`       | `<repo-path>`                | Records `.holagent/lab-ref.json` — the lab's own repo, its spec dir, and its dev/prod environments (ADR-008/012)        | —                                         |
-| `/hol-spec`               | —                            | `spec-author` → spec set in the lab repo + derived `lab-prep.md` → `hol_spec_check` gate → spec scoring → approval      | pi-subagents                              |
-| `/hol-review-spec`        | —                            | Deterministic spec check + spec-scope (3 rubrics) re-score → scorecard                                                  | pi-subagents                              |
-| `/hol-plan`               | `[topic]`                    | Interview → `guide-planner` → plan scoring fanout → approval loop → `plan.md` + `lab-prep.md`                           | pi-subagents                              |
-| `/hol-plan-module`        | `<module>`                   | `module-planner` → module plan file → light scoring (2 rubrics)                                                         | pi-subagents                              |
-| `/hol-generate-module`    | `<module> [--fresh]`         | `guide-implementer` writes the section → linter loop → module scoring (4 rubrics) → capped fix loop → merge             | pi-subagents                              |
-| `/hol-generate-all`       | `[--fresh]`                  | State detection via `hol_status`; runs the per-module pipeline in plan order; checkpoint report after each module       | pi-subagents                              |
-| `/hol-research-company`   | `[url:<u> slug:<s>]`         | `scrape-website` skill + pinned scraper binary → `company-researcher` → `~/.holagent/companies/<slug>/`                 | network (scraper bootstraps on first run) |
-| `/hol-research-product`   | `<product> [company:<slug>]` | `product-researcher` → `~/.holagent/products/<company>/<product>/`                                                      | pi-subagents                              |
-| `/hol-review-plan`        | —                            | Plan-scope scoring fanout (4 rubrics) → merge → scorecard                                                               | pi-subagents                              |
-| `/hol-review-module-plan` | `<module>`                   | Module-plan-scope re-score (2 rubrics) → scorecard                                                                      | pi-subagents                              |
-| `/hol-review-module`      | `<module>`                   | Module-scope re-score (4 rubrics) → scorecard (requires state ≥ generated)                                              | pi-subagents                              |
-| `/hol-review-guide`       | —                            | Guide-scope scoring (3 rubrics) → scorecard; on all-pass + 0 lint errors, the ADR-005 rename offer (user confirms)      | pi-subagents                              |
-| `/hol-validate`           | `[guideDir]`                 | **Extension command (no LLM):** runs the linter, records `.holagent/last-validation.json`                               | Node 22                                   |
-| `/hol-status`             | `[guideDir]`                 | **Extension command (no LLM):** plan/module states, last validation, next command                                       | Node 22                                   |
+| Command                   | Arg                          | What it does                                                                                                                                         | Prerequisites                             |
+| ------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `/hol-concept`            | `[topic]`                    | Interview → `concept-author` + `sizing-architect` → concept/sizing scoring → approval loop → `concept.md` + `sizing.md`                              | pi-subagents                              |
+| `/hol-review-concept`     | —                            | Concept-scope (3 rubrics) + sizing-scope (1 rubric) re-score → scorecard                                                                             | pi-subagents                              |
+| `/hol-lab-register`       | `<repo-path>`                | Records `.holagent/lab-ref.json` — the lab's own repo, its spec dir, and its dev/prod environments (ADR-008/012)                                     | —                                         |
+| `/hol-adopt`              | `<slug> --repo <path>`       | Existing lab, no spec: `lab-surveyor` reverse-engineers `lab-prep.md` + `sizing.md` → `hol_prep_check` gate → you confirm → `lab-ref.json` (ADR-013) | pi-subagents                              |
+| `/hol-spec`               | —                            | `spec-author` → spec set in the lab repo + derived `lab-prep.md` → `hol_spec_check` gate → spec scoring → approval                                   | pi-subagents                              |
+| `/hol-review-spec`        | —                            | Deterministic spec check + spec-scope (3 rubrics) re-score → scorecard                                                                               | pi-subagents                              |
+| `/hol-plan`               | `[topic]`                    | Interview → `guide-planner` → plan scoring fanout → approval loop → `plan.md` + `lab-prep.md`                                                        | pi-subagents                              |
+| `/hol-plan-module`        | `<module>`                   | `module-planner` → module plan file → light scoring (2 rubrics)                                                                                      | pi-subagents                              |
+| `/hol-generate-module`    | `<module> [--fresh]`         | `guide-implementer` writes the section → linter loop → module scoring (4 rubrics) → capped fix loop → merge                                          | pi-subagents                              |
+| `/hol-generate-all`       | `[--fresh]`                  | State detection via `hol_status`; runs the per-module pipeline in plan order; checkpoint report after each module                                    | pi-subagents                              |
+| `/hol-research-company`   | `[url:<u> slug:<s>]`         | `scrape-website` skill + pinned scraper binary → `company-researcher` → `~/.holagent/companies/<slug>/`                                              | network (scraper bootstraps on first run) |
+| `/hol-research-product`   | `<product> [company:<slug>]` | `product-researcher` → `~/.holagent/products/<company>/<product>/`                                                                                   | pi-subagents                              |
+| `/hol-review-plan`        | —                            | Plan-scope scoring fanout (4 rubrics) → merge → scorecard                                                                                            | pi-subagents                              |
+| `/hol-review-module-plan` | `<module>`                   | Module-plan-scope re-score (2 rubrics) → scorecard                                                                                                   | pi-subagents                              |
+| `/hol-review-module`      | `<module>`                   | Module-scope re-score (4 rubrics) → scorecard (requires state ≥ generated)                                                                           | pi-subagents                              |
+| `/hol-review-guide`       | —                            | Guide-scope scoring (3 rubrics) → scorecard; on all-pass + 0 lint errors, the ADR-005 rename offer (user confirms)                                   | pi-subagents                              |
+| `/hol-validate`           | `[guideDir]`                 | **Extension command (no LLM):** runs the linter, records `.holagent/last-validation.json`                                                            | Node 22                                   |
+| `/hol-status`             | `[guideDir]`                 | **Extension command (no LLM):** plan/module states, last validation, next command                                                                    | Node 22                                   |
 
 The extension also registers the LLM-callable tools `hol_validate`,
-`hol_status`, `hol_scores`, and `hol_spec_check` — the same deterministic core
-that the prompt templates call (ADR-007).
+`hol_status`, `hol_scores`, `hol_spec_check`, and `hol_prep_check` — the same
+deterministic core that the prompt templates call (ADR-007).
 
 ## Workflow notes
 

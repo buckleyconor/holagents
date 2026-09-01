@@ -6,10 +6,12 @@ import { join } from 'node:path';
 import {
   HolError,
   readGuideStatus,
+  listPlatformFindings,
   readLabRef,
   resolveDevEnvironment,
   resolveGuidePath,
   checkLabPrep,
+  checkPlatformFindings,
   checkSpec,
   resolveLabPath,
   validateScoreEntry,
@@ -331,7 +333,7 @@ test('T-87: every rubric is well-formed and names a known scope family', () => {
       else assert.ok(threshold >= 1 && threshold <= 5, `${where}: threshold out of range`);
     }
   }
-  assert.ok(seen >= 17, `expected the full rubric set, saw ${seen}`);
+  assert.ok(seen >= 19, `expected the full rubric set, saw ${seen}`);
 });
 
 test('T-88: the spec gate fails an empty open-questions section (ADR-007)', () => {
@@ -476,5 +478,100 @@ test('T-89: the lab-prep gate — the environment contract must parse and be run
     c = checkLabPrep(bare);
     assert.equal(c.exists, false);
     assert.equal(c.ok, false);
+  });
+});
+
+test('T-90: the platform-review gate — findings must be traced, owned and actionable', () => {
+  withTmp((base) => {
+    const lab = makeLab(base, {}, 'platform-lab');
+    const dir = join(lab, '.holagent', 'platform');
+    mkdirSync(dir, { recursive: true });
+    const finding = (over: Record<string, unknown> = {}) => ({
+      id: 'k8s-registry-01',
+      severity: 'blocker',
+      category: 'registry',
+      requirement: 'Images must be mirrored to the internal registry.',
+      observation: 'docker-compose.yml:14 pulls qdrant/qdrant:v1.12.4 from Docker Hub.',
+      impact: 'The deploy is refused at admission.',
+      action: 'Mirror the image and repin it.',
+      owner: 'us',
+      ...over,
+    });
+    const write = (doc: unknown) =>
+      writeFileSync(join(dir, 'k8s.json'), JSON.stringify(doc, null, 2));
+    const doc = (over: Record<string, unknown> = {}) => ({
+      version: 1,
+      platform: 'k8s',
+      reviewed_at: '2026-09-01T00:00:00Z',
+      requirements_source: '~/.holagent/platforms/k8s/requirements.md',
+      findings: [finding()],
+      asks: ['A namespace with a GPU quota of 2.'],
+      unknowns: ['No stated policy on floating image tags.'],
+      ...over,
+    });
+
+    write(doc());
+    let c = checkPlatformFindings(lab, 'k8s');
+    assert.equal(c.ok, true, 'a well-formed review passes');
+    assert.equal(c.counts.blocker, 1);
+    assert.equal(c.blockers.length, 1);
+    assert.deepEqual(c.unknowns, ['No stated policy on floating image tags.']);
+    assert.deepEqual(listPlatformFindings(lab), ['k8s']);
+
+    // full compliance is a real result, not a malformed review
+    write(doc({ findings: [] }));
+    c = checkPlatformFindings(lab, 'k8s');
+    assert.equal(c.ok, true, 'an empty findings list is a legitimate pass');
+    assert.equal(c.counts.blocker, 0);
+
+    // a finding with no action is a complaint; with no requirement, an opinion
+    for (const field of ['action', 'requirement', 'observation', 'impact', 'id', 'category']) {
+      write(doc({ findings: [finding({ [field]: '' })] }));
+      c = checkPlatformFindings(lab, 'k8s');
+      assert.equal(c.ok, false, `empty ${field} must fail`);
+      assert.ok(
+        c.problems.some((p) => p.includes(`missing ${field}`)),
+        `must name the missing ${field}: ${c.problems.join('; ')}`,
+      );
+    }
+
+    // severity and owner are closed sets — "critical" and "platform" are not
+    write(doc({ findings: [finding({ severity: 'critical' })] }));
+    assert.equal(checkPlatformFindings(lab, 'k8s').ok, false, 'unknown severity must fail');
+    write(doc({ findings: [finding({ owner: 'platform' })] }));
+    assert.equal(checkPlatformFindings(lab, 'k8s').ok, false, 'unknown owner must fail');
+
+    // duplicate ids make the meeting unreadable
+    write(doc({ findings: [finding(), finding({ severity: 'note' })] }));
+    c = checkPlatformFindings(lab, 'k8s');
+    assert.equal(c.ok, false);
+    assert.ok(c.problems.some((p) => p.includes('duplicate id')));
+
+    // a review must name what it reviewed against
+    write(doc({ requirements_source: '' }));
+    c = checkPlatformFindings(lab, 'k8s');
+    assert.equal(c.ok, false);
+    assert.ok(c.problems.some((p) => p.includes('requirements_source')));
+
+    // the file name and the declared platform must agree
+    write(doc({ platform: 'vcd' }));
+    assert.equal(checkPlatformFindings(lab, 'k8s').ok, false, 'a mislabelled review must fail');
+
+    // corrupt and absent files degrade, never throw
+    writeFileSync(join(dir, 'k8s.json'), '{not json');
+    c = checkPlatformFindings(lab, 'k8s');
+    assert.equal(c.exists, true);
+    assert.equal(c.ok, false);
+    assert.match(String(c.parseError), /unreadable JSON/);
+
+    c = checkPlatformFindings(lab, 'vcd');
+    assert.equal(c.exists, false);
+    assert.equal(c.ok, false);
+    assert.equal(checkPlatformFindings(lab, '../etc').parseError !== null, true);
+    assert.deepEqual(listPlatformFindings(makeLab(base, {}, 'no-platform')), []);
+
+    // a recorded review shows up on the lifecycle ship stage
+    write(doc());
+    assert.deepEqual(readGuideStatus(lab).lifecycle.ship.platforms, ['k8s']);
   });
 });

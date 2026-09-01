@@ -110,6 +110,35 @@ End with exactly one fenced JSON block; no prose after it. criterion_text
 copied verbatim; finding null on pass, concrete location otherwise.
 ```
 
+## Template: `platform-<name>` scope
+
+```
+READ-ONLY scoring task — return findings only; do not edit or modify any file.
+Score the PLATFORM REVIEW below against the rubric «rubric-name».
+
+### Scoring guide
+«contents of scoring-guide.md, verbatim»
+
+### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
+«rubric file content, verbatim»
+
+### Scope label
+scope: platform-«name»
+
+### Content — findings
+«full .holagent/platform/<name>.json, verbatim»
+
+### Content — requirements
+«full ~/.holagent/platforms/<name>/requirements.md, verbatim — the standard the review is scored against; a finding that traces to nothing here is untraced»
+
+### Content — lab-prep.md
+«full <lab-dir>/lab-prep.md, verbatim, when it exists — the environment contract the observations should agree with»
+
+### Output contract
+End with exactly one fenced JSON block; no prose after it. criterion_text
+copied verbatim; finding null on pass, concrete location otherwise.
+```
+
 ## Template: `plan` scope
 
 ```
@@ -258,6 +287,7 @@ nothing malformed reaches `scores.json`.
 | `module-plan-<NN>` | `checklist/module-plan-completeness` (1.0), `analytic/module-design` (4)                                                              |
 | `module-<NN-slug>` | `checklist/module-completeness` (1.0), `analytic/step-clarity` (4), `analytic/technical-accuracy` (4), `holistic/module-quality` (4)  |
 | `guide`            | `checklist/guide-completeness` (1.0), `analytic/terminology-consistency` (4), `holistic/guide-quality` (4)                            |
+| `platform-<name>`  | `checklist/platform-coverage` (1.0), `analytic/finding-actionability` (4)                                                             |
 
 (Thresholds in parentheses are the rubric frontmatter defaults at v1; the
 rubric file is authoritative — re-read its `threshold` when building the
@@ -271,7 +301,10 @@ Step 8 (standalone re-review at `/hol-review-plan`); `module-plan-<NN>` at
 `/hol-plan-module` (re-review at `/hol-review-module-plan`);
 `module-<NN>-<slug>` at `/hol-generate-module` Step 6 (re-review at
 `/hol-review-module`); `guide` at `/hol-review-guide` (final pass +
-ADR-005 rename).
+ADR-005 rename). `platform-<name>` at `/hol-platform-check`,
+behind the deterministic `hol_platform_findings` gate — there is no separate
+re-review command, because a review scores the lab as it was that day and
+re-scoring stale findings answers nothing; re-run the check instead.
 
 ## Fix loop and caps (parent procedure)
 

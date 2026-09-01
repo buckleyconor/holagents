@@ -9,17 +9,18 @@ Templates for every holagent artifact. Each template is **copy-then-fill**: copy
 the file to its target location, replace every `<< FILL: ... >>` marker with
 real content, and validate before proceeding to the next stage.
 
-| Template            | Copies to                                                       | Purpose                                                                       |
-| ------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `concept.md`        | `guides/<slug>/.holagent/concept.md`                            | Lab concept — business problem, personas, story beats, aha moment             |
-| `sizing.md`         | `guides/<slug>/.holagent/sizing.md`                             | Footprint — production vs minimal demo, reduction decisions, density          |
-| `guide-plan.md`     | `guides/<slug>/.holagent/plan.md`                               | Guide plan — frontmatter is the machine-readable source of truth              |
-| `module-plan.md`    | `guides/<slug>/.holagent/<NN-slug>/plan.md`                     | Per-module plan — steps, environment delta, image checklist, success criteria |
-| `lab-prep.md`       | `guides/<slug>/lab-prep.md`                                     | Environment **contract**: machine-readable frontmatter + human tables         |
-| `company.md`        | `~/.holagent/companies/<company-slug>/company.md`               | Company research output                                                       |
-| `product.md`        | `~/.holagent/products/<company-slug>/<product-slug>/product.md` | Product research output                                                       |
-| `style-guide.md`    | `~/.holagent/companies/<company-slug>/style-guide.md`           | Writing style distilled from scraped documentation                            |
-| `guide-scaffold.md` | `guides/<slug>/guide.md`                                        | Minimal valid guide body                                                      |
+| Template                   | Copies to                                                       | Purpose                                                                                  |
+| -------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `concept.md`               | `guides/<slug>/.holagent/concept.md`                            | Lab concept — business problem, personas, story beats, aha moment                        |
+| `sizing.md`                | `guides/<slug>/.holagent/sizing.md`                             | Footprint — production vs minimal demo, reduction decisions, density                     |
+| `guide-plan.md`            | `guides/<slug>/.holagent/plan.md`                               | Guide plan — frontmatter is the machine-readable source of truth                         |
+| `module-plan.md`           | `guides/<slug>/.holagent/<NN-slug>/plan.md`                     | Per-module plan — steps, environment delta, image checklist, success criteria            |
+| `lab-prep.md`              | `guides/<slug>/lab-prep.md`                                     | Environment **contract**: machine-readable frontmatter + human tables                    |
+| `company.md`               | `~/.holagent/companies/<company-slug>/company.md`               | Company research output                                                                  |
+| `product.md`               | `~/.holagent/products/<company-slug>/<product-slug>/product.md` | Product research output                                                                  |
+| `style-guide.md`           | `~/.holagent/companies/<company-slug>/style-guide.md`           | Writing style distilled from scraped documentation                                       |
+| `platform-requirements.md` | `~/.holagent/platforms/<name>/requirements.md`                  | What a platform team requires of a lab — grown by interview, appended after every review |
+| `guide-scaffold.md`        | `guides/<slug>/guide.md`                                        | Minimal valid guide body                                                                 |
 
 ## Frontmatter subset rule
 

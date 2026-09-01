@@ -1198,6 +1198,160 @@ export function checkLabPrep(labDir: string): LabPrepCheck {
   };
 }
 
+// ---------------------------------------------- platform findings check
+
+export type FindingSeverity = 'blocker' | 'should-fix' | 'note';
+
+const SEVERITIES: readonly FindingSeverity[] = ['blocker', 'should-fix', 'note'];
+const FINDING_FIELDS = [
+  'id',
+  'category',
+  'requirement',
+  'observation',
+  'impact',
+  'action',
+] as const;
+const OWNERS = ['us', 'them'] as const;
+
+export interface PlatformFindingsCheck {
+  /** Absolute path to the findings file, whether or not it exists. */
+  path: string;
+  platform: string;
+  exists: boolean;
+  parsed: boolean;
+  parseError: string | null;
+  /** Shape problems, located by finding index. */
+  problems: string[];
+  /** Findings per severity; a compliant lab legitimately has none. */
+  counts: Record<FindingSeverity, number>;
+  /** Blocking findings, `id: action` — what stops this lab landing. */
+  blockers: string[];
+  /** What we need from the platform team. */
+  asks: string[];
+  /** What the requirements file does not cover. */
+  unknowns: string[];
+  ok: boolean;
+}
+
+/** Platform names with a findings file under `.holagent/platform/`. */
+export function listPlatformFindings(labDir: string): string[] {
+  return listFiles(join(labDir, '.holagent', 'platform'))
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => f.replace(/\.json$/, ''));
+}
+
+/**
+ * Deterministic check on `.holagent/platform/<name>.json` (ADR-007/ADR-014):
+ * is every finding severity-tagged, traced to a requirement, evidenced against
+ * the lab, and closed with an action someone can take?
+ *
+ * A finding without an action is a complaint, and a finding without a
+ * requirement is an opinion. Neither survives a meeting, so neither passes
+ * the gate. An empty findings list is a pass: full compliance is a real
+ * result, and `unknowns` is where an under-informed review says so.
+ */
+export function checkPlatformFindings(labDir: string, platform: string): PlatformFindingsCheck {
+  const name = String(platform ?? '').trim();
+  const path = join(labDir, '.holagent', 'platform', `${name}.json`);
+  const base: PlatformFindingsCheck = {
+    path,
+    platform: name,
+    exists: false,
+    parsed: false,
+    parseError: null,
+    problems: [],
+    counts: { blocker: 0, 'should-fix': 0, note: 0 },
+    blockers: [],
+    asks: [],
+    unknowns: [],
+    ok: false,
+  };
+  if (!name || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) {
+    return { ...base, parseError: `not a platform slug: ${JSON.stringify(platform)}` };
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(path, 'utf8'));
+  } catch (e) {
+    return existsSync(path)
+      ? { ...base, exists: true, parseError: `unreadable JSON: ${(e as Error).message}` }
+      : base;
+  }
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return { ...base, exists: true, parseError: 'top level must be a JSON object' };
+  }
+  const doc = raw as Record<string, unknown>;
+  const problems: string[] = [];
+  const strings = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : [];
+
+  if (doc.platform !== name) {
+    problems.push(`platform: file is ${name}.json but declares ${JSON.stringify(doc.platform)}`);
+  }
+  if (typeof doc.requirements_source !== 'string' || doc.requirements_source.trim() === '') {
+    problems.push('requirements_source: missing — a review must name what it reviewed against');
+  }
+  if (!Array.isArray(doc.findings)) {
+    return {
+      ...base,
+      exists: true,
+      parsed: true,
+      problems: [...problems, 'findings: missing or not an array'],
+    };
+  }
+
+  const counts: Record<FindingSeverity, number> = { blocker: 0, 'should-fix': 0, note: 0 };
+  const blockers: string[] = [];
+  const seen = new Set<string>();
+  doc.findings.forEach((f, i) => {
+    const where = `findings[${i}]`;
+    if (typeof f !== 'object' || f === null || Array.isArray(f)) {
+      problems.push(`${where}: not an object`);
+      return;
+    }
+    const finding = f as Record<string, unknown>;
+    for (const field of FINDING_FIELDS) {
+      const v = finding[field];
+      if (typeof v !== 'string' || v.trim() === '') problems.push(`${where}: missing ${field}`);
+    }
+    const id = typeof finding.id === 'string' ? finding.id.trim() : '';
+    if (id !== '') {
+      if (seen.has(id)) problems.push(`${where}: duplicate id "${id}"`);
+      seen.add(id);
+    }
+    const severity = finding.severity;
+    if (!SEVERITIES.includes(severity as FindingSeverity)) {
+      problems.push(
+        `${where}: severity must be ${SEVERITIES.join(' | ')}, got ${String(severity)}`,
+      );
+    } else {
+      counts[severity as FindingSeverity] += 1;
+      if (severity === 'blocker') {
+        blockers.push(
+          `${id || where}: ${typeof finding.action === 'string' ? finding.action : ''}`,
+        );
+      }
+    }
+    if (!OWNERS.includes(finding.owner as (typeof OWNERS)[number])) {
+      problems.push(`${where}: owner must be ${OWNERS.join(' | ')}, got ${String(finding.owner)}`);
+    }
+  });
+
+  return {
+    path,
+    platform: name,
+    exists: true,
+    parsed: true,
+    parseError: null,
+    problems,
+    counts,
+    blockers,
+    asks: strings(doc.asks),
+    unknowns: strings(doc.unknowns),
+    ok: problems.length === 0,
+  };
+}
+
 // --------------------------------------------------------------- status
 
 export type ModuleState =
@@ -1504,9 +1658,7 @@ export function readGuideStatus(guideDir: string): GuideStatus {
     guideStage = 'generating';
   else guideStage = 'planned';
 
-  const platformFindings = listFiles(join(holDir, 'platform'))
-    .filter((f) => f.endsWith('.json'))
-    .map((f) => f.replace(/\.json$/, ''));
+  const platformFindings = listPlatformFindings(guideDir);
 
   const lifecycle: LifecycleStatus = {
     engaged,

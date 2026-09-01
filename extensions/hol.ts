@@ -9,6 +9,7 @@
  *   hol_scores   — read / atomically merge .holagent/scores.json
  *   hol_spec_check — stage-2 gate: the spec set is complete and owns its guesses
  *   hol_prep_check — the lab-prep.md environment contract is complete + runnable
+ *   hol_platform_findings — platform review findings are shaped, traced, actionable
  *
  * Commands (user-invoked, LLM-bypass — checked by pi before template
  * expansion, so no prompt template may reuse these names):
@@ -22,8 +23,10 @@ import { Type } from 'typebox';
 import {
   HolError,
   checkLabPrep,
+  checkPlatformFindings,
   checkSpec,
   ensureHolagentDataDir,
+  listPlatformFindings,
   mergeScores,
   readGuideStatus,
   readScores,
@@ -358,6 +361,60 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
         for (const p of check.incomplete) lines.push(`Incomplete — ${p}`);
         for (const p of check.unrunnable) lines.push(`Not runnable unattended — ${p}`);
         for (const l of check.unfilled) lines.push(`Unfilled marker — ${l}`);
+      }
+      return { content: [{ type: 'text', text: lines.join('\n') }], details: check };
+    },
+  });
+
+  pi.registerTool({
+    name: 'hol_platform_findings',
+    label: 'hol_platform_findings',
+    description:
+      'Read and deterministically check a platform review (.holagent/platform/<name>.json): every finding severity-tagged (blocker | should-fix | note), traced to a requirement, evidenced against the lab, owned (us | them) and closed with an action. Returns the severity rollup, the blockers, the asks and the unknowns — the pre-meeting brief in structured form. Omit `platform` to list the reviews this lab has.',
+    promptSnippet: 'Check and summarise a platform review (severities, blockers, asks, unknowns)',
+    parameters: Type.Object({
+      guideDir: optGuideDir(GUIDE_DIR_DESC),
+      platform: Type.Optional(
+        Type.String({ description: 'Platform slug, e.g. "k8s" or "vcd". Omit to list reviews.' }),
+      ),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<PiToolResult> {
+      const labDir = resolveLabPath(
+        ctx.cwd,
+        typeof params.guideDir === 'string' ? params.guideDir : undefined,
+      );
+      const available = listPlatformFindings(labDir);
+      if (typeof params.platform !== 'string' || params.platform.trim() === '') {
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                available.length === 0
+                  ? 'No platform reviews recorded (.holagent/platform/ is empty or missing) — run /hol-platform-check <platform>.'
+                  : `Platform reviews: ${available.join(', ')}`,
+            },
+          ],
+          details: { platforms: available },
+        };
+      }
+      const check = checkPlatformFindings(labDir, params.platform);
+      const lines: string[] = [];
+      if (!check.exists) {
+        lines.push(
+          `No review for "${check.platform}" (${check.path}) — run /hol-platform-check ${check.platform}.`,
+        );
+        if (available.length > 0) lines.push(`Reviews on file: ${available.join(', ')}`);
+      } else {
+        lines.push(`Platform review ${check.ok ? 'PASS' : 'FAIL'} — ${check.path}`);
+        if (check.parseError) lines.push(`File: ${check.parseError}`);
+        lines.push(
+          `Findings: ${check.counts.blocker} blocker, ${check.counts['should-fix']} should-fix, ${check.counts.note} note`,
+        );
+        for (const b of check.blockers) lines.push(`BLOCKER — ${b}`);
+        for (const a of check.asks) lines.push(`Ask — ${a}`);
+        for (const u of check.unknowns) lines.push(`Unknown — ${u}`);
+        for (const p of check.problems) lines.push(`Malformed — ${p}`);
       }
       return { content: [{ type: 'text', text: lines.join('\n') }], details: check };
     },

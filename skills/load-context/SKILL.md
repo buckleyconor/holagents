@@ -26,7 +26,9 @@ Per-guide state under `guides/<slug>/`:
 - `.holagent/scores.json` — scoring checkpoints
 - `.holagent/last-validation.json` — latest linter report
 
-Platform requirements (per platform, not per lab): `~/.holagent/platforms/<name>/requirements.md`.
+Platform requirements (per platform, not per lab):
+`~/.holagent/platforms/<name>/requirements.md`. Per-lab review output:
+`guides/<slug>/.holagent/platform/<name>.json`.
 
 ## Two-phase: discover, then read
 
@@ -59,6 +61,8 @@ knows what is available.
 | `/hol-review-spec`        | -                 | -                 | -                 | yes               | -                 | -            | -                 | yes          |
 | `/hol-lab-register`       | -                 | -                 | -                 | -                 | -                 | -            | -                 | -            |
 | `/hol-adopt`              | -                 | -                 | -                 | -                 | -                 | -            | -                 | -            |
+| `/hol-platform-init`      | -                 | -                 | -                 | -                 | -                 | -            | -                 | -            |
+| `/hol-platform-check`     | -                 | -                 | -                 | yes (sizing)      | -                 | -            | -                 | yes          |
 | `/hol-plan`               | yes               | yes               | relevant only     | yes               | existing (extend) | -            | existing (extend) | -            |
 | `/hol-plan-module`        | -                 | -                 | relevant only     | -                 | yes               | prior        | -                 | -            |
 | `/hol-generate-module`    | yes               | yes               | relevant only     | -                 | yes               | this + prior | this + prior      | -            |

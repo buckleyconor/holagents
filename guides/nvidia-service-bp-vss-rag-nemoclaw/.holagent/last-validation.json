@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "guideDir": "guides/nvidia-service-bp-vss-rag-nemoclaw",
+  "findings": [],
+  "summary": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "shellcheck": "no shellcheck findings",
+  "at": "2026-09-03T17:54:35.883Z"
+}

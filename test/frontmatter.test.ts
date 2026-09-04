@@ -137,8 +137,10 @@ body
   );
 });
 
-test('T-65d: live guide plan.md (agent-emitted flow style) parses', () => {
-  const text = fs.readFileSync('guides/vector-corpus-search/.holagent/plan.md', 'utf8');
+test('T-65d: fixture guide plan.md (agent-emitted flow style) parses', () => {
+  // Fixture copy of the in-house reference guide plan (the guide itself now
+  // lives in its lab repo — the tooling repo holds no lab content).
+  const text = fs.readFileSync('test/corpus/fixtures/vector-corpus-plan.md', 'utf8');
   const fm = parseFrontmatter(text);
   assert.ok(fm, 'live plan.md must have parseable frontmatter');
   assert.equal(fm.data.id, 'HOL-2000-01');

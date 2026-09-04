@@ -11,20 +11,25 @@ real content, and validate before proceeding to the next stage.
 
 | Template                          | Copies to                                                       | Purpose                                                                                  |
 | --------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `concept.md`                      | `guides/<slug>/.holagent/concept.md`                            | Lab concept — business problem, personas, story beats, aha moment                        |
-| `sizing.md`                       | `guides/<slug>/.holagent/sizing.md`                             | Footprint — production vs minimal demo, reduction decisions, density                     |
-| `guide-plan.md`                   | `guides/<slug>/.holagent/plan.md`                               | Guide plan — frontmatter is the machine-readable source of truth                         |
-| `module-plan.md`                  | `guides/<slug>/.holagent/<NN-slug>/plan.md`                     | Per-module plan — steps, environment delta, image checklist, success criteria            |
-| `lab-prep.md`                     | `guides/<slug>/lab-prep.md`                                     | Environment **contract**: machine-readable frontmatter + human tables                    |
+| `concept.md`                      | `<guide-root>/.holagent/concept.md`                              | Lab concept — business problem, personas, story beats, aha moment                        |
+| `sizing.md`                       | `<guide-root>/.holagent/sizing.md`                               | Footprint — production vs minimal demo, reduction decisions, density                     |
+| `guide-plan.md`                   | `<guide-root>/.holagent/plan.md`                                 | Guide plan — frontmatter is the machine-readable source of truth                         |
+| `module-plan.md`                  | `<guide-root>/.holagent/<NN-slug>/plan.md`                       | Per-module plan — steps, environment delta, image checklist, success criteria            |
+| `lab-prep.md`                     | `<guide-root>/lab-prep.md`                                       | Environment **contract**: machine-readable frontmatter + human tables                    |
 | `company.md`                      | `~/.holagent/companies/<company-slug>/company.md`               | Company research output                                                                  |
 | `product.md`                      | `~/.holagent/products/<company-slug>/<product-slug>/product.md` | Product research output                                                                  |
 | `style-guide.md`                  | `~/.holagent/companies/<company-slug>/style-guide.md`           | Writing style distilled from scraped documentation                                       |
 | `platform-requirements.md`        | `~/.holagent/platforms/<name>/requirements.md`                  | What a platform team requires of a lab — grown by interview, appended after every review |
-| `launch-exec-summary.md`          | `guides/<slug>/launch/exec-summary.md`                          | Stage 5 — the business case, one page                                                    |
-| `launch-catalogue-description.md` | `guides/<slug>/launch/catalogue-description.md`                 | Stage 5 — catalogue entry; frontmatter is machine-checked against `plan.md`              |
-| `launch-social.md`                | `guides/<slug>/launch/social.md`                                | Stage 5 — internal announcement posts, three lengths                                     |
-| `launch-enablement-brief.md`      | `guides/<slug>/launch/enablement-brief.md`                      | Stage 5 (optional) — the SE talk track                                                   |
-| `guide-scaffold.md`               | `guides/<slug>/guide.md`                                        | Minimal valid guide body                                                                 |
+| `launch-exec-summary.md`          | `<guide-root>/launch/exec-summary.md`                            | Stage 5 — the business case, one page                                                    |
+| `launch-catalogue-description.md` | `<guide-root>/launch/catalogue-description.md`                   | Stage 5 — catalogue entry; frontmatter is machine-checked against `plan.md`              |
+| `launch-social.md`                | `<guide-root>/launch/social.md`                                  | Stage 5 — internal announcement posts, three lengths                                     |
+| `launch-enablement-brief.md`      | `<guide-root>/launch/enablement-brief.md`                        | Stage 5 (optional) — the SE talk track                                                   |
+| `guide-scaffold.md`               | `<guide-root>/guide.md`                                          | Minimal valid guide body                                                                 |
+
+`<guide-root>` is the directory holding `guide.md` + `.holagent/`. For a lab
+that is the **lab's own repo** (the guide lives at the repo root, next to the
+build code); the tooling is path-agnostic and finds the guide root by walking
+up from the working directory.
 
 ## Frontmatter subset rule
 

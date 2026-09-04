@@ -16,13 +16,17 @@ Data dir: `~/.holagent/` (override with `HOLAGENT_DATA_DIR`).
 - Companies: `~/.holagent/companies/<company-slug>/`
 - Products: `~/.holagent/products/<company-slug>/<product-slug>/`
 
-Per-guide state under `guides/<slug>/`:
+Per-guide state under the **guide root** — the directory holding `guide.md`
++ `.holagent/`. For a lab this is the lab's own repo (the guide lives at its
+root, next to the build code); a guide root may also sit elsewhere (e.g.
+`guides/<slug>/` under the tooling repo for legacy labs) — discovery walks up
+from cwd and treats any directory with `guide.md` + `.holagent/` as a guide root:
 
 - `guide.md` — the guide being built (canonical working file)
 - `lab-prep.md` — environment manifest for builders
 - `.holagent/plan.md` — guide plan (frontmatter + sections)
 - `.holagent/<NN-slug>/plan.md` — per-module plan
-- `.holagent/lab-ref.json` — pointer to the lab's own repo, its environments and platforms
+- `.holagent/lab-ref.json` — pointer to the lab's own repo, its environments and platforms (the repo and the guide root coincide when the guide lives at the repo root)
 - `.holagent/build/<slug>.json` — last recorded test run per build milestone
 - `.holagent/qa/parity.json` · `qa/smoke.json` · `qa/e2e-prod.json` — QA records
 - `.holagent/qa/verify-<env>.sh` — the rendered production verification script
@@ -33,7 +37,7 @@ Per-guide state under `guides/<slug>/`:
 
 Platform requirements (per platform, not per lab):
 `~/.holagent/platforms/<name>/requirements.md`. Per-lab review output:
-`guides/<slug>/.holagent/platform/<name>.json`.
+`guides/<slug>/.holagent/platform/<name>.json` (i.e. the guide root's `.holagent/platform/<name>.json`).
 
 ## Two-phase: discover, then read
 
@@ -43,9 +47,9 @@ Platform requirements (per platform, not per lab):
 
 - **Company**: does `companies/<company-slug>/company.md` exist? `style-guide.md`?
 - **Products**: which directories exist under `products/<company-slug>/`?
-- **Guide**: does `guides/<slug>/.holagent/plan.md` exist?
+- **Guide**: does the guide root's `.holagent/plan.md` exist?
 - **Module plans**: which `.holagent/<NN-slug>/plan.md` exist?
-- **Guide state**: do `guides/<slug>/guide.md`, `lab-prep.md`, `scores.json`,
+- **Guide state**: do the guide root's `guide.md`, `lab-prep.md`, `scores.json`,
   `last-validation.json` exist?
 
 Report discovery results to the calling command. Every command runs discovery so it

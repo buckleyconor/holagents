@@ -88,6 +88,10 @@ time — this is a conversation with a busy team, not an interrogation.
 - Maximum lifetime; is there an idle reaper?
 - Patching: who patches the base image, and how does a lab pick it up?
 - What is the process for updating a lab that is already published?
+- What is the platform's HOL code for a lab guide — the delivery format and its
+  fields (or a sample of a published lab's code)? Capture it up front so the
+  launch collateral is produced handoff-ready, without guessing or renaming
+  after the fact.
 
 ## operations
 

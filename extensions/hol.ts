@@ -660,7 +660,7 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
     name: 'hol_launch_check',
     label: 'hol_launch_check',
     description:
-      "Deterministic stage-5 gate: the launch collateral in guides/<slug>/launch/ exists (exec-summary.md, catalogue-description.md, social.md), carries no unfilled << FILL: >> markers, has the catalogue frontmatter (id, title, duration_minutes, short_blurb within the 200-character catalogue field, audience, prerequisites), and — the check that matters — agrees with plan.md on ID, title and duration. Whether the claims are true is a rubric's job; whether the collateral is describing this lab at all is decided here.",
+      "Deterministic stage-5 gate: the launch collateral in the guide root's launch/ dir exists (exec-summary.md, catalogue-description.md, social.md), carries no unfilled << FILL: >> markers, has the catalogue frontmatter (id, title, duration_minutes, short_blurb within the 200-character catalogue field, audience, prerequisites), and — the check that matters — agrees with plan.md on ID, title and duration. Whether the claims are true is a rubric's job; whether the collateral is describing this lab at all is decided here.",
     promptSnippet: 'Check the launch collateral for completeness and agreement with the guide',
     parameters: Type.Object({
       guideDir: optGuideDir(GUIDE_DIR_DESC),

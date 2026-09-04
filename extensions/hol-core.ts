@@ -1707,7 +1707,7 @@ export function checkPlatformFindings(labDir: string, platform: string): Platfor
 
 // -------------------------------------------------------- launch check
 
-/** Files `guides/<slug>/launch/` must carry. `enablement-brief.md` is optional. */
+/** Files the guide root's `launch/` dir must carry. `enablement-brief.md` is optional. */
 const LAUNCH_REQUIRED = ['exec-summary.md', 'catalogue-description.md', 'social.md'] as const;
 
 /**

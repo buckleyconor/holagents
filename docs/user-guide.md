@@ -19,7 +19,11 @@ what do I run?_
 ## 1. Two things that make everything else make sense
 
 **State lives in files, never in the conversation.** Every command re-reads
-`guides/<slug>/.holagent/` and works out where it is. So you can `/clear`
+the guide root's `.holagent/` and works out where it is. The guide root is
+the directory holding `guide.md` + `.holagent/` — for a lab, the **lab's own
+repo** (the guide lives at the repo root, next to the build code); standalone
+or legacy guides may sit under `guides/<slug>/` instead. Discovery walks up
+from your working directory, so you can `/clear`
 between stages, close the session, come back tomorrow, or hand the directory to
 a colleague — nothing is lost, and nothing needs re-explaining.
 
@@ -198,10 +202,10 @@ Then `/hol-status` shows `concept: ⊕ · sizing: ◐ · spec: ⊕ · build: ⊕
 This one has friction worth knowing about up front.
 
 ```
-mkdir -p guides/my-lab/.holagent
-cd guides/my-lab
-/hol-lab-register ~/projects/my-lab
-    → origin: adopted
+cd ~/projects/my-lab          # the lab's repo — the guide root is the repo itself
+mkdir -p .holagent
+/hol-lab-register .
+    → origin: generated
     → mark inherited: concept, sizing        (you have neither, and don't need them to build)
     → spec_dir: point at the existing spec directory
 ```

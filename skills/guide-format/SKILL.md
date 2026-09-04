@@ -6,7 +6,8 @@ description: House format standard for holagent lab guides (Markdown). Use whene
 # Guide Format
 
 The house standard for holagent lab guides. A guide is **one Markdown file**
-(`guides/<slug>/guide.md`) rendered by the lab platform against a
+(`guide.md` at the guide root — for a lab, the lab repo's root) rendered by
+the lab platform against a
 **pre-provisioned** environment. When in doubt, run `/hol-validate` — the linter is
 the arbiter and its rules are configured in this skill's `format.json`.
 

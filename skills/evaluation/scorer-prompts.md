@@ -285,7 +285,7 @@ Score the LAUNCH COLLATERAL below against the rubric «rubric-name».
 scope: launch
 
 ### Content — collateral
-«every guides/<slug>/launch/*.md, each under a "### <filename>" sub-heading, verbatim»
+«every <guide-root>/launch/*.md, each under a "### <filename>" sub-heading, verbatim»
 
 ### Content — sources
 «full guide.md (or the released <ID>-<Title>.md), full .holagent/plan.md, full .holagent/sizing.md, full .holagent/concept.md when it exists, and lab-prep.md — each under its own sub-heading, verbatim. Traceability is unscoreable without them: a claim is untraceable when it cannot be located in these files, however plausible it sounds.»

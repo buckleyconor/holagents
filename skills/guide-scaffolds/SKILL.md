@@ -1,6 +1,6 @@
 ---
 name: guide-scaffolds
-description: Authoring templates for holagent guides and research profiles. Use when starting a new guide, module plan, lab-prep handoff, company/product research output, or style guide — copy the template into place, fill the "<< FILL: ... >>" markers, and validate.
+description: "Authoring templates for holagent guides and research profiles. Use when starting a new guide, module plan, lab-prep handoff, company/product research output, or style guide — copy the template into place, fill the \"<< FILL: ... >>\" markers, and validate."
 ---
 
 # Guide Scaffolds

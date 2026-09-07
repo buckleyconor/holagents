@@ -1,6 +1,6 @@
 ---
 name: evaluation
-description: Holagent scoring system — how every stage of the lab lifecycle is scored. Use when running or interpreting scorer fanout (any generate/review/stage command), writing or editing rubrics, or handling score entries and fix loops. Rubrics live under rubrics/{checklist,analytic,holistic}/ for ten scopes: concept, sizing, spec, build-<slug>, plan, module-plan-<NN>, module-<NN-slug>, guide, platform-<name>, launch.
+description: "Holagent scoring system — how every stage of the lab lifecycle is scored. Use when running or interpreting scorer fanout (any generate/review/stage command), writing or editing rubrics, or handling score entries and fix loops. Rubrics live under rubrics/{checklist,analytic,holistic}/ for ten scopes: concept, sizing, spec, build-<slug>, plan, module-plan-<NN>, module-<NN-slug>, guide, platform-<name>, launch."
 ---
 
 # Evaluation

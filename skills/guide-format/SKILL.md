@@ -1,6 +1,6 @@
 ---
 name: guide-format
-description: House format standard for holagent lab guides (Markdown). Use whenever authoring, editing, or checking a guide file: section skeleton, TOC/anchor rules, module conventions, callouts, image syntax, and the known drift classes. The linter (hol_validate / /hol-validate) is the arbiter; this skill explains why.
+description: "House format standard for holagent lab guides (Markdown). Use whenever authoring, editing, or checking a guide file: section skeleton, TOC/anchor rules, module conventions, callouts, image syntax, and the known drift classes. The linter (hol_validate / /hol-validate) is the arbiter; this skill explains why."
 ---
 
 # Guide Format

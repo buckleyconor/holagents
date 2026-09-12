@@ -54,7 +54,6 @@
     "nonStandard": ["**Tip!**", "**Use Case!**", "**Lab Tip:**", "**Note!**", "**Important!**"]
   },
   "commandExtraction": {
-    "indentChars": ["\t", "    "],
     "firstTokenPattern": "^[a-z][a-z0-9_-]*$|^(\\./|/)",
     "maxCommandLength": 2000
   },
@@ -62,8 +61,7 @@
   "forbiddenHtmlPatterns": ["<script", "<iframe", "onerror=", "<img src="],
   "limits": {
     "sectionMaxLinesWithoutSubheading": 400,
-    "commandStepsBeforeCheckpoint": 3,
-    "resolveGuideRootMaxAncestors": 3
+    "commandStepsBeforeCheckpoint": 3
   },
   "rules": [
     {

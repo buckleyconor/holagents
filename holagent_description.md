@@ -19,7 +19,7 @@ credentials block.
 
 **holagent turns that nine-step job into an agent-driven pipeline with a deterministic
 gate at every stage.** It interviews you into a demo story and a footprint, turns those
-into a build spec and a *machine-readable environment contract*, builds the lab
+into a build spec and a _machine-readable environment contract_, builds the lab
 milestone by milestone against that spec, verifies the running environment against the
 contract, writes the guide module by module, reviews the lab against a platform team's
 requirements, and produces the launch collateral. Nothing advances on an agent's
@@ -33,7 +33,7 @@ Two design commitments make it trustworthy rather than merely fast:
   reconstructable from `.holagent/`.
 - **Determinism is never mediated by a model.** The linter, the state machine, the spec
   and contract checks, the milestone tests and the parity runs all live in unit-tested
-  TypeScript that the model *calls* but cannot *interpret away* (ADR-007).
+  TypeScript that the model _calls_ but cannot _interpret away_ (ADR-007).
 
 Version 0.1.0 automated step 5 of the nine (the guide). Version 0.2.0 extended it to
 steps 1–3 and 6–9. What remains deliberately out of scope: provisioning the environment
@@ -42,23 +42,22 @@ itself, capturing screenshots, and publishing to the lab platform.
 **Current maturity:** the automated battery is green — 124 unit/integration tests, 25
 linter rules, corpus regression, package smoke test, one real guide (HOL-2000-01) taken
 end-to-end through the v0.1.0 pipeline. The v0.2.0 lifecycle commands (stages 1–3 and 5)
-are verified by tests and deterministic gates **but have not yet been run against a real
-lab repo, a real dev environment, or a real platform team** — `docs/manual-e2e.md` says
-so explicitly. That is the single biggest outstanding item.
+have been run end-to-end against a real lab repo, a real dev environment, and a real
+platform team (author-run; recorded in `docs/manual-e2e.md`).
 
 ---
 
 ## 2. Business use case
 
-| | |
-| --- | --- |
-| **Who** | Solutions Architect at Dell, building HOL environments across Cyber Resilience, Storage, Networking, AI and Client |
-| **Where labs run** | VMware Cloud Director (vCD) cloud or Kubernetes cloud, **many concurrent instances of each lab** |
-| **Dominant constraint** | Efficiency — every environment must be shrunk to the smallest footprint that still demonstrates the solution convincingly to one user |
-| **Volume** | ~5–20 guides/year, 3–9 modules each |
-| **The pain** | Nine manual steps per lab; quality depends on the individual author; most existing labs have **no spec documents at all**; platform requirements are tribal knowledge held by the vCD/K8s teams |
+|                         |                                                                                                                                                                                                 |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Who**                 | Solutions Architect at Dell, building HOL environments across Cyber Resilience, Storage, Networking, AI and Client                                                                              |
+| **Where labs run**      | VMware Cloud Director (vCD) cloud or Kubernetes cloud, **many concurrent instances of each lab**                                                                                                |
+| **Dominant constraint** | Efficiency — every environment must be shrunk to the smallest footprint that still demonstrates the solution convincingly to one user                                                           |
+| **Volume**              | ~5–20 guides/year, 3–9 modules each                                                                                                                                                             |
+| **The pain**            | Nine manual steps per lab; quality depends on the individual author; most existing labs have **no spec documents at all**; platform requirements are tribal knowledge held by the vCD/K8s teams |
 
-The value is not only speed. It is (a) a house standard that is *executable* rather than
+The value is not only speed. It is (a) a house standard that is _executable_ rather than
 remembered, (b) a written environment contract that makes "the guide matches the lab" a
 test instead of an opinion, and (c) a knowledge base for platform requirements that grows
 after every meeting instead of evaporating.
@@ -110,20 +109,20 @@ guide's verbatim expected results — so the guide can never claim an output nob
   have no spec, so adoption cannot start from one: `lab-surveyor` reverse-engineers
   `lab-prep.md` and an observed `sizing.md` from the repo's deployment artifacts and a
   read-only look at a running dev instance, you confirm it row by row, and stages 1–3 are
-  recorded as *inherited* rather than fabricated (ADR-013).
+  recorded as _inherited_ rather than fabricated (ADR-013).
 - **`lab-prep.md` as a machine-readable contract** (ADR-011) — frontmatter declaring
   baseline, software+versions, credentials, endpoints, artifacts, and `verify` checks.
   `hol_parity` executes those checks against dev; `hol_launch_check` and the linter hold
   the guide, the plan and the collateral to the same facts.
 - **Dev-only execution boundary** (ADR-012) — `hol_parity` refuses any non-dev
-  environment, with no override flag. Production QA is *rendered as a read-only script*
+  environment, with no override flag. Production QA is _rendered as a read-only script_
   for a human to run; the tool records what you report and executes nothing.
 - **Milestones declare their own test** (ADR-015) — a build milestone reaches `tested`
   only when its own declared command passes, and passing rubric scores never outrank a
   red test.
 - **Platform-requirements knowledge base** (ADR-014) — `/hol-platform-init` interviews a
-  platform team across ten categories; `/hol-platform-check` reviews a lab against *that
-  file only*, produces severity-tagged findings plus a pre-meeting brief (what we don't
+  platform team across ten categories; `/hol-platform-check` reviews a lab against _that
+  file only_, produces severity-tagged findings plus a pre-meeting brief (what we don't
   comply with, what we need from them, what they'll ask), then appends whatever new rule
   the meeting surfaced.
 - **Claim tracing in the launch collateral** (ADR-017) — every sentence in the exec
@@ -198,14 +197,14 @@ flowchart TB
   `<ID>-<Title>.md` happens only after an all-passing scorecard, 0 lint errors, and your
   explicit confirmation.
 - **Scorer output is exactly one trailing fenced JSON block** (ADR-006) — the parent
-  extracts, validates the shape, *recomputes* the score from the criterion scores, retries
+  extracts, validates the shape, _recomputes_ the score from the criterion scores, retries
   once, then escalates. The system never guesses a score.
 - **Write confinement** — the package writes only under `~/.holagent/` and the active
   guide root. A lab's own repo is reachable only through `lab-ref.json`, registered once
   with explicit confirmation (ADR-008).
 
-**Quality machinery.** Two independent tiers. *Deterministic gates* decide what can be
-decided — format, completeness, cross-document agreement, exit codes. *Scorers* judge
+**Quality machinery.** Two independent tiers. _Deterministic gates_ decide what can be
+decided — format, completeness, cross-document agreement, exit codes. _Scorers_ judge
 what cannot — 26 rubrics across 10 scopes in three families (checklist must be 1.0;
 analytic and holistic must average ≥ 4). Failing entries drive a capped fix loop:
 analytic/holistic cap at 3 rounds, checklist escalates at 5 or earlier if two consecutive
@@ -219,14 +218,9 @@ cases across 16 files, corpus regression baselines over the four in-house sample
 
 ## 5. Where it could be improved or expanded
 
-**Close the live gates first — everything below is second.** The v0.2.0 lifecycle is
-verified by tests and deterministic gates only. The highest-value single run is
-`/hol-adopt sign-tutor --repo ~/projects/sign-tutor`, then hand-checking every inferred
-version and path against `SOFTWARE_INVENTORY.md` and `docker-compose.yml` — that is where
-reverse-engineering accuracy actually gets judged. Then: a deliberately broken
-`lab-prep.md` entry to prove `hol_parity` flags it, and a planted unverifiable claim to
-prove `claim-traceability` catches it. Until those run, treat stages 1–3 and 5 as
-unexercised against real infrastructure.
+The live end-to-end gates are now closed — the lifecycle has been run against a real
+lab repo, a real dev environment, and a real platform team (see `docs/manual-e2e.md`).
+What remains is making the workflow faster and the knowledge base compound, below.
 
 **Near-term, high value**
 

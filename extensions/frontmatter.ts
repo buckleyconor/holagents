@@ -173,11 +173,11 @@ function parseInline(value: string): FmValue {
     }
     return map;
   }
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1);
+  if (value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1).replace(/""/g, '"');
+  }
+  if (value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1).replace(/''/g, "'");
   }
   if (value === 'true') return true;
   if (value === 'false') return false;

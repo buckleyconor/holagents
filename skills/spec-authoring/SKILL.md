@@ -1,6 +1,6 @@
 ---
 name: spec-authoring
-description: Turning an approved concept and sizing into the eight-section lab spec that an autonomous agent can build from. Use when writing or reviewing spec documents (spec-author, /hol-spec, /hol-review-spec), or when judging whether a spec is buildable without guessing.
+description: Turning an approved concept and sizing into the ten-section lab spec that an autonomous agent can build from. Use when writing or reviewing spec documents (spec-author, /hol-spec, /hol-review-spec), or when judging whether a spec is buildable without guessing.
 ---
 
 # Spec Authoring

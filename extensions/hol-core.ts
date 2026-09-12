@@ -936,7 +936,7 @@ export interface SpecCheck {
   specDir: string | null;
   /** Spec files found, sorted. */
   files: string[];
-  /** Expected NN prefixes (01..08) with no matching file. */
+  /** Expected NN prefixes (01..10) with no matching file. */
   missing: string[];
   openQuestions: { file: string | null; contentLines: number; substantive: boolean };
   /** Unfilled `<< FILL: ... >>` markers, by file. */
@@ -944,7 +944,7 @@ export interface SpecCheck {
   ok: boolean;
 }
 
-const SPEC_PREFIXES = ['01', '02', '03', '04', '05', '06', '07', '08'] as const;
+const SPEC_PREFIXES = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'] as const;
 
 /** Minimum content lines for section 8 to count as substantive. */
 const MIN_OPEN_QUESTION_LINES = 3;

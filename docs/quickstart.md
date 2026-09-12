@@ -70,7 +70,7 @@ stages; every command re-detects where it is from disk and resumes.
  STAGE 1  /hol-concept ──▶ .holagent/concept.md + sizing.md
                                    │  ★ YOU: approve / request changes / abort
  STAGE 2  /hol-lab-register <repo-path>        (ADR-008 — you confirm the external path)
-          /hol-spec ─────▶ <lab-repo>/spec/01…08.md + lab-prep.md
+          /hol-spec ─────▶ <lab-repo>/spec/01…10.md + lab-prep.md
                                    │  gate: hol_spec_check (section 8 must be substantive)
                                    │  ★ YOU: approve
                 ┌──────────────────┴──────────────────┐
@@ -149,10 +149,11 @@ Dependency notes:
   `write-guides` + `style-corpus` for stage 4, `platform-requirements` and
   `launch-collateral` for stage 5 — plus `guide-scaffolds` (templates),
   `load-context` (where everything lives) and `lab-anti-patterns`.
-- **Scorers** depend on nothing but `evaluation`, and even its rubric text is
-  inlined verbatim into the task, so a score is reproducible from the task
-  file alone. Dispatched with `acceptance: false` — a harness requirement, not
-  a preference (see `evaluation/scorer-prompts.md`).
+- **Scorers** depend on nothing but `evaluation`. Tasks are path-based — the
+  scorer reads the scoring guide, rubric and content by absolute path, so a
+  score is reproducible from the task plus the files it names, with no
+  inline-truncation risk. Dispatched in parallel (`runs.all`) with
+  `acceptance: false` on every item (see `evaluation/scorer-prompts.md`).
 - **`bash` on writer agents** is for the linter CLI and local file helpers.
   `lab-builder` additionally runs the lab repo's own tests; `lab-surveyor` and
   `qa-runner` additionally run **read-only** commands against a `dev`
@@ -196,7 +197,7 @@ logic lives in the pure, unit-tested `extensions/hol-core.ts`.
 | `hol_status`            | The whole state machine: lifecycle stages, milestones, modules, QA records, and the next recommended command.         |
 | `hol_scores`            | Read / **atomically merge** / remove scoring entries (`remove` clears one scope — the `--fresh` path).                |
 | `hol_validate`          | Run the linter on a guide dir; record `.holagent/last-validation.json`.                                               |
-| `hol_spec_check`        | Stage 2: all eight sections, no unfilled markers, and a **substantive** section 8 — an empty one hides guesses.       |
+| `hol_spec_check`        | Stage 2: all ten sections, no unfilled markers, and a **substantive** section 8 — an empty one hides guesses.         |
 | `hol_prep_check`        | The environment contract: seven keys, filled rows, and every `verify` check runnable unattended.                      |
 | `hol_build_test`        | Stage 3: run **one milestone's own declared test** in the lab repo and record the result (ADR-015).                   |
 | `hol_parity`            | Execute `lab-prep.md`'s `verify` checks against a **dev** environment. Refuses anything else — no override (ADR-012). |
@@ -367,7 +368,7 @@ installs or provisions (ADR-003, unchanged). What changed is that
 - `docs/user-guide.md` — **where to join the pipeline when you already have
   part of a lab** (spec only, lab built but no guide, an existing environment
   with no spec), the per-command preconditions, and worked scenarios.
-- `docs/adr/README.md` — the seventeen architecture decisions, indexed, with
+- `docs/adr/README.md` — the eighteen architecture decisions, indexed, with
   the shape they add up to.
 - `docs/linter-rules.md` — every linter rule with an example fix (generated
   from `format.json`).

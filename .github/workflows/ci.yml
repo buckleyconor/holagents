@@ -29,7 +29,7 @@ jobs:
       - name: Pack and verify package integrity (manifest paths, branding, deps)
         run: |
           mkdir -p .tmp && npm pack --pack-destination .tmp/
-          node scripts/package-smoke.mjs .tmp/holagent-lab-guides-0.1.0.tgz
+          node scripts/package-smoke.mjs .tmp/holagent-lab-guides-0.2.0.tgz
 
   corpus:
     runs-on: ubuntu-latest

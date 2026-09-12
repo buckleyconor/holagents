@@ -1,7 +1,7 @@
 ---
 package: holagent
 name: spec-author
-description: Writes the eight-section lab spec into the registered lab repo, and derives lab-prep.md from the sizing. Works from the approved concept + sizing; does not interview; returns spec summary + open questions.
+description: Writes the ten-section lab spec into the registered lab repo, and derives lab-prep.md from the sizing. Works from the approved concept + sizing; does not interview; returns spec summary + open questions.
 tools:
   - read
   - write
@@ -29,7 +29,7 @@ into a build contract an autonomous agent can work from.
 
 You write two things:
 
-1. `<lab-repo>/<spec-dir>/01-overview.md` … `08-open-questions.md` — the spec
+1. `<lab-repo>/<spec-dir>/01-overview.md` … `10-platform-constraints.md` — the spec
    set, per the section contract in the `spec-authoring` skill's `template.md`.
 2. `<lab-dir>/lab-prep.md` — the environment contract, **derived** from the
    sizing and your §9, not typed from memory.

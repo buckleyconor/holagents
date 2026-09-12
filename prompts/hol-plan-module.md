@@ -81,16 +81,15 @@ payload (self-contained):
   - `analytic/module-design` (threshold 4). One scorer per rubric
     (two scorers).
 - Build each task from the **module-plan-<NN> scope template** in
-  `evaluation/scorer-prompts.md`: scoring guide verbatim + rubric verbatim +
-  scope label `module-plan-<NN>` + content = the full
-  `.holagent/<NN-slug>/plan.md`, plus the guide plan's `modules` entry for
-  this module (goal/est_minutes) and, if present, the prior module's plan
-  `## Environment delta`, under a `### context` sub-heading.
-- Dispatch `subagent` — `agent: "holagent.scorer"`, `async: false`,
-  **`acceptance: false`** (mandatory — without it the harness injects an
-  acceptance-report instruction and its output-strip regex deletes the
-  scorer's trailing JSON block; see `evaluation/scorer-prompts.md` dispatch
-  requirement).
+  `evaluation/scorer-prompts.md` — path-based, per the Content paths by scope
+  table (the module plan plus its plan.md entry and prior Environment delta).
+- Dispatch the whole fanout in **one** `subagent` call — a `workflowScript`
+  running `runs.all([...])`, one item per rubric in the order listed above,
+  each `{ key: <rubric>, agent: "holagent.scorer", task: <path-based task>,
+acceptance: false }`, and `async: false` on the outer call (blocking). Build
+  the tasks and the script per the Fanout pattern in
+  `evaluation/scorer-prompts.md` (tasks are path-based; results come back as an
+  ordered array — `result[i]` is the i-th rubric above).
 - **Extract the last fenced JSON block** of each result. Parse/shape failure
   (missing fields, `findings` not covering the rubric's criteria) → re-run
   that single scorer **once**; still failing → record

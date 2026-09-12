@@ -51,14 +51,16 @@ Follow the steps in order. Stop and report at the first hard failure.
   `checklist/module-completeness` (threshold 1.0), `analytic/step-clarity`
   (4), `analytic/technical-accuracy` (4), `holistic/module-quality` (4).
 - Build each task from the **module-<NN-slug> scope template** in
-  `evaluation/scorer-prompts.md`: scoring guide verbatim + rubric verbatim +
-  scope label `module-<NN>-<slug>` + content = the full module section, plus
-  the context items from Step 3 under a `### context` sub-heading (the
-  module plan `title` is mandatory — `title-alignment` is unverifiable
-  without it).
-- Dispatch `subagent` — `agent: "holagent.scorer"`, `async: false`, one call
-  per turn (sequential blocking), **`acceptance: false`** (mandatory — see
-  `evaluation/scorer-prompts.md` dispatch requirement).
+  `evaluation/scorer-prompts.md` — path-based, per the Content paths by scope
+  table (the module section + its module plan; the plan `title` is mandatory —
+  `title-alignment` is unverifiable without it).
+- Dispatch the whole fanout in **one** `subagent` call — a `workflowScript`
+  running `runs.all([...])`, one item per rubric in the order listed above,
+  each `{ key: <rubric>, agent: "holagent.scorer", task: <path-based task>,
+acceptance: false }`, and `async: false` on the outer call (blocking). Build
+  the tasks and the script per the Fanout pattern in
+  `evaluation/scorer-prompts.md` (tasks are path-based; results come back as an
+  ordered array — `result[i]` is the i-th rubric above).
 - **Extract the last fenced JSON block** of each result. Parse/shape failure
   (missing fields, `findings` not covering the rubric's criteria) → re-run
   that single scorer **once**; still failing → record

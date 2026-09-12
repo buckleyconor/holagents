@@ -17,7 +17,7 @@ Data dir: `~/.holagent/` (override with `HOLAGENT_DATA_DIR`).
 - Products: `~/.holagent/products/<company-slug>/<product-slug>/`
 
 Per-guide state under the **guide root** — the directory holding `guide.md`
-+ `.holagent/`. For a lab this is the lab's own repo (the guide lives at its
+and `.holagent/`. For a lab this is the lab's own repo (the guide lives at its
 root, next to the build code); a guide root may also sit elsewhere (e.g.
 `guides/<slug>/` under the tooling repo for legacy labs) — discovery walks up
 from cwd and treats any directory with `guide.md` + `.holagent/` as a guide root:

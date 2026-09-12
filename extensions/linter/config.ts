@@ -45,7 +45,6 @@ export interface GuideFormatConfig {
   limits: {
     sectionMaxLinesWithoutSubheading: number;
     commandStepsBeforeCheckpoint: number;
-    resolveGuideRootMaxAncestors: number;
   };
   rules: CompiledRule[];
 }
@@ -107,7 +106,6 @@ export function loadFormatConfig(path?: string): GuideFormatConfig {
   const limits = (raw.limits ?? {}) as {
     sectionMaxLinesWithoutSubheading?: number;
     commandStepsBeforeCheckpoint?: number;
-    resolveGuideRootMaxAncestors?: number;
   };
 
   const config: GuideFormatConfig = {
@@ -171,7 +169,6 @@ export function loadFormatConfig(path?: string): GuideFormatConfig {
     limits: {
       sectionMaxLinesWithoutSubheading: Number(limits.sectionMaxLinesWithoutSubheading ?? 400),
       commandStepsBeforeCheckpoint: Number(limits.commandStepsBeforeCheckpoint ?? 3),
-      resolveGuideRootMaxAncestors: Number(limits.resolveGuideRootMaxAncestors ?? 3),
     },
     rules: (raw.rules as CompiledRule[]).map((r) => ({
       id: String(r.id),

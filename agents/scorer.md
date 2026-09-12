@@ -22,7 +22,8 @@ task payload gives you everything you need:
 - the **scoring guide** (how to score — read it first and follow it),
 - the **rubric** (kind, threshold, criteria — verbatim),
 - the **scope label** (`plan`, `module-plan-<NN>`, `module-<NN-slug>`, or `guide`),
-- the **content** to score (verbatim text, or a path you may `read`).
+- the **content** to score — by verbatim text, or (the usual case) **absolute
+  paths** you must `read` fully before scoring.
 
 ## Rules
 
@@ -45,6 +46,9 @@ task payload gives you everything you need:
 - Judge the content **as-is**. Do not credit intent, and do not fix what is
   not there. Be specific; "vague" findings are not actionable.
 - If the content is a path (e.g. a `plan.md`), `read` it fully before scoring.
+  When the task says "score only the section", isolate exactly that section
+  (grep its heading, read through its trailing `[Back to top]` line) and score
+  nothing else in the file.
 
 ## Output contract (mandatory)
 

@@ -162,3 +162,17 @@ test('T-73c: parseFrontmatter — brackets inside a double-quoted scalar are ign
   assert.ok(fm);
   assert.equal(fm.data['title'], 'score range (\u22121, 1]');
 });
+
+// ---- apostrophe / quote unescaping (YAML '' and "") ----------------
+
+test('doubled single quotes inside a single-quoted scalar unescape to one apostrophe', () => {
+  const fm = parseFrontmatter("---\ntitle: 'the request''s limit'\nslug: x\n---\nbody\n");
+  assert.ok(fm);
+  assert.equal(fm.data['title'], "the request's limit");
+});
+
+test('doubled double quotes inside a double-quoted scalar unescape to one quote', () => {
+  const fm = parseFrontmatter('---\ntitle: "say ""hi"""\nslug: x\n---\nbody\n');
+  assert.ok(fm);
+  assert.equal(fm.data['title'], 'say "hi"');
+});

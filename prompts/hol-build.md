@@ -91,13 +91,16 @@ is ignored — there is nothing to re-score yet.
   `checklist/milestone-completeness` (threshold 1.0), `analytic/spec-fidelity`
   (4).
 - Build one task per rubric from the **build-scope template** in
-  `evaluation/scorer-prompts.md`: `scoring-guide.md` verbatim + the rubric file
-  verbatim + scope label `build-<slug>` + content = the milestone entry, the
-  diff or file list the builder produced, the test output, and the spec
-  sections it was built against.
-- Dispatch `subagent` — `agent: "holagent.scorer"`, `async: false`, one call
-  per turn (sequential blocking), **`acceptance: false`** (mandatory — without
-  it the harness strips the scorer's trailing JSON block).
+  `evaluation/scorer-prompts.md` — path-based, per the Content paths by scope
+  table (the milestone entry, the files the builder changed, the test record,
+  and the spec sections).
+- Dispatch the whole fanout in **one** `subagent` call — a `workflowScript`
+  running `runs.all([...])`, one item per rubric in the order listed above,
+  each `{ key: <rubric>, agent: "holagent.scorer", task: <path-based task>,
+acceptance: false }`, and `async: false` on the outer call (blocking). Build
+  the tasks and the script per the Fanout pattern in
+  `evaluation/scorer-prompts.md` (tasks are path-based; results come back as an
+  ordered array — `result[i]` is the i-th rubric above).
 - **Extract the last fenced JSON block** of each result. Parse/shape failure →
   re-run that single scorer **once**; still failing → record
   `status: "escalated"`, finding "scorer output unparseable".

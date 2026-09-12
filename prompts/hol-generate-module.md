@@ -120,19 +120,19 @@ extensions/linter/cli.ts <guide-dir>` (cwd = project root) and fix every
   `skills/evaluation/rubrics/`): `checklist/module-completeness` (threshold
   1.0), `analytic/step-clarity` (threshold 4), `analytic/technical-accuracy`
   (threshold 4), `holistic/module-quality` (threshold 4). One scorer per
-  rubric (four scorers), dispatched sequentially — the fanout is owned by
+  rubric (four scorers), dispatched in parallel — the fanout is owned by
   the parent session.
 - Build each task from the **`module-<NN-slug>` scope template** in
-  `evaluation/scorer-prompts.md`: `scoring-guide.md` verbatim + the rubric
-  file verbatim + scope label `module-<NN>-<slug>` + content = the full
-  `## Module <N>:` section **including its `[Back to top]` line**, plus the
-  guide's `### Lab Credentials:` block and the module plan's step outline /
-  image checklist / success criteria under a `### context` sub-heading.
-- Dispatch `subagent` — `agent: "holagent.scorer"`, `async: false`,
-  **`acceptance: false`** (mandatory — without it the harness injects an
-  acceptance-report instruction and its output-strip regex deletes the
-  scorer's trailing JSON block; see `evaluation/scorer-prompts.md` dispatch
-  requirement).
+  `evaluation/scorer-prompts.md` — path-based, per the Content paths by scope
+  table (the module section + its module plan; the plan `title` is mandatory —
+  `title-alignment` is unverifiable without it).
+- Dispatch the whole fanout in **one** `subagent` call — a `workflowScript`
+  running `runs.all([...])`, one item per rubric in the order listed above,
+  each `{ key: <rubric>, agent: "holagent.scorer", task: <path-based task>,
+acceptance: false }`, and `async: false` on the outer call (blocking). Build
+  the tasks and the script per the Fanout pattern in
+  `evaluation/scorer-prompts.md` (tasks are path-based; results come back as an
+  ordered array — `result[i]` is the i-th rubric above).
 - **Extract the last fenced JSON block** of each result. Parse/shape failure
   (missing fields, `findings` not covering the rubric's criteria) → re-run
   that single scorer **once** (append the parse error to the same task);

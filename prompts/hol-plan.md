@@ -103,14 +103,15 @@ payload (self-contained, all confirmed values):
   `checklist/plan-completeness` (threshold 1.0), `analytic/learning-arc` (4),
   `analytic/environment-alignment` (4), `holistic/plan-coherence` (4).
 - Build one task per rubric from the **plan-scope template** in
-  `evaluation/scorer-prompts.md`: `scoring-guide.md` verbatim + the rubric
-  file verbatim + scope label `plan` + content = the full `plan.md` **and**
-  `lab-prep.md` (under a `### lab-prep.md` sub-heading).
-- Dispatch `subagent` — `agent: "holagent.scorer"`, `async: false`, one
-  call per turn (sequential blocking), **`acceptance: false`** (mandatory —
-  without it the harness injects an acceptance-report instruction and its
-  output-strip regex deletes the scorer's trailing JSON block; see
-  `evaluation/scorer-prompts.md` dispatch requirement).
+  `evaluation/scorer-prompts.md` — path-based, per the Content paths by scope
+  table (`plan.md` and `lab-prep.md`).
+- Dispatch the whole fanout in **one** `subagent` call — a `workflowScript`
+  running `runs.all([...])`, one item per rubric in the order listed above,
+  each `{ key: <rubric>, agent: "holagent.scorer", task: <path-based task>,
+acceptance: false }`, and `async: false` on the outer call (blocking). Build
+  the tasks and the script per the Fanout pattern in
+  `evaluation/scorer-prompts.md` (tasks are path-based; results come back as an
+  ordered array — `result[i]` is the i-th rubric above).
 - **Extract the last fenced JSON block** of each result. Parse/shape failure
   (missing fields, `findings` not covering the rubric's criteria) → re-run
   that single scorer **once**; still failing → record

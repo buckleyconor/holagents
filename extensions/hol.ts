@@ -334,7 +334,7 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
     name: 'hol_spec_check',
     label: 'hol_spec_check',
     description:
-      'Deterministic stage-2 gate: verify the spec set in the registered lab repo (lab-ref.json) has all eight numbered sections, no unfilled << FILL: >> markers, and a populated Open Questions & Assumptions section. An empty open-questions section means the author hid guesses in the design — it fails the gate.',
+      'Deterministic stage-2 gate: verify the spec set in the registered lab repo (lab-ref.json) has all ten numbered sections, no unfilled << FILL: >> markers, and a populated Open Questions & Assumptions section. An empty open-questions section means the author hid guesses in the design — it fails the gate.',
     promptSnippet: 'Check the spec set for completeness and a populated open-questions section',
     parameters: Type.Object({
       guideDir: optGuideDir(GUIDE_DIR_DESC),

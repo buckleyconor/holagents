@@ -4,9 +4,8 @@
 > as the historical record of the plan, not as a description of the repository.
 > Phases A–D landed across eight commits (A0–A2, B0, B1, C0, C1, D), plus a
 > hardening pass; ADRs 008–017 record the decisions made while building them.
-> **The live end-to-end gates in §Verification have not been run** — see the
-> "Phases A–E" entry in `docs/manual-e2e.md` for exactly what is and is not
-> verified.
+> **The live end-to-end gates in §Verification have since been run** — see the
+> "Phases A–E" entry in `docs/manual-e2e.md` for the record.
 >
 > **Part 1 is now out of date.** It describes the package as it stood before
 > this plan (6 agents, 13 skills, 10 commands, 3 extension tools); the package
@@ -403,7 +402,7 @@ Most existing HOL environments have **no spec documents**, so adoption must work
 
 1. `/hol-concept "Dell PowerProtect cyber recovery vault"` → `concept.md` + `sizing.md` → scorecard → approve.
 2. `/hol-lab-register ~/projects/<lab>` → `lab-ref.json` written, confirmation prompt shown.
-3. `/hol-spec` → `<lab-repo>/spec/01…08.md` + generated `lab-prep.md` → Open-Questions gate fires → approve.
+3. `/hol-spec` → `<lab-repo>/spec/01…10.md` + generated `lab-prep.md` → Open-Questions gate fires → approve.
 4. `/hol-status` shows the stage bar and `next: /hol-plan`.
 5. `/hol-plan` (unchanged) consumes the generated `lab-prep.md` and still produces a valid `plan.md` — regression proof that Stage 4 is untouched.
 6. `/clear` between every stage; each command re-detects state from disk.

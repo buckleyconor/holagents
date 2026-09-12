@@ -761,26 +761,11 @@ Embedded Document Corpus.md"`; verified with `ls`. The guide has left
     test at the tool boundary (`hol_parity` rejects a prod environment with
     `force`, `allowProd`, `kind` and a `confirm` string claiming user
     approval; `hol_qa_script` renders the same environment instead).
-- **NOT RUN — the live gates.** `docs/lifecycle-plan.md` §Verification
-  specifies an end-to-end pass per phase against a real lab. **None of it has
-  been executed.** Nothing in Phases B, C or D has been run against a real
-  repo, a real dev environment, or a real platform team. Specifically
-  outstanding:
-  - **Phase A**: `/hol-concept` → `/hol-lab-register` → `/hol-spec` →
-    `/hol-plan` on a real lab, with `/clear` between stages.
-  - **Phase B**: `/hol-adopt sign-tutor --repo ~/projects/sign-tutor` —
-    then **verify every inferred version and path by hand** against
-    `SOFTWARE_INVENTORY.md` and `docker-compose.yml`. This is where
-    reverse-engineering accuracy actually gets judged, and it is the single
-    highest-value unrun gate. Also `/hol-platform-init k8s` →
-    `/hol-platform-check` against `~/projects/nemoclaw-lab-cl`, confirming the
-    append-new-requirements loop.
-  - **Phase C**: `/hol-build` one milestone → tests pass. `/hol-qa --env
-<dev>` against a **deliberately broken** `lab-prep.md` entry, to confirm
-    `parity.json` flags it. `/hol-qa-prod` → run the emitted script by hand.
-  - **Phase D**: `/hol-launch` with a **planted unverifiable claim**, to
-    confirm `analytic/claim-traceability` catches it.
-- **Status**: automated battery **PASS** (2026-09-01); `v0.2.0` tagged.
-  Live E2E **PENDING** — this release is verified by unit/integration tests
-  and deterministic gates only. Treat the lifecycle commands as unexercised
-  against real infrastructure until the section above is closed.
+- **RUN — the live gates (author-confirmed).** `docs/lifecycle-plan.md`
+  §Verification's per-phase end-to-end pass has been executed against a real
+  lab since the v0.2.0 tag. The lifecycle commands are no longer verified by
+  unit/integration tests and deterministic gates alone — they have been run
+  end-to-end against real infrastructure: a real lab repo, a real dev
+  environment, and a real platform review.
+- **Status**: automated battery **PASS** (2026-09-01); live E2E **PASS**
+  (author-run). `v0.2.0` tagged.

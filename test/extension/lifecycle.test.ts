@@ -356,7 +356,7 @@ test('T-88: the spec gate fails an empty open-questions section (ADR-007)', () =
     const repo = join(base, 'lab-repo');
     const specDir = join(repo, 'spec');
     mkdirSync(specDir, { recursive: true });
-    const nn = ['01', '02', '03', '04', '05', '06', '07', '08'];
+    const nn = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
     const write = (n: string, body: string) =>
       writeFileSync(join(specDir, `${n}-section.md`), body);
     for (const n of nn)
@@ -372,7 +372,7 @@ test('T-88: the spec gate fails an empty open-questions section (ADR-007)', () =
 
     let c = checkSpec(lab);
     assert.equal(c.ok, true, 'a complete spec set passes');
-    assert.equal(c.files.length, 8);
+    assert.equal(c.files.length, 10);
     assert.deepEqual(c.missing, []);
     assert.equal(c.openQuestions.substantive, true);
 

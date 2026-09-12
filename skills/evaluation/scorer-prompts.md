@@ -1,332 +1,141 @@
 # Scorer Task Templates
 
-The parent session builds one task per rubric using these templates. Placeholders
-in `« … »` are filled from the guide state. **Inlining rule:** the scoring guide
-and the rubric file are pasted in **verbatim** (file contents, no summarizing) —
-scorers must see identical wording in every task. The content slice is the exact
-file or section text (a module = its full `## Module <N>:` section including the
-back-to-top line; the plan = the full `plan.md` frontmatter + body; the guide =
-the full `guide.md`).
+The parent session builds one task per rubric and dispatches the whole scope's
+fanout in **one parallel `subagent` call** — a `workflowScript` running
+`runs.all([...])`, one item per rubric. Because the workflow sandbox has no
+filesystem access, tasks are **path-based**: each task is short prose that
+names the scoring guide, the rubric and the content by **absolute path**, and
+the scorer (`agents/scorer.md`) reads them with its `read`/`grep`/`find`/`ls`
+tools. Path-based tasks contain no code fences or backticks, so they embed in
+the workflow's JavaScript without escaping — and they read the committed files,
+so there is no inline-truncation failure mode (the M10 50KB-inline incident)
+and no drift between the scored text and the file on disk.
 
-Every task ends with the contract reminder so the last thing the scorer sees is
-the output format.
-
-**Read-only marker (required in every task):** scorer tasks embed content that
-contains implementation verbs ("create a collection", "write the helper"),
-which trips the subagent runtime's mutation-intent guard for read-only agents.
-Every task therefore starts with the literal line:
+**Read-only marker (required in every task):** the first line of every task is
+the literal line:
 
 ```
 READ-ONLY scoring task — return findings only; do not edit or modify any file.
 ```
 
-**Dispatch requirement (mandatory):** dispatch scorers with `acceptance: false`.
-The subagent runtime auto-infers an acceptance level for read-only agents and
-injects an "end with a structured acceptance report" instruction; the model
-then emits an `acceptance-report` fence **before** the scoring JSON fence, and
-the runtime's output-strip regex (from the acceptance fence to the last
-end-of-message fence) deletes **both** fences — the parent receives prose only
-and the score is lost. With `acceptance: false` no acceptance prompt is
-injected and the trailing scoring JSON block is delivered intact (verified
-against the runtime source + controlled runs; M7 gate finding, see
-`docs/manual-e2e.md`).
+The scorer reads content that may contain implementation verbs; the marker keeps
+any mutation-intent guard from classifying the dispatch as an edit task. It is
+not optional.
+
+**Dispatch requirement (mandatory):** dispatch the whole fanout in **one**
+`subagent` call — `workflowScript` with `runs.all([...])`, `async: false`
+(blocking), and **`acceptance: false` on every item**. The subagent runtime can
+inject an acceptance-report instruction whose output-strip regex deletes the
+scorer's trailing JSON block; `acceptance: false` suppresses it (ADR-006).
+Current harness versions may infer "no acceptance" for read-only agents
+anyway, but the explicit flag is version-proof and costs nothing.
 
 ---
 
-## Template: `concept` scope
+## Task shape (path-based — every scorer)
+
+`<evaluation>` is the absolute directory of the `evaluation` skill (it holds
+`scoring-guide.md` and `rubrics/`). Build one task per rubric:
 
 ```
 READ-ONLY scoring task — return findings only; do not edit or modify any file.
-Score the lab CONCEPT below against the rubric «rubric-name».
+Score <scope-description> against rubric "<rubric-name>" (kind: <kind>, threshold: <threshold>).
 
-### Scoring guide
-«contents of scoring-guide.md, verbatim»
+Read these files fully before scoring:
+1. Scoring guide: <evaluation>/scoring-guide.md
+2. Rubric: <evaluation>/rubrics/<family>/<rubric>.md
+3. Content — <one line per item, by absolute path, per the table below>
 
-### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
-«rubric file content, verbatim»
+Scope label: <scope>
 
-### Scope label
-scope: concept
-
-### Content — concept.md
-«full .holagent/concept.md: frontmatter + body, verbatim»
-
-### Output contract
-End with exactly one fenced JSON block; no prose after it. criterion_text
-copied verbatim; finding null on pass, concrete location otherwise.
+Output contract: end with exactly one fenced JSON block and no prose after it.
+criterion_text copied verbatim from the rubric; finding null on pass, concrete
+location otherwise. Never emit an acceptance-report fence.
 ```
 
-## Template: `sizing` scope
-
-```
-READ-ONLY scoring task — return findings only; do not edit or modify any file.
-Score the lab SIZING below against the rubric «rubric-name».
-
-### Scoring guide
-«contents of scoring-guide.md, verbatim»
-
-### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
-«rubric file content, verbatim»
-
-### Scope label
-scope: sizing
-
-### Content — sizing.md
-«full .holagent/sizing.md: frontmatter + body, verbatim»
-«plus: the full .holagent/concept.md under a "### concept.md" sub-heading — the
-beats are what the footprint has to support, so the scorer needs both»
-
-### Output contract
-End with exactly one fenced JSON block; no prose after it. criterion_text
-copied verbatim; finding null on pass, concrete location otherwise.
-```
-
-## Template: `spec` scope
-
-```
-READ-ONLY scoring task — return findings only; do not edit or modify any file.
-Score the lab SPEC below against the rubric «rubric-name».
-
-### Scoring guide
-«contents of scoring-guide.md, verbatim»
-
-### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
-«rubric file content, verbatim»
-
-### Scope label
-scope: spec
-
-### Content — spec set
-«every <lab-repo>/<spec-dir>/NN-*.md in order, each under a "### NN-<name>.md" sub-heading, verbatim»
-
-### Content — lab-prep.md
-«full <lab-dir>/lab-prep.md: frontmatter + body, verbatim»
-
-### Content — sizing.md
-«full <lab-dir>/.holagent/sizing.md, verbatim — the footprint the spec must not exceed»
-
-### Output contract
-End with exactly one fenced JSON block; no prose after it. criterion_text
-copied verbatim; finding null on pass, concrete location otherwise.
-```
-
-## Template: `platform-<name>` scope
-
-```
-READ-ONLY scoring task — return findings only; do not edit or modify any file.
-Score the PLATFORM REVIEW below against the rubric «rubric-name».
-
-### Scoring guide
-«contents of scoring-guide.md, verbatim»
-
-### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
-«rubric file content, verbatim»
-
-### Scope label
-scope: platform-«name»
-
-### Content — findings
-«full .holagent/platform/<name>.json, verbatim»
-
-### Content — requirements
-«full ~/.holagent/platforms/<name>/requirements.md, verbatim — the standard the review is scored against; a finding that traces to nothing here is untraced»
-
-### Content — lab-prep.md
-«full <lab-dir>/lab-prep.md, verbatim, when it exists — the environment contract the observations should agree with»
-
-### Output contract
-End with exactly one fenced JSON block; no prose after it. criterion_text
-copied verbatim; finding null on pass, concrete location otherwise.
-```
-
-## Template: `build-<slug>` scope
-
-```
-READ-ONLY scoring task — return findings only; do not edit or modify any file.
-Score the BUILD MILESTONE below against the rubric «rubric-name».
-
-### Scoring guide
-«contents of scoring-guide.md, verbatim»
-
-### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
-«rubric file content, verbatim»
-
-### Scope label
-scope: build-«slug»
-
-### Content — milestone
-«the milestone's frontmatter entry from 07-build-sequence.md, verbatim: n, slug, title, deliverable, exit, test, depends_on»
-
-### Content — what was built
-«the files the builder created or changed, with their content — or, for a large milestone, the diff; plus the builder's final report verbatim»
-
-### Content — test result
-«the hol_build_test record: the command, exit code, and the stdout/stderr tails»
-
-### Content — spec sections
-«§2 architecture, §3 build decisions, §4 security, §5 test strategy and §9 environment & footprint, verbatim — the contract this milestone is scored against»
-
-### Output contract
-End with exactly one fenced JSON block; no prose after it. criterion_text
-copied verbatim; finding null on pass, concrete location otherwise.
-```
-
-## Template: `plan` scope
-
-```
-READ-ONLY scoring task — return findings only; do not edit or modify any file.
-Score the lab-guide PLAN below against the rubric «rubric-name».
-
-### Scoring guide
-«contents of scoring-guide.md, verbatim»
-
-### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
-«rubric file content, verbatim»
-
-### Scope label
-scope: plan
-
-### Content — plan.md
-«full .holagent/plan.md: frontmatter + body, verbatim»
-«plus: full .holagent/lab-prep.md under a "### lab-prep.md" sub-heading, if the rubric checks it»
-
-### Output contract
-End with exactly one fenced JSON block; no prose after it. criterion_text
-copied verbatim; finding null on pass, concrete location otherwise.
-```
-
-## Template: `module-plan-<NN>` scope
-
-```
-READ-ONLY scoring task — return findings only; do not edit or modify any file.
-Score the MODULE PLAN below against the rubric «rubric-name».
-
-### Scoring guide
-«contents of scoring-guide.md, verbatim»
-
-### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
-«rubric file content, verbatim»
-
-### Scope label
-scope: module-plan-«NN»
-
-### Content — module plan
-«full .holagent/<NN-slug>/plan.md: frontmatter + body, verbatim»
-«plus: the guide-level plan.md "modules" frontmatter line for this module (goal/est_minutes) and, if present, the prior module's plan.md Environment delta section, under a "### context" sub-heading»
-
-### Output contract
-End with exactly one fenced JSON block; no prose after it. criterion_text
-copied verbatim; finding null on pass, concrete location otherwise.
-```
-
-## Template: `module-<NN-slug>` scope
-
-```
-READ-ONLY scoring task — return findings only; do not edit or modify any file.
-Score the MODULE below against the rubric «rubric-name».
-
-### Scoring guide
-«contents of scoring-guide.md, verbatim»
-
-### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
-«rubric file content, verbatim»
-
-### Scope label
-scope: module-«NN»-«slug»
-
-### Content — module section
-«the full "## Module <N>: …" section of guide.md, verbatim, including its [Back to top] line»
-«plus: the guide's "### Lab Credentials:" block and the module plan's title, step outline, environment delta, image checklist, and success criteria under a "### context" sub-heading (the title is mandatory — `title-alignment` is unverifiable without it; include each of the others when present)»
-
-### Output contract
-End with exactly one fenced JSON block; no prose after it. criterion_text
-copied verbatim; finding null on pass, concrete location otherwise.
-```
-
-## Template: `guide` scope
-
-```
-READ-ONLY scoring task — return findings only; do not edit or modify any file.
-Score the WHOLE LAB GUIDE below against the rubric «rubric-name».
-
-### Scoring guide
-«contents of scoring-guide.md, verbatim»
-
-### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
-«rubric file content, verbatim»
-
-### Scope label
-scope: guide
-
-### Content — full guide
-«full guide.md, verbatim»
-«plus: the plan.md frontmatter (objectives + modules list) and a pointer to the product/company profile under ~/.holagent (the scorer may read it) under a "### context" sub-heading»
-
-### Output contract
-End with exactly one fenced JSON block; no prose after it. criterion_text
-copied verbatim; finding null on pass, concrete location otherwise.
-```
-
----
-
-## Template: `launch` scope
-
-```
-READ-ONLY scoring task — return findings only; do not edit or modify any file.
-Score the LAUNCH COLLATERAL below against the rubric «rubric-name».
-
-### Scoring guide
-«contents of scoring-guide.md, verbatim»
-
-### Rubric: «rubric-name» (kind: «kind», threshold: «threshold»)
-«rubric file content, verbatim»
-
-### Scope label
-scope: launch
-
-### Content — collateral
-«every <guide-root>/launch/*.md, each under a "### <filename>" sub-heading, verbatim»
-
-### Content — sources
-«full guide.md (or the released <ID>-<Title>.md), full .holagent/plan.md, full .holagent/sizing.md, full .holagent/concept.md when it exists, and lab-prep.md — each under its own sub-heading, verbatim. Traceability is unscoreable without them: a claim is untraceable when it cannot be located in these files, however plausible it sounds.»
-«when the lab was adopted and has no concept.md, say so explicitly here — the collateral is expected to name that gap rather than fill it»
-
-### Output contract
-End with exactly one fenced JSON block; no prose after it. criterion_text
-copied verbatim; finding null on pass, concrete location otherwise. Quote every
-untraceable claim verbatim in its finding.
-```
+Embed each task as a JS **template literal** (backtick-delimited) in the
+`workflowScript`; the task text above contains no backticks or `${`, so no
+escaping is needed and the literal newlines are preserved.
+
+Where the table says "score only the section", add that locator to the content
+line — the scorer greps the heading and reads that section through its trailing
+`[Back to top]` line, and scores nothing else.
+
+## Content paths by scope
+
+`«guide»` = the guide root (absolute); `«repo»` + `«spec-dir»` come from
+`.holagent/lab-ref.json`.
+
+- **concept** — `«guide»/.holagent/concept.md`
+- **sizing** — `«guide»/.holagent/sizing.md`, plus `«guide»/.holagent/concept.md`
+  (the beats are what the footprint must support)
+- **spec** — every `«repo»/«spec-dir»/NN-*.md` in order (list them), plus
+  `«guide»/lab-prep.md` and `«guide»/.holagent/sizing.md`
+- **platform-«name»** — `«guide»/.holagent/platform/«name».json`, plus
+  `~/.holagent/platforms/«name»/requirements.md` (the standard the review is
+  scored against) and `«guide»/lab-prep.md` when it exists
+- **build-«slug»** — `«repo»/«spec-dir»/07-*.md` (the milestone entry — grep
+  the slug), the **plain list of files the builder created/changed** (paths,
+  inlined in the task), `«guide»/.holagent/build/«slug».json` (the test record),
+  and the relevant spec sections (§2, §3, §4, §5, §9) by path
+- **plan** — `«guide»/.holagent/plan.md`, plus `«guide»/lab-prep.md`
+- **module-plan-«NN»** — `«guide»/.holagent/«NN-slug»/plan.md`, plus
+  `«guide»/.holagent/plan.md` (grep the module's `modules` entry) and, when
+  present, the prior module's `plan.md` `## Environment delta`
+- **module-«NN»-«slug»** — `«guide»/guide.md` (score **only** the
+  `## Module «N»: «Title»` section through its `[Back to top]` line), plus
+  `«guide»/.holagent/«NN-slug»/plan.md` (title, step outline, environment
+  delta, image checklist, success criteria — the title is mandatory,
+  `title-alignment` is unverifiable without it)
+- **guide** — `«guide»/guide.md`, plus `«guide»/.holagent/plan.md` frontmatter
+  and the product/company profile path(s) under `~/.holagent` when they exist
+  (say explicitly when none does)
+- **launch** — every `«guide»/launch/*.md`, plus `«guide»/guide.md` (or the
+  released `<ID>-<Title>.md`), `«guide»/.holagent/plan.md`,
+  `«guide»/.holagent/sizing.md`, `«guide»/.holagent/concept.md` when it exists,
+  and `«guide»/lab-prep.md` — traceability is unscoreable without the sources.
+  When the lab was adopted and has no `concept.md`, say so in the task so the
+  scorer expects the collateral to name that gap rather than fill it.
 
 ---
 
 ## Fanout pattern (parent)
 
-One `runs.all` per scoring phase; stable keys = rubric names:
+One `subagent` call per scoring phase, `async: false` (blocking). Build the
+tasks, then a `workflowScript` running `runs.all([...])` — one item per rubric
+in the order listed; `key` = the rubric name. `runs.all` resolves to an
+**ordered array** (not a key map), so map back to rubrics by index:
 
 ```js
+const keys = ['score-<rubric-1>', 'score-<rubric-2>' /* …one per rubric */];
 const results = await runs.all([
   {
-    key: 'score-plan-completeness',
+    key: keys[0],
     agent: 'holagent.scorer',
-    task: '«plan task, checklist rubric»',
+    acceptance: false,
+    task: `«path-based task 1»`,
   },
   {
-    key: 'score-plan-learning-arc',
+    key: keys[1],
     agent: 'holagent.scorer',
-    task: '«plan task, analytic rubric»',
+    acceptance: false,
+    task: `«path-based task 2»`,
   },
-  // …one item per rubric in the scope
+  // …one item per rubric, in rubric order
 ]);
-// then per child: extract the LAST fenced JSON block from result.output,
-// parse (1 retry on failure, then record escalated "scorer output unparseable"),
-// compute score/status per the SKILL.md table, hol_scores action=merge.
+return results.map((r, i) => ({ key: keys[i], output: r.output }));
 ```
 
-In an interactive session (review/generate prompts) the same fanout runs as
-sequential blocking dispatches (`subagent`, one scorer at a time,
-`async: false`); the parent merges **all** entries of a pass in a single
-`hol_scores` `action: "merge"` call so the scope's entry set lands
-all-or-nothing.
+Then per child, in index order: extract the **last fenced JSON block** from
+`output`, parse it, recompute `score`/`status` from the criterion scores
+against the rubric threshold (defense in depth), and merge **all** entries of
+the pass in a single `hol_scores` `action: "merge"` call so the scope's entry
+set lands all-or-nothing.
+
+**Parse/shape failure** (missing fields, `findings` not covering the rubric's
+criteria) → re-run that single rubric once, in a second small `runs.all`/
+`runs.run` with the parse error appended to the task; still failing → record
+`status: "escalated"`, finding "scorer output unparseable".
 
 **Normalization:** the scorer's contract envelope (SKILL.md, agents/scorer.md,
 scoring-guide.md) matches the canonical entry shape — `findings` array, entry
@@ -382,11 +191,12 @@ describing something that no longer exists).
 Scoring is round-based per rubric; `rounds` on a merged entry counts that
 rubric's scoring rounds.
 
-- **Round 1** is the initial pass (all rubrics of the scope).
+- **Round 1** is the initial pass (all rubrics of the scope, one parallel fanout).
 - **Fix round** (per failing set): one `guide-implementer` dispatch carrying
   the failing findings verbatim (grouped by rubric) + the module plan + the
   section, then re-validate (0 section errors), then **rescore only the
-  still-failed rubrics** with `rounds: <previous + 1>`.
+  still-failed rubrics** — the same parallel fanout, one item per remaining
+  rubric, with `rounds: <previous + 1>`.
 - **Caps**:
   - `analytic` / `holistic` — max **3 scoring rounds**; a rubric failing
     round 3 is recorded `status: "escalated"` (findings kept) and no longer

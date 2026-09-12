@@ -120,13 +120,15 @@ payload:
   (4), `holistic/story-coherence` (4).
 - Sizing-scope rubric: `analytic/footprint-realism` (4).
 - Build one task per rubric from the **concept-scope** and **sizing-scope**
-  templates in `evaluation/scorer-prompts.md`: `scoring-guide.md` verbatim +
-  the rubric file verbatim + the scope label + the content slice (sizing tasks
-  also carry `concept.md` under a `### concept.md` sub-heading).
-- Dispatch `subagent` — `agent: "holagent.scorer"`, `async: false`, one call
-  per turn (sequential blocking), **`acceptance: false`** (mandatory — without
-  it the harness strips the scorer's trailing JSON block; see
-  `evaluation/scorer-prompts.md` dispatch requirement).
+  templates in `evaluation/scorer-prompts.md` — path-based, per the Content
+  paths by scope table (sizing tasks pass `concept.md` alongside `sizing.md`).
+- Dispatch the whole fanout in **one** `subagent` call — a `workflowScript`
+  running `runs.all([...])`, one item per rubric in the order listed above,
+  each `{ key: <rubric>, agent: "holagent.scorer", task: <path-based task>,
+acceptance: false }`, and `async: false` on the outer call (blocking). Build
+  the tasks and the script per the Fanout pattern in
+  `evaluation/scorer-prompts.md` (tasks are path-based; results come back as an
+  ordered array — `result[i]` is the i-th rubric above).
 - **Extract the last fenced JSON block** of each result. Parse/shape failure →
   re-run that single scorer **once**; still failing → record
   `status: "escalated"`, finding "scorer output unparseable".

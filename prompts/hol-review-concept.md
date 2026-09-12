@@ -28,10 +28,15 @@ Scoring only — this command never rewrites `concept.md` or `sizing.md`.
   `analytic/business-value` (4), `holistic/story-coherence` (4).
 - Sizing scope: `analytic/footprint-realism` (4).
 - Build each task from the matching template in `evaluation/scorer-prompts.md`
-  — scoring guide verbatim, rubric file verbatim, scope label, content slice
-  (sizing tasks also carry `concept.md` under a `### concept.md` sub-heading).
-- Dispatch `subagent` — `agent: "holagent.scorer"`, `async: false`, one call
-  per turn, **`acceptance: false`** (mandatory).
+  — path-based, per the Content paths by scope table (sizing tasks pass
+  `concept.md` alongside `sizing.md`).
+- Dispatch the whole fanout in **one** `subagent` call — a `workflowScript`
+  running `runs.all([...])`, one item per rubric in the order listed above,
+  each `{ key: <rubric>, agent: "holagent.scorer", task: <path-based task>,
+acceptance: false }`, and `async: false` on the outer call (blocking). Build
+  the tasks and the script per the Fanout pattern in
+  `evaluation/scorer-prompts.md` (tasks are path-based; results come back as an
+  ordered array — `result[i]` is the i-th rubric above).
 - Extract the last fenced JSON block per result; one retry on parse/shape
   failure, then record `status: "escalated"` with finding "scorer output
   unparseable".

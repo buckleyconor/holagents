@@ -1,4 +1,4 @@
-# Spec template — the eight sections
+# Spec template — the ten sections
 
 The section contract every holagent lab spec must satisfy. `spec-author`
 fills it from `concept.md` + `sizing.md`; `checklist/spec-completeness`

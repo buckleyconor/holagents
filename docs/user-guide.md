@@ -10,9 +10,9 @@ what do I run?_
 
 > **Status.** Stages 1–3 and 5 (`/hol-concept`, `/hol-spec`, `/hol-build`,
 > `/hol-qa`, `/hol-platform-*`, `/hol-launch`, `/hol-adopt`) shipped in v0.2.0
-> and are covered by unit tests and deterministic gates, but **have not yet
-> been run end-to-end against a real lab**. Stage 4 (the guide pipeline) has
-> been. See `docs/manual-e2e.md` for exactly what is verified.
+> and have been run end-to-end against a real lab (author-run), on top of unit
+> tests and deterministic gates. Stage 4 (the guide pipeline) has been run
+> since v0.1.0. See `docs/manual-e2e.md` for what is verified.
 
 ---
 
@@ -148,7 +148,7 @@ The full path. `/clear` between stages — state is on disk.
     → you confirm the external path; declare dev/prod environments
 
 /hol-spec
-    → spec-author writes spec/01…08 + lab-prep.md
+    → spec-author writes spec/01…10 + lab-prep.md
     → hol_spec_check gate (section 8 must be substantive) → you approve
 
 /hol-build-all
@@ -480,7 +480,7 @@ what they decide tells you what a stage is actually checking.
 | `hol_status`            | Every stage's state, the milestone and module lists, QA records, the next command.           |
 | `hol_scores`            | Read / atomically merge / clear scoring entries by scope.                                    |
 | `hol_validate`          | The linter verdict on a guide, recorded to `.holagent/last-validation.json`.                 |
-| `hol_spec_check`        | Stage 2: all eight sections, no unfilled markers, section 8 substantive.                     |
+| `hol_spec_check`        | Stage 2: all ten sections, no unfilled markers, section 8 substantive.                       |
 | `hol_prep_check`        | The environment contract: seven keys, filled rows, every `verify` check runnable unattended. |
 | `hol_build_test`        | Stage 3: runs one milestone's own declared test in the lab repo.                             |
 | `hol_parity`            | Executes `lab-prep.md`'s checks against a **dev** environment. Refuses anything else.        |

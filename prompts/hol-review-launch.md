@@ -30,12 +30,15 @@ Scoring only — this command never rewrites anything in `launch/`.
 - Launch scope: `checklist/launch-completeness` (1.0),
   `analytic/claim-traceability` (4).
 - Build each task from the launch-scope template in
-  `evaluation/scorer-prompts.md` — scoring guide verbatim, rubric file
-  verbatim, scope label `launch`, content = the collateral plus `guide.md`,
-  `plan.md`, `sizing.md` and `concept.md` under their own sub-headings.
-  Traceability is unscoreable without the sources.
-- Dispatch `subagent` — `agent: "holagent.scorer"`, `async: false`, one call
-  per turn, **`acceptance: false`** (mandatory).
+  `evaluation/scorer-prompts.md` — path-based, per the Content paths by scope
+  table (collateral plus every source a claim can trace to).
+- Dispatch the whole fanout in **one** `subagent` call — a `workflowScript`
+  running `runs.all([...])`, one item per rubric in the order listed above,
+  each `{ key: <rubric>, agent: "holagent.scorer", task: <path-based task>,
+acceptance: false }`, and `async: false` on the outer call (blocking). Build
+  the tasks and the script per the Fanout pattern in
+  `evaluation/scorer-prompts.md` (tasks are path-based; results come back as an
+  ordered array — `result[i]` is the i-th rubric above).
 - Extract the last fenced JSON block per result; one retry on parse/shape
   failure, then record `status: "escalated"` with finding "scorer output
   unparseable".

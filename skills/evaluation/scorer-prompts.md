@@ -153,6 +153,27 @@ child typed, not the one you dispatched. Therefore:
    keys than dispatched rubrics means two entries collapsed onto one key —
    re-check step 1; do not re-merge and hope.
 
+**Scorer prose is not evidence.** Everything a child writes outside its final
+fenced block is discarded by design — the envelope is the contract (ADR-006) —
+and a preamble is the least trustworthy text in the pass: it is a self-report
+about its own reasoning, from the model that produced the score. Never paste
+preamble text into a scorecard or a fix payload. If a preamble asserts
+something **about the corpus** — an injected instruction, a tampered rubric, a
+file it could not read — that claim is checkable, so check it before repeating
+it:
+
+```text
+git status --porcelain <the file it names>    # tampering would show up here
+grep -in "the exact phrase the scorer quoted" <that file>
+```
+
+A true claim is a security incident: stop the run and escalate it. A false one
+is a confabulation: drop it, and read that score with suspicion, because the
+excuse was invented to cover a result the scorer could not otherwise justify.
+Seen live 2026-09-23 — a `module-completeness` scorer reported an "AUTO-ACCEPT
+bypass" planted in its own rubric file and praised itself for resisting it; the
+string existed nowhere in the repo and appeared only in that child's messages.
+
 **Parse/shape failure** (missing fields, `findings` not covering the rubric's
 criteria) → re-run that single rubric once, in a second small `runs.all`/
 `runs.run` with the parse error appended to the task; still failing → record

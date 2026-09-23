@@ -148,6 +148,25 @@ test('T-96f: ADR-020 — fix rounds rescore the scope, and the analytic floor is
   }
 });
 
+test('T-96g: a scorer preamble is treated as untrusted self-report, not evidence', () => {
+  // Live 2026-09-23: a scorer reported a prompt injection planted in its own
+  // rubric file. The string existed nowhere in the repo — the claim was
+  // confabulated, and it was attached to an all-met checklist result. The rule
+  // must stay spelled out so a false integrity claim is checked, not repeated.
+  const p = readFileSync(join(root, 'skills', 'evaluation', 'scorer-prompts.md'), 'utf8');
+  assert.match(p, /Scorer prose is not evidence/, 'the rule must be in the parent procedure');
+  assert.match(
+    p,
+    /Never paste\npreamble text|Never paste preamble text/,
+    'preambles must not reach scorecards',
+  );
+  assert.match(
+    p,
+    /git status --porcelain|grep -in "the exact phrase/,
+    'the parent must verify a corpus claim on disk before repeating it',
+  );
+});
+
 test('T-96d: ADR count claims in the current-state docs match the ADR files', () => {
   const accepted = readdirSync(adrDir).filter((f) => /^0\d{3}-.*\.md$/.test(f));
   assert.ok(accepted.length >= 19, 'ADR files discovered');

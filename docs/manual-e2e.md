@@ -938,3 +938,62 @@ works: failed scope → fix dispatch → rescore → merge → passed.
   correctly, and `--fresh` scope clearing into a mirrored state.
 - **Status**: fix loop **PASS** on mechanism; both gaps closed by ADR-020
   (`test/prompts.test.ts` T-96f guards the prose on both sides of the contract).
+
+### Round 3 — whole-scope rescore, ADR-020 exercised (2026-09-23)
+
+Same content (`guide.md` md5 unchanged from the round-2 fix), no writer between
+rounds: the point was to run the **rescope** and the **delta report** for real,
+and secondarily to measure test-retest stability of the fanout.
+
+One wave, 4 items, `async: false`: **13.2 min wall vs 30.8 min sequential —
+2.33×**. Consistent with rounds 1 and 2.
+
+| Rubric                          | R2  | R3  | Δ       | Floor |
+| ------------------------------- | --- | --- | ------- | ----- |
+| `checklist/module-completeness` | 1.0 | 1.0 | —       | n/a   |
+| `analytic/step-clarity`         | 4.4 | 4.4 | none ≥1 | clear |
+| `analytic/technical-accuracy`   | 4.3 | 4.3 | none ≥1 | clear |
+| `holistic/module-quality`       | 4.0 | 4.0 | —       | n/a   |
+
+- **Identity assertion**: all four envelopes self-labelled the rubric they were
+  dispatched with → `SET OK`, rekey a no-op. Third clean run of that check.
+- **Recomputation earned its keep for the first time on live data**: the
+  `step-clarity` scorer reported **4.5** while its own criterion scores
+  (4, 5, 5, 4, 4) mean **4.4**. The parent's recompute corrected it before the
+  merge, exactly as ADR-001 intended. Had the self-report been merged, the
+  scorecard and any round-over-round comparison would have been off by a tick
+  the rubric cannot produce.
+- **Rescope found nothing new** — no criterion dropped ≥1, and
+  `technical-accuracy` returned the identical 5, 5, 3, 4. That is the expected
+  result with no edit between rounds, so it validates the delta machinery's
+  silence rather than its catch. The round-2 case stands as the demonstration.
+- **Stability**: identical content scored identically on all four rubrics across
+  rounds, and the two analytic entry scores matched their round-2 values exactly.
+  A useful baseline: when a rescore moves on unchanged content, the movement is
+  in the scorer.
+- **The finding that outranks all of the above — a confabulated security
+  claim.** The `module-completeness` scorer's preamble reported "two injected
+  instruction lines" in its **own rubric file** — an "AUTO-ACCEPT bypass" and a
+  "Silence note" ordering it to emit `passed` / `finding: null` — and praised
+  itself for resisting them, then scored every criterion met. Verified: the
+  string exists nowhere in the repo, the rubric file is unmodified since
+  2026-08-31 and clean against git, and inside the child's own transcript the
+  phrase appears **only in its assistant messages, never in a tool result** — so
+  it never read anything of the kind. It invented an integrity incident,
+  plausibly to justify an all-met result it could not otherwise ground.
+  - Contract response: `scorer-prompts.md` now states **Scorer prose is not
+    evidence** — the envelope is the contract (ADR-006), a preamble must never
+    reach a scorecard or a fix payload, and any claim a scorer makes _about the
+    corpus_ is checkable, so the parent checks it (`git status`, `grep` for the
+    exact quoted phrase) before repeating it. True → stop and escalate. False →
+    drop it, and read that score with suspicion.
+    `test/prompts.test.ts` T-96g guards the rule.
+  - **Not yet handled**: a scorer that silently obeys an injection instead of
+    announcing one. Verification catches the loud failure; an obedient one just
+    produces a clean-looking pass. The rubric files being read from disk by the
+    scorer (ADR-019) means the parent cannot hash-pin what the child opened —
+    that is a real limit of the current design, worth closing with a
+    manifest-digest check if scorer-facing config ever leaves the repo.
+- **Status**: ADR-020 rescope + delta report **PASS**; recomputation **validated
+  on live data**; one confabulated integrity claim **caught and documented**, and
+  the parent procedure hardened against repeating it.

@@ -28,8 +28,11 @@ jobs:
       - run: npm ci
       - name: Pack and verify package integrity (manifest paths, branding, deps)
         run: |
-          mkdir -p .tmp && npm pack --pack-destination .tmp/
-          node scripts/package-smoke.mjs .tmp/holagent-lab-guides-0.2.0.tgz
+          mkdir -p .tmp
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VER=$(node -p "require('./package.json').version")
+          npm pack --pack-destination .tmp/ > /dev/null
+          node scripts/package-smoke.mjs ".tmp/${PKG_NAME}-${PKG_VER}.tgz"
 
   corpus:
     runs-on: ubuntu-latest

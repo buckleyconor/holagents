@@ -29,8 +29,8 @@ deterministic extension — with zero runtime dependencies.
 ## Install
 
 ```
-pi install git:<repo>@v0.2.0       # user scope
-pi install git:<repo>@v0.2.0 -l    # project scope
+pi install git:<repo>@v0.3.0       # user scope
+pi install git:<repo>@v0.3.0 -l    # project scope
 ```
 
 Verify in any guide dir: `/hol-status` prints the plan validity, per-module

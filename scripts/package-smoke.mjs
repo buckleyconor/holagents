@@ -2,6 +2,7 @@
 /**
  * package-smoke.mjs — T-47/T-48/T-49.
  * Unpacks the built tarball and verifies:
+ *  0. the tarball filename agrees with the manifest inside it (name + version),
  *  1. every `pi.*` manifest path exists in the package,
  *  2. every SKILL.md and agent file has valid frontmatter (name + description),
  *  3. zero provenance branding: no case-insensitive "instruqt" or "claude" in
@@ -33,6 +34,20 @@ try {
     failures += 1;
     console.error(`FAIL: ${msg}`);
   };
+
+  // 0. the artefact CI hands us is the artefact package.json describes.
+  //    CI derives the filename from package.json, so this catches a stale
+  //    tarball in .tmp/ (the failure that a hardcoded version in ci.yml had).
+  const base = tgz.split('/').pop();
+  const named = base.match(/^(.+?)-(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\.tgz$/);
+  if (!named) {
+    fail(`cannot read name+version out of the tarball filename: ${base}`);
+  } else {
+    if (named[1] !== manifest.name)
+      fail(`tarball name "${named[1]}" != manifest name "${manifest.name}"`);
+    if (named[2] !== manifest.version)
+      fail(`tarball version "${named[2]}" != manifest version "${manifest.version}"`);
+  }
 
   // 1. pi manifest paths exist
   for (const key of ['extensions', 'skills', 'prompts']) {

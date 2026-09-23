@@ -32,3 +32,35 @@ test('T-49: zero non-peer runtime dependencies', () => {
     assert.equal(p.peerDependencies[name], '*', `${name} is a pi-bundled peer dep`);
   }
 });
+
+/**
+ * T-47c: the release version is a fact written once.
+ * package.json is the source; the docs and CI must read from it or agree with
+ * it. A hardcoded version in ci.yml is what broke `npm pack` smoke at the
+ * 0.1.0 -> 0.2.0 bump (6b84250), so both the docs and the workflow are checked
+ * against the manifest here.
+ */
+test('T-47c: docs and CI agree with the package.json version', () => {
+  const v: string = pkg().version;
+  const read = (rel: string) => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8');
+
+  assert.match(v, /^\d+\.\d+\.\d+$/, 'package.json version is semver');
+
+  const installLines = [...read('README.md').matchAll(/pi install git:\S+@v(\d+\.\d+\.\d+)/g)];
+  assert.ok(installLines.length >= 2, 'README states the install ref');
+  for (const m of installLines) {
+    assert.equal(m[1], v, 'README install line must quote the package.json version');
+  }
+
+  const desc = read('holagent_description.md').match(/holagent-lab-guides`? v(\d+\.\d+\.\d+)/);
+  assert.ok(desc, 'holagent_description.md states the package version');
+  assert.equal(desc[1], v, 'holagent_description.md must quote the package.json version');
+
+  const ci = read('.github/workflows/ci.yml');
+  assert.doesNotMatch(
+    ci,
+    /holagent-lab-guides-\d+\.\d+\.\d+\.tgz/,
+    'ci.yml must not hardcode the tarball name (the 0.1.0 -> 0.2.0 breakage)',
+  );
+  assert.match(ci, /package\.json.*\.version/, 'ci.yml must derive the version from package.json');
+});

@@ -1,8 +1,15 @@
 # holagent — project description
 
-**Package:** `holagent-lab-guides` v0.2.0 · a Pi (pi.dev) agent package · UNLICENSED (internal team tool)
-**Repo:** `~/projects/holagents` · 34 commits · tagged `v0.2.0` · zero runtime dependencies
-**Date of this summary:** 2026-09-06
+**Package:** `holagent-lab-guides` v0.3.0 · a Pi (pi.dev) agent package · UNLICENSED (internal team tool)
+**Repo:** `~/projects/holagents` · branch `main` · tagged `v0.3.0` · zero runtime dependencies
+**Date of this summary:** 2026-09-23
+
+> **What changed in v0.3.0** (scoring mechanics, not shipped commands): scorer fanout runs
+> as one parallel `runs.all` wave with path-based tasks (ADR-019, ~2.4× per round); a fix
+> round now rescores **every** rubric of the scope, not just the failed subset; and analytic
+> entries carry a criterion floor — a criterion at 1 or 2 fails the entry whatever the mean
+> (ADR-020). Consequence to expect: a scope recorded `passed` under 0.2.x can come back
+> `failed` on a rescore. Nothing else in the lifecycle moved.
 
 ---
 

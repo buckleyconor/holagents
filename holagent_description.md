@@ -182,7 +182,7 @@ flowchart TB
     FS -. "parent reads and inlines into the next payload" .-> ORCH
 ```
 
-**Key architectural decisions** (18 ADRs, indexed in `docs/adr/README.md`):
+**Key architectural decisions** (19 ADRs, indexed in `docs/adr/README.md`):
 
 - **No agent-to-agent handoff exists.** All 14 agents run with
   `maxSubagentDepth: 0`, `inheritProjectContext: false`, `inheritSkills: false`. The

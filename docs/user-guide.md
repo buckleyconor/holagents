@@ -519,6 +519,6 @@ killed command counts as a failure.
 
 - `README.md` — install, the full command table, troubleshooting.
 - `docs/quickstart.md` — the component tour and the diagrams.
-- `docs/adr/README.md` — the eighteen decisions, indexed, and why they hang
+- `docs/adr/README.md` — the nineteen decisions, indexed, and why they hang
   together.
 - `docs/manual-e2e.md` — what is verified, and what is not.

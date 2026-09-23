@@ -34,7 +34,8 @@ task payload gives you everything you need:
 - Criterion `score`: **integer 1–5** for analytic/holistic criteria;
   **0 or 1** for checklist criteria. Entry `score`: checklist → pass rate
   (0–1); analytic/holistic → the mean of the criterion scores, one decimal
-  (n/a criteria excluded). Entry `status`: `passed` iff the entry score
+  (n/a criteria excluded). Write **both** `score` fields as JSON numbers, never
+  quoted strings. Entry `status`: `passed` iff the entry score
   meets the rubric threshold stated in the task (≥), else `failed`. (The
   parent recomputes both before merging.)
 - A criterion marked n/a for this content by the rubric is omitted from
@@ -67,10 +68,15 @@ structured output.
   "scope": "<scope label, exactly as given in the task>",
   "kind": "checklist | analytic | holistic",
   "status": "passed | failed",
-  "score": "<entry score — per the Rules above>",
+  "score": 4.2,
   "findings": [{ "criterion": "<verbatim criterion text>", "score": 0, "finding": null }]
 }
 ```
+
+Both `score` fields are JSON **numbers** — `"score": 4.2`, never
+`"score": "4.2"`. A quoted number fails the parent's shape check
+(`validateScoreEntry`), and because a merge validates every entry before writing
+any, one quoted value can cost the whole scope's pass.
 
 `findings` contains one object **per rubric criterion** (no more, no fewer),
 except criteria the rubric marks n/a for this content. Do not add any other

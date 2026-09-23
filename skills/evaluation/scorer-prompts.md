@@ -49,8 +49,9 @@ Read these files fully before scoring:
 Scope label: <scope>
 
 Output contract: end with exactly one fenced JSON block and no prose after it.
-criterion_text copied verbatim from the rubric; finding null on pass, concrete
-location otherwise. Never emit an acceptance-report fence.
+Both score fields are JSON numbers, never quoted strings. criterion_text
+copied verbatim from the rubric; finding null on pass, concrete location
+otherwise. Never emit an acceptance-report fence.
 ```
 
 Embed each task as a JS **template literal** (backtick-delimited) in the
@@ -128,9 +129,28 @@ return results.map((r, i) => ({ key: keys[i], output: r.output }));
 
 Then per child, in index order: extract the **last fenced JSON block** from
 `output`, parse it, recompute `score`/`status` from the criterion scores
-against the rubric threshold (defense in depth), and merge **all** entries of
-the pass in a single `hol_scores` `action: "merge"` call so the scope's entry
-set lands all-or-nothing.
+against the rubric threshold (defense in depth), apply the identity assertion
+below, and merge **all** entries of the pass in a single `hol_scores`
+`action: "merge"` call so the scope's entry set lands all-or-nothing.
+
+**Identity assertion (mandatory, before the merge).** Parallel children finish
+in whatever order they finish, and the only thing tying a result to its rubric
+is the index. Worse, `hol_scores` keys an entry by the `scope` and `rubric`
+strings **inside the payload** — so the label that reaches disk is the one a
+child typed, not the one you dispatched. Therefore:
+
+1. **Rekey from the dispatch table**, never from the envelope: for result `i`,
+   overwrite `entry.rubric` with the rubric name at index `i` and `entry.scope`
+   with the scope label that task carried. A child that mis-copied its rubric
+   name is corrected here; that is the point.
+2. **Assert the set, not just the shapes**: the entries you merge must be
+   exactly the fanout's rubric set — N entries, N distinct rubric names, one
+   per dispatched scorer. A child with no parseable envelope (after the retry
+   below) is merged as an `escalated` entry under _its dispatched key_, so the
+   count still holds.
+3. **Diff `merged` against the expected keys** after the call. Fewer merged
+   keys than dispatched rubrics means two entries collapsed onto one key —
+   re-check step 1; do not re-merge and hope.
 
 **Parse/shape failure** (missing fields, `findings` not covering the rubric's
 criteria) → re-run that single rubric once, in a second small `runs.all`/

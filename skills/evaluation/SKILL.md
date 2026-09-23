@@ -46,7 +46,7 @@ exactly one fenced JSON block, no prose after it (spec §02 §4.4):
   "scope": "module-02-upload-documents",
   "kind": "analytic",
   "status": "failed",
-  "score": "3.4",
+  "score": 3.4,
   "findings": [
     {
       "criterion": "<verbatim criterion text>",
@@ -63,7 +63,9 @@ exactly one fenced JSON block, no prose after it (spec §02 §4.4):
 ```
 
 Rules: criterion `score` ∈ 1–5 (integer, analytic/holistic) or 0/1
-(checklist); `criterion` is copied **verbatim** from the rubric; `finding`
+(checklist), and **both** `score` fields are JSON numbers — `3.4`, not `"3.4"`,
+which fails the parent's shape check and takes the whole scope's merge down;
+`criterion` is copied **verbatim** from the rubric; `finding`
 is `null` when the criterion is fully met (5, or a score exactly matching a
 stated anchor), otherwise it names a concrete location — a between-anchor
 score always names its blemish. `findings` has one object per rubric

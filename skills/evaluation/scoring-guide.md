@@ -56,12 +56,14 @@ would delete this block. The block must parse as JSON on its own:
   "scope": "<scope-label-given-in-the-task>",
   "kind": "checklist | analytic | holistic",
   "status": "passed | failed",
-  "score": "<entry score — see rules below>",
-  "findings": [
-    { "criterion": "<verbatim from the rubric>", "score": <number>, "finding": null }
-  ]
+  "score": 4.2,
+  "findings": [{ "criterion": "<verbatim from the rubric>", "score": 4, "finding": null }]
 }
 ```
+
+- Both `score` fields are JSON **numbers** — `"score": 4.2`, never
+  `"score": "4.2"`. A quoted number fails the parent's shape check, and one bad
+  entry fails the whole scope's merge.
 
 - `findings` contains **one object per rubric criterion — no more, no
   less** — except criteria marked n/a for this content (rule 4).

@@ -315,6 +315,9 @@ SCREENSHOT: … >>` placeholders (W005), verbatim dry-run outputs with
     One subagent call per turn is a harness constraint (parallel
     dispatches in one block are rejected), and `workflowScript`/`runs.run`
     cannot set `acceptance: false` — hence sequential blocking fanout.
+    _(Both constraints are gone as of ADR-019, 2026-09-12 — the fanout is one
+    `runs.all` wave. This entry stands as what was measured at M9, not as the
+    current dispatch contract.)_
   - Module 1 (`module-01-launch-qdrant`): 1.0 / 4.8 / 5.0 / 5.0, 0
     findings → all passed → single atomic `hol_scores merge` (4 entries,
     all-or-nothing) → `scored-passed`.
@@ -472,7 +475,8 @@ SCREENSHOT >>` / 6 tab-backtick commands (no shellcheck on the box →
     renamed file). Scoring never writes the section.
   - Module-03 scoring (4 rubrics; tasks generated from disk by
     `.tmp/m10-gate/gen-module-03-tasks.mts`, dispatched verbatim;
-    sequential blocking `holagent.scorer`, `acceptance: false`):
+    sequential blocking `holagent.scorer`, `acceptance: false` — dispatch mode
+    superseded by ADR-019):
     module-completeness 1.0; step-clarity 4.5 (`ui-actions` n/a — D1-B
     CLI-only module; findings: undefined RAG/L2 jargon, top-1 vs top-hit
     drift); technical-accuracy 4.8; module-quality 4.0 (heredoc double-
@@ -769,3 +773,159 @@ Embedded Document Corpus.md"`; verified with `ls`. The guide has left
   environment, and a real platform review.
 - **Status**: automated battery **PASS** (2026-09-01); live E2E **PASS**
   (author-run). `v0.2.0` tagged.
+
+---
+
+## ADR-019 in anger — the parallel wave (2026-09-23, PASS)
+
+- **Changes on disk this pass**:
+  - `skills/evaluation/scorer-prompts.md` §Fanout pattern gained the **identity
+    assertion**: rekey each entry from the dispatch table (never from the
+    child's envelope, because `hol_scores` keys by `scope`/`rubric` _inside the
+    payload_), assert N entries / N distinct rubric names, diff `merged` against
+    the expected keys. This closes the one hazard parallel dispatch introduces —
+    a wave result is tied to its rubric only by index.
+  - `test/prompts.test.ts` (T-96a–d): the fanout mode is prose, so it is now a
+    test — no template may say "sequential blocking" / "one call per turn";
+    every template that owns a fanout must say `runs.all` + `workflowScript` +
+    `acceptance: false` + `async: false` (15 owners); the identity assertion
+    must stay spelled in `scorer-prompts.md`; and the ADR count quoted in
+    quickstart / user-guide / `holagent_description.md` must match `docs/adr/`.
+  - Doc drift from that last check: "eighteen architecture decisions" → nineteen
+    (×2) and "(18 ADRs" → 19; there are 19 ADR files since ADR-019.
+  - Package source: `~/.pi/agent/settings.json` now loads
+    `~/projects/holagents` (working tree) instead of
+    `git:…/holagents@v0.2.0`. Until this pass the installed package — and every
+    session's prompts — were still v0.2.0, i.e. **sequential dispatch was
+    shipping**; ADR-019 was merged but never released or installed.
+- **Automated battery**: `npm test` **130/130** (was 126; +T-96a–d),
+  typecheck clean, `prettier --check .` clean.
+- **Attempt 1 (BLOCKED — harness, not contract)**: one `subagent` `workflowScript` call, `async: false`, 4 items
+  (`score-module-completeness`, `score-step-clarity`,
+  `score-technical-accuracy`, `score-module-quality`), `agent:
+holagent.scorer`, `acceptance: false` per item, path-based tasks per
+  `scorer-prompts.md` against a real lab: `module-01-explore-the-stack` in
+  `~/projects/nvidia-service-bp-vss-rag-nemoclaw` (guide section + module plan
+  by absolute path, rubrics and scoring guide read from the working tree).
+  - Fanout was admitted (`4/64 used`), all 4 children launched, and each died
+    in ~1.5s: `Async runner process <pid> exited or disappeared before writing
+a result. Marked run failed by stale-run reconciliation.`, `exitCode: 1`,
+    empty `runner.{stdout,stderr}.log`, and **no child session file created** —
+    so the runner died during bootstrap, before any model call. Run ids:
+    `4845a7b8`, `d2af05ef`, `4649b009`, `9efa4716` under
+    `/tmp/pi-subagents-uid-1000/async-subagent-runs/`.
+  - Ruled out from the parent side: task construction (correct in
+    `async-cfg-*.json`), agent resolution (the run's `recovery-descriptor.json`
+    carries the working-tree `agents/scorer.md` text, so the local package _was_
+    picked up), and `holagent.scorer`'s read-only tool contract.
+  - Two candidates, neither confirmed: (a) this session's package registry was
+    still v0.2.0 while its children resolved from the new source — a mid-session
+    repin; (b) the repo's `node_modules` pins the pi peers at **0.84.3** while
+    the running `pi` is **0.87.1**, and the v0.2.0 checkout had **no**
+    `node_modules` (pi supplied the bundled peers), so a local-path package may
+    be shadowing them with stale copies. Discriminate in this order: restart the
+    session with the repin in place and retry the wave; if it still dies,
+    refresh the repo's peers (`npm install`) or move `node_modules` aside and
+    retry.
+  - **Resolution**: restarting the session fixed it — the mid-session repin
+    (candidate a) was the cause; the stale peers in `node_modules` (candidate b)
+    were never implicated, the wave ran with them in place. Not a holagent
+    defect, but a rule for anyone repinning a package mid-session: the parent's
+    registry and its children's source disagree until the session restarts.
+- **Attempt 2 — the wave, in anger (same script, same tasks, session restarted
+  after the repin): PASS.** All 4 children launched within 40ms of each other
+  (true concurrency, not queueing) and completed:
+
+  | Rubric                          | Duration | Envelope         | Parent-recomputed score | State      |
+  | ------------------------------- | -------- | ---------------- | ----------------------- | ---------- |
+  | `checklist/module-completeness` | 417.8s   | string `"1.0"` ⚠ | 1.0                     | passed     |
+  | `analytic/step-clarity`         | 414.5s   | number           | 3.4                     | **failed** |
+  | `analytic/technical-accuracy`   | 827.5s   | number           | 4.3                     | passed     |
+  | `holistic/module-quality`       | 332.7s   | number           | 4.0                     | passed     |
+  - **Wall clock**: 13.8 min for the wave vs 33.2 min as the sum of the same
+    four children — **2.41×**. The saving is real but sub-linear: the endpoint
+    served four requests at once, so the slowest child (13.8 min) ran ~2× longer
+    than it would have alone. Fix-loop rounds compound it: a 4-rubric scope
+    costs one wave, not four dispatches.
+  - **Identity assertion exercised for real**: all four envelopes self-named the
+    rubric and scope they were dispatched with, so the rekey was a no-op and the
+    set assertion reports `dispatched=4 distinctRubrics=4 → SET OK`. The hazard
+    didn't bite today; the assertion is what makes it non-silent on a day when
+    it does.
+  - **A live contract bug the unit tests could not see**: the checklist scorer
+    emitted its entry score as a **JSON string** (`"score": "1.0"`).
+    `validateScoreEntry` requires a number (`score: missing number`), and
+    `mergeScores` validates _every_ entry before writing anything — so a parent
+    that merged raw envelopes would have lost the whole pass to `E-ARG`. The
+    cause is in the docs, not the model: the envelope example in
+    `agents/scorer.md` and `skills/evaluation/SKILL.md` shows
+    `"score": "3.4"` quoted. Re-testing confirms the recomputation rule is what
+    saves every real pass today; the examples should be unquoted numbers.
+  - **Content finding, deliberately not filed**: `step-clarity` came back 3.4
+    **failed** (`ui-actions` 2 — "Open the mock CMMS in the browser at
+    http://localhost:8090" names no control; steps 3–6 assert "200" from bare
+    `curl -s`, which prints only the body) on a scope whose stored `scores.json`
+    says `passed`. That is a rescore-under-current-rubrics drift signal, not a
+    regression claim.
+
+- **Not verified**: the `hol_scores` merge for a wave — write confinement
+  (ADR-008) means a tooling-rooted session cannot file into a lab repo, so this
+  pass exercised extraction, rekey, recompute and validation only. A merge
+  belongs in a session rooted in the lab; it was **not** run here, because
+  merging would overwrite a `scored-passed` module with this round's 3.4.
+- **Status**: automated **PASS** (130/130, typecheck, prettier); live wave
+  **PASS** on mechanism; scorecard produced, nothing merged.
+
+### Fix loop, round 2 (2026-09-23) — runs, and it has two blind spots
+
+Run on a **byte-identical mirror** of the lab (`.tmp/fixloop-lab/` — guide,
+plan, module plan, lab-prep, lab-ref), so the writer had somewhere to write and
+so `hol_scores` could merge inside the session root. The live lab was
+read-only reference; its `guide.md` hash is unchanged.
+
+- **Round 1 merged through `mergeScores()`** (the tool's own code path, ADR-007):
+  4 entries, atomic, `step-clarity` 3.4 failed.
+- **Fix dispatch** — one `holagent.guide-implementer`, blocking, carrying the
+  verbatim findings by path, the module plan, the environment contract and the
+  lab repo as read-only grounding. 1611s (26.9 min). It renamed the UI controls,
+  made the four `/health` probes print `%{http_code}`, swapped the 7-row claim
+  for `lab-prep.md` verify #11's own filter, and added the
+  `NEMOCLAW_GATEWAY_PORT=8085` the lab's scripts pass. Linter: 0 errors
+  0 warnings; changes confined to lines 59–196, heading and `[Back to top]`
+  intact.
+- **Round 2 rescore** — parallel wave, `async: false`, 11.7 min.
+
+| Rubric                        | R1  | R2  | Entry delta | What actually happened       |
+| ----------------------------- | --- | --- | ----------- | ---------------------------- |
+| `analytic/step-clarity`       | 3.4 | 4.4 | +1.0 PASS   | `ui-actions` 2 → 5           |
+| `analytic/technical-accuracy` | 4.3 | 4.3 | **0.0**     | criteria swapped — see below |
+
+`hol_status` then reported `01-explore-the-stack: scored-passed`. So the loop
+works: failed scope → fix dispatch → rescore → merge → passed.
+
+- **Blind spot 1 — a fix round can regress a _passing_ rubric and the loop never
+  looks.** It rescores only the still-failed rubrics. `technical-accuracy` was
+  only in this round because it was added deliberately as a probe, and it had
+  been regressed by the fix: `no-fabrication` 4 → 3, because step 10's new UI
+  strings were copied from `mock-wo/app/templates/*.html` — Jinja templates that
+  were **deleted** in 7f6383c and exist only in git history (`60dd47a`). The
+  built app is the React dashboard (`spec/02-architecture.md:8-10`: "the Jinja2
+  UI is replaced by the React dashboard on :8091"). A rubric that had passed
+  went one criterion from failing, invisibly.
+  _Fix: in a fix round, rescore every rubric of the scope whose content overlaps
+  the edited section — for module scope, all four, in the same wave. Parallel
+  fanout makes this nearly free._
+- **Blind spot 2 — the entry mean hides a criterion trade.** Round 1 criteria
+  were 5, 5, 4, 3; round 2 were 5, 5, 3, 4. Same mean, same rounded 4.3, same
+  `passed`, and a regression and an improvement cancelled exactly. Nothing in
+  `scores.json` or the scorecard shows that `no-fabrication` fell.
+  _Fix: compare criterion scores across rounds; a drop of ≥1 on any criterion is
+  reported on the scorecard even when the entry passes, and a criterion dropping
+  to ≤2 fails the entry regardless of the mean._
+- **Also worth noting for sizing the win**: the scoring wave was 11.7 min but the
+  **fix dispatch was 26.9 min** — a single writer, unparallelisable, and now the
+  dominant cost of a round. Parallel fanout bought 19 min per round against a
+  27-minute fix step; the loop is writer-bound, not scorer-bound.
+- **Not verified**: whether an escalation path (round 3 still failing) renders
+  correctly, and `--fresh` scope clearing into a mirrored state.
+- **Status**: fix loop **PASS** on mechanism, **two contract gaps filed above**.

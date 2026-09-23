@@ -22,11 +22,11 @@ writer = the parent session). Scores drive module state
 
 ## Rubric families
 
-| Kind        | Score unit                       | Entry score      | Pass when                              |
-| ----------- | -------------------------------- | ---------------- | -------------------------------------- |
-| `checklist` | binary criterion (met / not met) | pass rate 0–1    | score ≥ rubric threshold (default 1.0) |
-| `analytic`  | 1–5 per criterion (anchored)     | mean of criteria | mean ≥ rubric threshold (default 4)    |
-| `holistic`  | single 1–5 overall (anchored)    | that score       | score ≥ rubric threshold (default 4)   |
+| Kind        | Score unit                       | Entry score      | Pass when                                                       |
+| ----------- | -------------------------------- | ---------------- | --------------------------------------------------------------- |
+| `checklist` | binary criterion (met / not met) | pass rate 0–1    | score ≥ rubric threshold (default 1.0)                          |
+| `analytic`  | 1–5 per criterion (anchored)     | mean of criteria | mean ≥ rubric threshold (default 4) **and** every criterion ≥ 3 |
+| `holistic`  | single 1–5 overall (anchored)    | that score       | score ≥ rubric threshold (default 4)                            |
 
 Each rubric file declares its own `threshold` in frontmatter; the rubric text
 defines the criteria and anchors. **The scorer reports** per-criterion
@@ -72,7 +72,8 @@ score always names its blemish. `findings` has one object per rubric
 criterion, no more no less (except criteria the rubric marks n/a for the
 content). Entry `score`: checklist → pass rate 0–1; analytic/holistic →
 rounded mean of the criterion scores. Entry `status`: `passed` iff entry
-`score` ≥ rubric threshold. The parent extracts the **last** fenced JSON
+`score` ≥ rubric threshold — and for `analytic`, no criterion below 3
+(criterion floor, ADR-020). The parent extracts the **last** fenced JSON
 block per child; on parse failure it re-runs that single scorer **once**
 (max 1 retry); still unparseable → the parent records the entry with
 `status: "escalated"` and `finding "scorer output
@@ -92,7 +93,10 @@ unparseable"` rather than guessing. (ADR-006: no reliance on per-item
    `score`/`status` per the table above, then merge via `hol_scores`
    (action `merge`).
 4. On failures: inline the failing `finding`s into the next
-   `/hol-generate-module` (resume) round. **Fix-loop caps:** analytic/holistic
+   `/hol-generate-module` (resume) round, and **rescore every rubric of the
+   scope** in that round, not just the failed subset — the fix edited content all
+   of them read (ADR-020). Report any criterion that dropped ≥ 1 since the
+   previous round. **Fix-loop caps:** analytic/holistic
    rubrics max **3 rounds**; checklist gates escalate to the user after **5**
    unproductive rounds (no score improvement across 2 consecutive rounds).
    A module with any escalated rubric is `scored-escalated` and blocks

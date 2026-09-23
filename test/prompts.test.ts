@@ -119,6 +119,35 @@ test('T-96e: every documented scorer envelope example is mergeable (scores are n
   assert.ok(examples >= 3, `expected the contract examples to be found, got ${examples}`);
 });
 
+test('T-96f: ADR-020 — fix rounds rescore the scope, and the analytic floor is agreed on both sides', () => {
+  const p = readFileSync(join(root, 'skills', 'evaluation', 'scorer-prompts.md'), 'utf8');
+
+  // 1. The round rescope: the pre-ADR-020 wording must not come back.
+  assert.doesNotMatch(
+    p,
+    /rescore only the/i,
+    'scorer-prompts.md must not revert to rescoring only the failed subset (ADR-020)',
+  );
+  assert.match(p, /rescore every rubric of\n?\s*the scope/i, 'round rescope must be spelled out');
+
+  // 2. The floor, in the parent procedure.
+  assert.match(p, /no criterion scores below 3/, 'parent procedure must apply the criterion floor');
+  // 3. …and the round-over-round delta (report, not gate).
+  assert.match(p, /drop of ≥1/, 'parent procedure must report criterion drops');
+
+  // The scorer and the parent must agree on what `passed` means, or the parent's
+  // recomputation silently overrides a correct-looking self-report.
+  const bothSides: Record<string, RegExp> = {
+    'skills/evaluation/scoring-guide.md': /criterion scored 1 or 2 fails the entry/i,
+    'agents/scorer.md': /criterion at 1 or 2 fails the entry/i,
+    'skills/evaluation/SKILL.md': /every criterion ≥ 3|no criterion below 3/i,
+  };
+  for (const [rel, re] of Object.entries(bothSides)) {
+    const body = readFileSync(join(root, rel), 'utf8');
+    assert.match(body, re, `${rel}: must state the analytic criterion floor (ADR-020)`);
+  }
+});
+
 test('T-96d: ADR count claims in the current-state docs match the ADR files', () => {
   const accepted = readdirSync(adrDir).filter((f) => /^0\d{3}-.*\.md$/.test(f));
   assert.ok(accepted.length >= 19, 'ADR files discovered');

@@ -38,10 +38,11 @@ corrections and reversals — including of the original spec.
 
 ## Corrections (018–)
 
-| #                                        | Decision                  | In one line                                                                                                   |
-| ---------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| [018](0018-tests-are-not-shipped.md)     | Tests are not shipped     | The shipped suite could not run; CI verifies the repo, `package-smoke` verifies the tarball.                  |
-| [019](0019-scorer-fanout-is-parallel.md) | Scorer fanout is parallel | Scorers fan out in one `runs.all` wave with path-based tasks; ADR-001's sequential consequence is superseded. |
+| #                                                                              | Decision                     | In one line                                                                                                                 |
+| ------------------------------------------------------------------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| [018](0018-tests-are-not-shipped.md)                                           | Tests are not shipped        | The shipped suite could not run; CI verifies the repo, `package-smoke` verifies the tarball.                                |
+| [019](0019-scorer-fanout-is-parallel.md)                                       | Scorer fanout is parallel    | Scorers fan out in one `runs.all` wave with path-based tasks; ADR-001's sequential consequence is superseded.               |
+| [020](0020-fix-rounds-rescore-the-scope-and-analytic-criteria-have-a-floor.md) | Fix rounds rescore the scope | Content a fix touched is in scope for every rubric of it; and an analytic mean can no longer average away a criterion at 2. |
 
 ## The shape of these decisions
 

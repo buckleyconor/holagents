@@ -129,9 +129,10 @@ return results.map((r, i) => ({ key: keys[i], output: r.output }));
 
 Then per child, in index order: extract the **last fenced JSON block** from
 `output`, parse it, recompute `score`/`status` from the criterion scores
-against the rubric threshold (defense in depth), apply the identity assertion
-below, and merge **all** entries of the pass in a single `hol_scores`
-`action: "merge"` call so the scope's entry set lands all-or-nothing.
+against the rubric threshold and the analytic criterion floor (ADR-020) (defense
+in depth), apply the identity assertion below, and merge **all** entries of
+the pass in a single `hol_scores` `action: "merge"` call so the scope's entry
+set lands all-or-nothing.
 
 **Identity assertion (mandatory, before the merge).** Parallel children finish
 in whatever order they finish, and the only thing tying a result to its rubric
@@ -214,9 +215,25 @@ rubric's scoring rounds.
 - **Round 1** is the initial pass (all rubrics of the scope, one parallel fanout).
 - **Fix round** (per failing set): one `guide-implementer` dispatch carrying
   the failing findings verbatim (grouped by rubric) + the module plan + the
-  section, then re-validate (0 section errors), then **rescore only the
-  still-failed rubrics** — the same parallel fanout, one item per remaining
-  rubric, with `rounds: <previous + 1>`.
+  section, then re-validate (0 section errors), then **rescore every rubric of
+  the scope** — the same parallel fanout, one item per rubric of the scope, with
+  `rounds: <previous + 1>`. Not just the failed subset: the writer edited the
+  section that **all** of the scope's rubrics read, so all of them are still in
+  scope, and a rubric that had passed is exactly what a fix round can regress
+  (ADR-020). The wave is bounded by its slowest child, so the full-scope rescore
+  costs the tail difference, not one wave per rubric.
+- **Criterion floor (analytic)**: an `analytic` entry is `passed` iff its mean
+  meets the rubric threshold **and no criterion scores below 3** — one weak
+  criterion cannot be averaged away. `checklist` is already gated by its 1.0
+  threshold and `holistic` is a single number, so the floor is analytic-only.
+  The parent's recomputation applies it, and the scoring guide states it so the
+  scorer's own `status` agrees (ADR-020).
+- **Round-over-round delta — report, do not gate**: before merging an entry at
+  round ≥ 2, compare each criterion score against the stored entry for the same
+  `scope`/`rubric` and print every drop of ≥1 on the scorecard, as
+  `▼ <criterion> <old> → <new>`. A drop is not its own failure — the floor decides
+  that — because a fix round may legitimately trade a little on one criterion to
+  gain a lot on another. What it must never do is disappear into the mean.
 - **Caps**:
   - `analytic` / `holistic` — max **3 scoring rounds**; a rubric failing
     round 3 is recorded `status: "escalated"` (findings kept) and no longer

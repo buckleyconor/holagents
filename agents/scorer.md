@@ -36,7 +36,9 @@ task payload gives you everything you need:
   (0–1); analytic/holistic → the mean of the criterion scores, one decimal
   (n/a criteria excluded). Write **both** `score` fields as JSON numbers, never
   quoted strings. Entry `status`: `passed` iff the entry score
-  meets the rubric threshold stated in the task (≥), else `failed`. (The
+  meets the rubric threshold stated in the task (≥), else `failed` — and for an
+  `analytic` rubric, any criterion at 1 or 2 fails the entry whatever the mean
+  (criterion floor, ADR-020). (The
   parent recomputes both before merging.)
 - A criterion marked n/a for this content by the rubric is omitted from
   `findings` and excluded from the entry score.

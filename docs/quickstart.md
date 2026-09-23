@@ -368,7 +368,7 @@ installs or provisions (ADR-003, unchanged). What changed is that
 - `docs/user-guide.md` — **where to join the pipeline when you already have
   part of a lab** (spec only, lab built but no guide, an existing environment
   with no spec), the per-command preconditions, and worked scenarios.
-- `docs/adr/README.md` — the nineteen architecture decisions, indexed, with
+- `docs/adr/README.md` — the twenty architecture decisions, indexed, with
   the shape they add up to.
 - `docs/linter-rules.md` — every linter rule with an example fix (generated
   from `format.json`).

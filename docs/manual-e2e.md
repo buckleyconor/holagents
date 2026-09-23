@@ -914,18 +914,27 @@ works: failed scope → fix dispatch → rescore → merge → passed.
   went one criterion from failing, invisibly.
   _Fix: in a fix round, rescore every rubric of the scope whose content overlaps
   the edited section — for module scope, all four, in the same wave. Parallel
-  fanout makes this nearly free._
+  fanout makes this nearly free._ **Closed by ADR-020**, and measured: rescoring
+  all four in one wave costs the tail difference (~2 min on this section), not
+  another wave per rubric.
 - **Blind spot 2 — the entry mean hides a criterion trade.** Round 1 criteria
   were 5, 5, 4, 3; round 2 were 5, 5, 3, 4. Same mean, same rounded 4.3, same
   `passed`, and a regression and an improvement cancelled exactly. Nothing in
   `scores.json` or the scorecard shows that `no-fabrication` fell.
   _Fix: compare criterion scores across rounds; a drop of ≥1 on any criterion is
   reported on the scorecard even when the entry passes, and a criterion dropping
-  to ≤2 fails the entry regardless of the mean._
+  to ≤2 fails the entry regardless of the mean._ **Closed by ADR-020**: analytic
+  entries carry a criterion floor (any criterion below 3 fails the entry) and the
+  parent reports round-over-round drops without gating on them. Note which half
+  did the work here: the floor would **not** have caught this — a 3 clears it —
+  so it is the delta report that surfaces a 4 → 3. The floor is the backstop for
+  the stronger case, which this lab has not yet produced: **0 of 28** analytic
+  entries in the live lab's `scores.json` trip it. A guard rail, not a purge.
 - **Also worth noting for sizing the win**: the scoring wave was 11.7 min but the
   **fix dispatch was 26.9 min** — a single writer, unparallelisable, and now the
   dominant cost of a round. Parallel fanout bought 19 min per round against a
   27-minute fix step; the loop is writer-bound, not scorer-bound.
 - **Not verified**: whether an escalation path (round 3 still failing) renders
   correctly, and `--fresh` scope clearing into a mirrored state.
-- **Status**: fix loop **PASS** on mechanism, **two contract gaps filed above**.
+- **Status**: fix loop **PASS** on mechanism; both gaps closed by ADR-020
+  (`test/prompts.test.ts` T-96f guards the prose on both sides of the contract).

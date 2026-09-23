@@ -71,7 +71,8 @@ would delete this block. The block must parse as JSON on its own:
 - Entry `score`: checklist → pass rate (met / total, 0–1);
   analytic/holistic → the mean of the findings' criterion scores, rounded
   to one decimal (n/a criteria excluded).
-- `status`: `passed` iff the entry `score` meets the rubric threshold
-  stated in the task (≥), else `failed`.
+- `status`: `passed` iff the entry `score` meets the rubric threshold stated in
+  the task (≥), else `failed`. **Criterion floor:** for an `analytic` rubric, any
+  criterion scored 1 or 2 fails the entry regardless of the mean (ADR-020).
 - The `scope` value is copied exactly from the task's scope label.
 - Do not add any other top-level fields.

@@ -47,6 +47,11 @@ These dependencies do not block core development. Any runtime transition requiri
 6. [VirtualServer testing](06-virtualserver-testing.md)
 7. [UAT and acceptance testing](07-uat-acceptance.md)
 8. [Implementation plan and ADRs](08-implementation-plan-adrs.md)
+9. [Pilot status](STATUS.md) — implementation status per milestone and the
+   outstanding external dependencies (DEP-001…DEP-004)
+
+The implementation lives in `extensions/k8s/` (contracts and adapter
+boundary) with contract/integration/E2E tests in `test/k8s/`.
 
 ## Normative language
 

@@ -154,6 +154,10 @@ export function validateEvidence(e: Evidence): string[] {
 
 // --- VirtualServer result contract (spec-k8s/06) -------------------------
 
+/** Mandatory suites, in execution order (ADP-006, UAT-001…UAT-003). */
+export const TEST_SUITES = ['infrastructure', 'virtualserver', 'acceptance'] as const;
+export type TestSuiteId = (typeof TEST_SUITES)[number];
+
 /** Deterministic exit codes for the VirtualServer runner (spec-k8s/06). */
 export const VS_EXIT = {
   PASS: 0,

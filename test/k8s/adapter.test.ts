@@ -2,11 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEPLOYMENT_PLATFORMS,
-  TEST_SUITES,
   getAdapter,
   registerAdapter,
   type DeploymentAdapter,
 } from '../../extensions/k8s/adapter.ts';
+import { TEST_SUITES } from '../../extensions/k8s/results.ts';
 // The barrel re-exports the whole milestone-1 contract surface.
 import {
   OPERATIONAL_STATES,
@@ -84,5 +84,7 @@ test('registry: register and retrieve an adapter', async () => {
   assert.equal(out.classification, 'BLOCKED');
   assert.equal(out.subcode, 'BLOCKED_POLICY');
 
-  await assert.rejects(() => fake.prepare({ environment: 'dev', sourceRevision: 'r1' }));
+  await assert.rejects(() =>
+    fake.prepare({ environment: 'dev', sourceRevision: 'r1', manifests: {} }),
+  );
 });

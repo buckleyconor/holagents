@@ -57,7 +57,12 @@ export type ProfileErrorCode =
   | 'promotion-order-entry'
   | 'promotion-order-coverage'
   | 'kustomize-or-helm'
-  | 'secret-material';
+  | 'secret-material'
+  | 'manifest-identity'
+  | 'duplicate-identity'
+  | 'unresolved-placeholder'
+  | 'unauthorized-namespace'
+  | 'cluster-scoped-unapproved';
 
 export interface ProfileError {
   code: ProfileErrorCode;
@@ -472,9 +477,10 @@ const B64_CANDIDATE_RE = /^[A-Za-z0-9+/]{40,}={0,2}$/;
  * Conservative heuristic over every scalar in the document. The closed
  * schema means most smuggled material already fails as `unknown-key`; this
  * catches raw material placed in reference fields, e.g. a kubeconfig pasted
- * into `credentials.runtimeReference`.
+ * into `credentials.runtimeReference`. Exported for manifest screening
+ * (PRO-005: secret material embedded in generated output).
  */
-function scanSecrets(node: YNode, key: string, path: string, errors: ProfileError[]) {
+export function scanSecrets(node: YNode, key: string, path: string, errors: ProfileError[]) {
   if (node.kind === 'scalar') {
     if (typeof node.value === 'string') {
       const value = node.value;

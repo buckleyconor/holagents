@@ -18,26 +18,21 @@
  *     └── charmed-kubernetes
  */
 
-import type { Evidence, GateOutcome } from './results.ts';
+import type { GateOutcome, TestSuiteId } from './results.ts';
 import type { ProfileError } from './profile.ts';
+import type { EvidenceBundle } from './bundle.ts';
+import type { RuntimeObservation, PlatformPolicy } from './policy.ts';
+import type { VsInput } from './virtualserver.ts';
 
 export const DEPLOYMENT_PLATFORMS = ['vcd-docker', 'charmed-kubernetes'] as const;
 export type DeploymentPlatform = (typeof DEPLOYMENT_PLATFORMS)[number];
 
 /**
- * Platform policy document (spec-k8s/05 §Policy interface). The concrete
- * schema is DEP-001 and has not been supplied, so control entries stay
- * untyped until it is.
+ * Platform policy document is defined in ./policy.ts (PlatformPolicy). The
+ * concrete administrator policy content is DEP-001 and has not been
+ * supplied; the evaluation machinery and rule vocabulary are
+ * implementation-defined pending DEP-001 confirmation.
  */
-export interface PolicyDocument {
-  apiVersion: string;
-  name: string;
-  version: string;
-  mandatoryControls: unknown[];
-  advisoryControls: unknown[];
-  environmentRules: Record<string, unknown>;
-  exceptionProcess: unknown | null;
-}
 
 /**
  * Human approval reference (spec-k8s/04 §Security: approval MUST identify
@@ -81,7 +76,9 @@ export interface ValidateInput {
   profileText: string;
   environment: string;
   /** `null` when unavailable; a required-but-missing policy blocks (POL-001). */
-  policy: PolicyDocument | null;
+  policy: PlatformPolicy | null;
+  /** Raw manifest contents (repository path → content) for the environment. */
+  manifests?: Record<string, string>;
 }
 export interface ValidateOutput extends GateOutcome {
   /** Profile parse/validation errors (empty when the profile is well-formed). */
@@ -91,6 +88,8 @@ export interface ValidateOutput extends GateOutcome {
 export interface PrepareInput {
   environment: string;
   sourceRevision: string;
+  /** Raw manifest contents at the source revision (repository path → content). */
+  manifests: Record<string, string>;
 }
 
 export interface DeployDevInput {
@@ -105,8 +104,13 @@ export interface DeployDevOutput extends GateOutcome {
 export interface PromoteInput {
   sourceEnvironment: string;
   targetEnvironment: string;
-  /** Evidence for the candidate revision; other revisions must not authorize. */
-  evidence: Evidence;
+  /** The source environment's evidence bundle for the candidate revision. */
+  evidence: EvidenceBundle;
+  /**
+   * Approval binding (required for consequential targets, GAP-007).
+   * Absent/`null` fails closed as `BLOCKED_APPROVAL`.
+   */
+  approval?: ApprovalRef | null;
 }
 export interface PromoteOutput extends GateOutcome {
   mergeRequestRef?: string;
@@ -134,23 +138,40 @@ export interface ObserveOutput extends GateOutcome {
   durationMs?: number;
 }
 
-/** Mandatory suites, in execution order (ADP-006, UAT-001…003). */
-export const TEST_SUITES = ['infrastructure', 'virtualserver', 'acceptance'] as const;
-export type TestSuiteId = (typeof TEST_SUITES)[number];
+/** Mandatory suites live in ./results.ts (TEST_SUITES / TestSuiteId). */
 
 export interface SuiteResult {
   suite: TestSuiteId;
   outcome: GateOutcome;
+  /** Suite-specific metrics (exit codes, durations) for bundle assembly. */
+  metrics?: { exitCode?: number; durationMs?: number; timedOut?: boolean };
+  /** Sanitized details for the evidence bundle (redacted). */
+  details?: string;
 }
 
 export interface TestInput {
   environment: string;
   revision: string;
   suites: TestSuiteId[];
+  /** Raw manifest documents of the tested revision (static suite input). */
+  manifests: string[];
+  /** Runtime workload observations (cluster access required). */
+  observations?: RuntimeObservation[];
+  /** VirtualServer suite inputs (host, optional token, paths). */
+  virtualServer: VsInput;
+  /** When true, suites after a blocking infrastructure failure still run, for diagnostics only (ADP-006). */
+  diagnosticsOnly?: boolean;
+  /** Acceptance-script environment variables (the deployed revision is always passed). */
+  acceptanceEnv?: Record<string, string>;
 }
 export interface TestOutput extends GateOutcome {
   /** One result per executed suite, in execution order. */
   suites: SuiteResult[];
+  /** Suites skipped after a blocking failure (ADP-006). */
+  skipped: TestSuiteId[];
+  /** Digest over the tested content (cross-environment identity). */
+  manifestDigest?: string;
+  virtualServer?: { markdownDigest: string; jsonDigest: string; exitCode: number } | null;
 }
 
 export interface DestroyInput {

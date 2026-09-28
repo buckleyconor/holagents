@@ -235,9 +235,9 @@
     {
       "id": "W-SH",
       "severity": "warning",
-      "title": "shellcheck not installed",
-      "description": "shellcheck binary not found; inline command checks were skipped.",
-      "fixHint": "Install shellcheck (apt) for full L014 coverage."
+      "title": "shellcheck unavailable or timed out",
+      "description": "shellcheck binary not found, or a per-command check timed out; that inline command's check was skipped.",
+      "fixHint": "Install shellcheck (apt) for full L014 coverage. A timeout usually means the command is too large or complex to lint."
     }
   ]
 }

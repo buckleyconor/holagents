@@ -1825,8 +1825,15 @@ export function checkLaunch(guideDir: string): LaunchCheck {
       }
 
       // ---- agreement with the guide (ADR-017) ----
-      const plan = readPlan(guideDir);
-      if (plan.exists) {
+      // An unreadable plan.md degrades to "no plan to compare" rather than
+      // crashing the launch gate (same posture as corrupt scores/QA state).
+      let plan: PlanInfo | null = null;
+      try {
+        plan = readPlan(guideDir);
+      } catch {
+        plan = null;
+      }
+      if (plan?.exists) {
         if (plan.id && str('id') !== '' && str('id') !== plan.id) {
           mismatches.push(`id: collateral says ${str('id')}, plan.md says ${plan.id}`);
         }
@@ -2100,7 +2107,7 @@ export function renderQaScript(labDir: string, envName: string): QaScript {
     '  printf "\\n[%s] %s\\n" "$n" "$*"',
     '  printf "    expect: %s\\n" "$expected"',
     '  if "$@"; then pass=$((pass+1)); printf "    RESULT: pass\\n"',
-    '  else fail=$((fail+1)); printf "    RESULT: FAIL (exit %s)\\n" "$?"; fi',
+    '  else local code=$?; fail=$((fail+1)); printf "    RESULT: FAIL (exit %s)\\n" "$code"; fi',
     '}',
     '',
   ];
@@ -2422,17 +2429,18 @@ export function readGuideStatus(guideDir: string): GuideStatus {
     }
   }
   const config = loadFormatConfig();
-  const scan = scanMarkdown(guideText.split(/\r?\n/), config);
+  // Split once and reuse: readGuideStatus scans the whole document, reads the
+  // H1, and slices per-module section text — each of which previously
+  // re-split guideText (N+2 full allocations for an N-module guide).
+  const lines = guideText.split(/\r?\n/);
+  const scan = scanMarkdown(lines, config);
   const moduleMap = new Map<number, { startLine: number; endLine: number }>();
   for (const { section, n } of moduleSections({ scan, config })) {
     moduleMap.set(n, { startLine: section.startLine, endLine: section.endLine });
   }
 
   // guide id/title: plan is authoritative; H1 is the fallback.
-  const h1 = guideText
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .find((l) => l.startsWith('# '));
+  const h1 = lines.map((l) => l.trim()).find((l) => l.startsWith('# '));
   const h1m = h1?.match(/^#\s+(HOL-\d{4}-\d{2})\s+(.+?)\s*$/);
   const id = plan.id ?? h1m?.[1] ?? null;
   const title = plan.title ?? h1m?.[2] ?? null;
@@ -2455,7 +2463,14 @@ export function readGuideStatus(guideDir: string): GuideStatus {
     }
   }
 
-  const scores = readScores(guideDir);
+  // A corrupt scores.json must not crash status — degrade to "no scores
+  // recorded" (same posture as last-validation.json above).
+  let scores: ScoreEntry[] = [];
+  try {
+    scores = readScores(guideDir);
+  } catch {
+    scores = [];
+  }
 
   const modules: ModuleStatus[] = plan.modules.map((m) => {
     const nn = String(m.n).padStart(2, '0');
@@ -2467,11 +2482,7 @@ export function readGuideStatus(guideDir: string): GuideStatus {
     // placeholders in the section; a planned-but-unwritten module must not
     // read as generated/validated.
     const sectionText =
-      section !== undefined
-        ? (guideText.split(/\r?\n/).slice(section.startLine - 1, section.endLine) as string[]).join(
-            '\n',
-          )
-        : '';
+      section !== undefined ? lines.slice(section.startLine - 1, section.endLine).join('\n') : '';
     const hasRealContent = section !== undefined && !sectionText.includes('<< FILL: ');
     const entries = scores.filter((e) => e.scope === scope);
     const anyEscalated = entries.some((e) => e.status === 'escalated');

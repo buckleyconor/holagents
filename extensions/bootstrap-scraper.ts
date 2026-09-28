@@ -255,9 +255,11 @@ export async function bootstrapScraper(opts: BootstrapOptions = {}): Promise<Boo
       );
     }
     writeFileSync(tmp, buf);
+    // chmod the temp file before the atomic rename: writeFileSync mode is
+    // umask-affected (chmod is not), and a chmod failure here cannot leave
+    // an installed binary behind while reporting "error".
+    chmodSync(tmp, 0o755);
     renameSync(tmp, binaryPath);
-    // chmod after rename: writeFileSync mode is umask-affected, chmod is not.
-    chmodSync(binaryPath, 0o755);
     log(`bootstrap-scraper: installed ${version} (${key}) at ${binaryPath}`);
     return {
       status: 'installed',

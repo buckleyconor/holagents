@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -221,6 +222,25 @@ test('T-83: lab-ref.json — adopted stages, defaults, and corrupt-file toleranc
     const noRepo = makeLab(base, { '.holagent/lab-ref.json': '{"origin":"adopted"}' }, 'norepo');
     assert.equal(readLabRef(noRepo), null);
     assert.equal(readLabRef(makeLab(base, {}, 'none')), null);
+  });
+});
+
+test('T-83b: a corrupt scores.json degrades to "no scores" instead of crashing status', () => {
+  withTmp((base) => {
+    const lab = makeLab(
+      base,
+      {
+        'guide.md': GUIDE_MD,
+        '.holagent/plan.md': PLAN_MD,
+        '.holagent/scores.json': '{ not valid json',
+      },
+      'corrupt-scores',
+    );
+    // Previously readGuideStatus threw E-READ out of readScores; it now
+    // degrades to an empty score list, exactly like corrupt lab-ref/QA state.
+    const st = readGuideStatus(lab);
+    assert.ok(st.modules.length >= 1, 'module states still derive from the plan');
+    assert.equal(st.lifecycle.engaged, false);
   });
 });
 
@@ -937,6 +957,19 @@ test('T-94: the prod path renders a script and never executes (ADR-012/ADR-016)'
     const st = readGuideStatus(lab);
     assert.equal(st.qa.smoke?.ok, true);
     assert.equal(st.lifecycle.build, 'smoke-passed');
+  });
+});
+
+test('the rendered QA script reports the real exit code on failure (not "exit 0")', () => {
+  withTmp((base) => {
+    const lab = makeQaLab(base, "  - { check: 'false', expect: 'exit 0' }", 'exitcode-lab');
+    const out = renderQaScript(lab, 'prod-k8s');
+    const run = spawnSync('bash', [out.path], { encoding: 'utf8' });
+    // Regression: `fail=$((fail+1))` used to reset `$?` to 0 before the
+    // printf, so every failure reported "exit 0".
+    assert.match(run.stdout, /RESULT: FAIL \(exit 1\)/);
+    assert.doesNotMatch(run.stdout, /RESULT: FAIL \(exit 0\)/);
+    assert.notEqual(run.status, 0, 'the script exits non-zero when a check fails');
   });
 });
 

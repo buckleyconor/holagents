@@ -4,6 +4,7 @@
  * rule *configuration*; rule *logic* lives in extensions/linter/rules/.
  */
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 export interface CompiledRule {
   id: string;
@@ -69,7 +70,9 @@ interface RawBlocks {
 
 /** Package-relative default: skills/guide-format/format.json next to the extension. */
 export function defaultFormatPath(): string {
-  return new URL('../../skills/guide-format/format.json', import.meta.url).pathname;
+  // fileURLToPath (not URL.pathname): URL.pathname leaves a leading slash
+  // and percent-encodes on some platforms, which breaks Windows paths.
+  return fileURLToPath(new URL('../../skills/guide-format/format.json', import.meta.url));
 }
 
 /**

@@ -29,24 +29,43 @@ export function findShellcheckBin(): string | null {
   }
 }
 
-function shellcheckOnce(bin: string, file: string): Promise<string> {
+function shellcheckOnce(
+  bin: string,
+  file: string,
+  timeoutMs: number,
+): Promise<{ out: string; timedOut: boolean }> {
   return new Promise((resolveP) => {
-    execFile(bin, ['-f', 'gcc', file], { timeout: 10_000 }, (err, stdout) =>
-      resolveP(err ? (err.stdout ?? '') + (stdout ?? '') : (stdout ?? '')),
-    );
+    execFile(bin, ['-f', 'gcc', file], { timeout: timeoutMs }, (err, stdout) => {
+      // A killed process (execFile timeout) is not a clean "no findings" —
+      // surface it so the caller can report the skipped check instead of
+      // silently treating the command as clean.
+      const timedOut = err !== null && (err as { killed?: boolean }).killed === true;
+      resolveP({
+        out: (err ? (err.stdout ?? '') : '') + (stdout ?? ''),
+        timedOut,
+      });
+    });
   });
+}
+
+export interface RunShellcheckOptions {
+  /** Per-command timeout in milliseconds (default 10_000). */
+  timeoutMs?: number;
 }
 
 /**
  * Shellcheck all extracted commands. Returns findings (guide line numbers),
- * or the skip note when the binary is unavailable.
+ * or the skip note when the binary is unavailable. A per-command timeout is
+ * reported as a `W-SH` warning — never silently treated as a clean command.
  */
 export async function runShellcheck(
   scan: ScanResult,
   binOverride?: string | null,
+  opts: RunShellcheckOptions = {},
 ): Promise<Finding[] | 'skipped (shellcheck not installed)'> {
   const bin = binOverride !== undefined ? binOverride : findShellcheckBin();
   if (!bin) return 'skipped (shellcheck not installed)';
+  const timeoutMs = opts.timeoutMs ?? 10_000;
 
   const findings: Finding[] = [];
   const dir = mkdtempSync(join(tmpdir(), 'holagent-sh-'));
@@ -55,7 +74,16 @@ export async function runShellcheck(
       const cmd = scan.commands[i]!;
       const file = join(dir, `cmd-${i}.sh`);
       writeFileSync(file, `#!/usr/bin/env bash\n${cmd.command}\n`);
-      const out = await shellcheckOnce(bin, file);
+      const { out, timedOut } = await shellcheckOnce(bin, file, timeoutMs);
+      if (timedOut) {
+        findings.push({
+          rule: 'W-SH',
+          severity: 'warning',
+          line: cmd.line,
+          message: `shellcheck timed out after ${timeoutMs}ms — command not checked: \`${cmd.command.length > 80 ? `${cmd.command.slice(0, 77)}…` : cmd.command}\``,
+        });
+        continue;
+      }
       for (const line of out.split('\n')) {
         const m = line.match(GCC_RE);
         if (!m) continue;

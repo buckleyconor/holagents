@@ -1,4 +1,17 @@
-/** Linter core types. Spec: §02 §4. */
+/**
+ * Linter core types. Spec: §02 §4.
+ *
+ * LINE-INDEX CONVENTION (read before touching any `line`/`lines` indexing):
+ *   - `Finding.line`, `Section.startLine`/`endLine`, `Heading.line`,
+ *     `ImageLine.line`, `CommandCandidate.line`, `TocEntry.line` are all
+ *     1-based line numbers (human-facing, used in reports and section math).
+ *   - `ScanResult.lines` is a 0-based array (as produced by `split(/\r?\n/)`).
+ *   - Code that iterates raw text therefore uses `scan.lines[i]` where `i`
+ *     is a 1-based line number — which reads the 0-based element AFTER that
+ *     line (i.e. it skips the heading/opening line). Body-scanning loops in
+ *     the rules and the `hasBackToTop` pass rely on this deliberately; do not
+ *     "fix" one side without checking the other.
+ */
 
 export type Severity = 'error' | 'warning';
 

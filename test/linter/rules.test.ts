@@ -4,6 +4,10 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BASE, BASE_COMMAND_LINE, findings, lint } from './harness.ts';
+import { runShellcheck } from '../../extensions/linter/shellcheck.ts';
+import { scanMarkdown } from '../../extensions/linter/scan.ts';
+import { loadFormatConfig } from '../../extensions/linter/config.ts';
+import type { Finding } from '../../extensions/linter/types.ts';
 
 /**
  * T-01…T-31: rule-level fixtures. Each test mutates the BASE (clean) guide
@@ -176,6 +180,26 @@ test('T-22/T-23/T-25: shellcheck clean → none; parse error → L014; null → 
   assert.equal(l014.length, 1);
   assert.equal(l014[0]?.line, BASE_COMMAND_LINE);
   assert.match(l014[0]?.message ?? '', /SC1073/);
+});
+
+function stubSleepingShellcheck(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'holagent-shstub-'));
+  const bin = join(dir, 'shellcheck-stub');
+  // `exec sleep` so the direct child IS sleep: the timeout kills it promptly
+  // without a lingering grandchild holding the stdout pipe.
+  writeFileSync(bin, '#!/bin/sh\nexec sleep 5\n');
+  chmodSync(bin, 0o755);
+  return bin;
+}
+
+test('a shellcheck timeout surfaces as W-SH, never a silent pass', async () => {
+  const scan = scanMarkdown(BASE.split('\n'), loadFormatConfig());
+  const result = await runShellcheck(scan, stubSleepingShellcheck(), { timeoutMs: 200 });
+  assert.ok(Array.isArray(result), 'returns findings, not a skip note');
+  const wsh = (result as Finding[]).filter((f) => f.rule === 'W-SH');
+  assert.equal(wsh.length, 1);
+  assert.equal(wsh[0]?.line, BASE_COMMAND_LINE);
+  assert.match(wsh[0]?.message ?? '', /timed out/);
 });
 
 test('T-26: non-standard callout → W001', async () => {

@@ -18,6 +18,7 @@ import {
   type AppManifestSpec,
 } from '../../extensions/k8s/manifests.ts';
 import { canonicalString, emitYaml, fieldPath, toPlain } from '../../extensions/k8s/yaml.ts';
+import { evaluatePolicy, validatePolicyDocument } from '../../extensions/k8s/policy.ts';
 import { PROFILE, POLICY, MANIFEST_DOCS, appSpec } from './fixtures.ts';
 
 test('PRO-001: generation is deterministic and key-order independent', () => {
@@ -167,6 +168,131 @@ test('manifestSetDigest is stable under ordering and content-sensitive', () => {
   const b = manifestSetDigest([...entries].reverse());
   assert.equal(a, b);
   assert.notEqual(a, manifestSetDigest(entries.map((e) => ({ ...e, digest: 'other' }))));
+});
+
+test('hostPath volumes are reported exactly once per Deployment', () => {
+  const doc = `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-lab
+  namespace: example-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example-lab
+  template:
+    metadata:
+      labels:
+        app: example-lab
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+        runAsNonRoot: true
+      containers:
+        - name: app
+          image: registry/example:1
+        - name: sidecar
+          image: registry/sidecar:1
+      volumes:
+        - name: data
+          hostPath:
+            path: /var/lib/data
+`;
+  const result = validateManifests([doc], PROFILE, POLICY, 'dev');
+  const hostPathFindings = result.findings.filter((f) => f.id === 'MANIFEST-HOSTPATH');
+  assert.equal(hostPathFindings.length, 1, 'one hostPath finding, not one per container');
+  assert.equal(result.classification, 'FAIL');
+});
+
+test('hostPath volumes are detected even when a Deployment has no containers', () => {
+  const doc = `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-lab
+  namespace: example-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: example-lab
+  template:
+    metadata:
+      labels:
+        app: example-lab
+    spec:
+      containers: []
+      volumes:
+        - name: data
+          hostPath:
+            path: /var/lib/data
+`;
+  const result = validateManifests([doc], PROFILE, POLICY, 'dev');
+  assert.ok(
+    result.findings.some((f) => f.id === 'MANIFEST-HOSTPATH'),
+    'hostPath volume detected even with zero containers',
+  );
+});
+
+test('field-allowed skips absent fields (presence is field-required)', () => {
+  const parsed = validatePolicyDocument(`apiVersion: holagents.io/platform-policy/v1alpha1
+name: allow-policy
+version: v1
+mandatoryControls:
+  - id: ALLOW-001
+    severity: mandatory
+    description: nodeSelector must be one of the allowed values
+    appliesTo: static
+    rule:
+      type: field-allowed
+      resource:
+        kind: Deployment
+      field: spec.template.spec.nodeSelector
+      values: [gpu]
+advisoryControls: []
+environmentRules: {}
+exceptionProcess:
+  maxDurationDays: 7
+  requiredEvidence: true
+  approverRoles: [platform-admin]
+`);
+  assert.ok(parsed.ok);
+  const doc = parseManifestDocuments(MANIFEST_DOCS[0]!).docs[0]!;
+  const { findings } = evaluatePolicy(parsed.policy, 'dev', [doc]);
+  // nodeSelector is absent from the generated deployment; field-allowed must
+  // not flag absence (that is field-required's job).
+  assert.equal(findings.length, 0);
+});
+
+test('field-allowed still flags a present field outside the allow-list', () => {
+  const parsed = validatePolicyDocument(`apiVersion: holagents.io/platform-policy/v1alpha1
+name: allow-policy
+version: v1
+mandatoryControls:
+  - id: ALLOW-001
+    severity: mandatory
+    description: replicas must be one of the allowed values
+    appliesTo: static
+    rule:
+      type: field-allowed
+      resource:
+        kind: Deployment
+      field: spec.replicas
+      values: ['5']
+advisoryControls: []
+environmentRules: {}
+exceptionProcess:
+  maxDurationDays: 7
+  requiredEvidence: true
+  approverRoles: [platform-admin]
+`);
+  assert.ok(parsed.ok);
+  const doc = parseManifestDocuments(MANIFEST_DOCS[0]!).docs[0]!;
+  const { findings } = evaluatePolicy(parsed.policy, 'dev', [doc]);
+  // spec.replicas is 1 in the generated deployment; '1' is outside ['5'].
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0]!.id, 'ALLOW-001');
 });
 
 test('fieldPath traverses nested manifest fields', () => {

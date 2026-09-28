@@ -452,3 +452,95 @@ test('pilot rehearsal: dev → UAT → prod → rollback, all through the adapte
     'an expired exception is invalid',
   );
 });
+
+test('an in-flight dev deploy fails closed rather than returning undefined', async () => {
+  const clock = new FakeClock('2026-09-25T00:00:00.000Z');
+  const gitlab = new InMemoryGitLab(clock);
+  await gitlab.ensureProject('example-lab', envBranches);
+  const adapter = createCharmedKubernetesAdapter({
+    profile: PROFILE,
+    gitlab,
+    argo: new SupplierArgo(),
+    policy: POLICY,
+    clock,
+    virtualServerTransport: compliantTransport('pilot-token-123'),
+    acceptanceExecutable: passingExecutable,
+    acceptanceScriptCheck: () => ({ exists: true, executable: true }),
+    runnerIdentity: 'pilot-runner',
+    idempotency: new IdempotencyStore(() => clock.now()),
+  });
+  const changeSet = {
+    environment: 'dev',
+    sourceRevision: 'unprepared-revision',
+    resources: [],
+    digest: 'unprepared-digest',
+  };
+  const approval = {
+    approver: 'ada',
+    revision: 'unprepared-revision',
+    transition: 'dev-deploy',
+    timestamp: clock.now(),
+    evidenceDigest: 'unprepared-digest',
+  };
+  // Approval binds; the change set was never prepared, so the call records a
+  // retry and returns ERROR without completing the idempotency record.
+  const first = await adapter.deployDev({ changeSet, approval });
+  assert.equal(first.classification, 'ERROR');
+
+  // A retry with identical inputs must not replay a missing outcome.
+  const second = await adapter.deployDev({ changeSet, approval });
+  assert.equal(second.classification, 'ERROR');
+  assert.ok(second.findings.some((f) => f.id === 'IDEM-001'));
+});
+
+test('infrastructure suite fails closed when runtime policy needs observations', async () => {
+  const clock = new FakeClock('2026-09-25T00:00:00.000Z');
+  const gitlab = new InMemoryGitLab(clock);
+  await gitlab.ensureProject('example-lab', envBranches);
+  const runtimePolicy = validatePolicyDocument(`apiVersion: holagents.io/platform-policy/v1alpha1
+name: runtime-policy
+version: v1
+mandatoryControls:
+  - id: RUNTIME-001
+    severity: mandatory
+    description: no privileged pods at runtime
+    appliesTo: runtime
+    rule:
+      type: field-forbidden
+      resource:
+        kind: Pod
+      field: spec.securityContext.privileged
+advisoryControls: []
+environmentRules: {}
+exceptionProcess:
+  maxDurationDays: 7
+  requiredEvidence: true
+  approverRoles: [platform-admin]
+`);
+  assert.ok(runtimePolicy.ok);
+  const adapter = createCharmedKubernetesAdapter({
+    profile: PROFILE,
+    gitlab,
+    argo: new SupplierArgo(),
+    policy: runtimePolicy.policy,
+    clock,
+    virtualServerTransport: compliantTransport('pilot-token-123'),
+    acceptanceExecutable: passingExecutable,
+    acceptanceScriptCheck: () => ({ exists: true, executable: true }),
+    runnerIdentity: 'pilot-runner',
+    idempotency: new IdempotencyStore(() => clock.now()),
+    // NOTE: no observationsProvider — runtime observations are unavailable.
+  });
+  const out = await adapter.test({
+    environment: 'dev',
+    revision: 'r',
+    suites: ['infrastructure'],
+    manifests: Object.values(devFiles()),
+    virtualServer: { host: 'example-lab.example.internal' },
+  });
+  assert.equal(out.classification, 'BLOCKED');
+  assert.equal(out.subcode, 'BLOCKED_CREDENTIALS');
+  const infra = out.suites.find((s) => s.suite === 'infrastructure');
+  assert.equal(infra?.outcome.classification, 'BLOCKED');
+  assert.equal(infra?.outcome.subcode, 'BLOCKED_CREDENTIALS');
+});

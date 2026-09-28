@@ -233,6 +233,37 @@ test('a candidate that is not the source head blocks (BLOCKED_REVISION)', async 
   void gitlab;
 });
 
+test('an in-flight promotion fails closed instead of returning undefined', async () => {
+  const { gitlab, deps } = setup();
+  await gitlab.ensureProject('example-lab', envBranches);
+  const bundle = devBundle();
+  const input: PromotionInput = {
+    profile: PROFILE,
+    sourceEnvironment: 'dev',
+    targetEnvironment: 'uat',
+    candidateRevision: DEV_HEAD,
+    sourceBundle: bundle,
+    sourceArgo: {
+      application: 'a',
+      syncStatus: 'Synced',
+      healthStatus: 'Healthy',
+      observedRevision: DEV_HEAD,
+    },
+    approval: approval(DEV_HEAD, bundle.evidenceDigest, 'dev -> uat'),
+  };
+  // The first call begins an idempotency record, then blocks on the stale
+  // source head before completing it — leaving the record in flight.
+  const first = await promote(deps, input);
+  assert.equal(first.classification, 'BLOCKED');
+  assert.equal(first.subcode, 'BLOCKED_REVISION');
+
+  // A retry with identical inputs must not replay a missing outcome: it
+  // fails closed as ERROR (regression for the undefined-replay bug).
+  const second = await promote(deps, input);
+  assert.equal(second.classification, 'ERROR');
+  assert.ok(second.reasons.some((r) => r.includes('in flight')));
+});
+
 test('promotion is idempotent: identical inputs replay without a new MR', async () => {
   const { gitlab, deps } = setup();
   await gitlab.ensureProject('example-lab', envBranches);

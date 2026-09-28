@@ -73,9 +73,11 @@ test('an in-flight operation serializes on the recorded outcome after completion
   assert.equal(first.started, true);
 
   // Second caller with the same inputs while the first is in flight:
-  // not started; the first caller completes.
+  // not started, marked in-flight, and there is NO outcome to replay yet.
   const second = store.begin(key, 'digest-1');
   assert.equal(second.started, false);
+  assert.equal(second.inFlight, true);
+  assert.equal(second.outcome, undefined);
 
   store.complete(key, { classification: 'PASS' });
 

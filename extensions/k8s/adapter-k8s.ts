@@ -42,7 +42,12 @@ import { canonicalDigest, toPlain } from './yaml.ts';
 import { waitApplicationReady, type ArgoClient } from './argo.ts';
 import type { GitLabClient } from './gitlab.ts';
 import { idempotencyKey, IdempotencyStore } from './idempotency.ts';
-import { evaluatePolicy, type PlatformPolicy, type RuntimeObservation } from './policy.ts';
+import {
+  evaluatePolicy,
+  requiresRuntimeObservation,
+  type PlatformPolicy,
+  type RuntimeObservation,
+} from './policy.ts';
 import { runVirtualServerSuite, type ProbeTransport, type VsReport } from './virtualserver.ts';
 import { runAcceptance, type AcceptanceExecutable } from './acceptance.ts';
 import { promote as promoteTransition } from './promotion.ts';
@@ -232,7 +237,22 @@ export function createCharmedKubernetesAdapter(
         desiredDigest: changeSet.digest,
       });
       const begun = idempotency.begin(key, changeSet.digest);
-      if (!begun.started) return begun.outcome as DeployDevOutput;
+      if (!begun.started) {
+        if (begun.inFlight) {
+          return {
+            classification: 'ERROR',
+            findings: [
+              {
+                id: 'IDEM-001',
+                severity: 'mandatory',
+                expected: 'no deploy already in flight for this change set',
+                observed: `deployDev for ${changeSet.environment} @ ${changeSet.sourceRevision.slice(0, 12)} is already in flight`,
+              },
+            ],
+          };
+        }
+        return begun.outcome as DeployDevOutput;
+      }
 
       const stored = prepared.get(changeSet.environment);
       if (stored === undefined || stored.digest !== changeSet.digest) {
@@ -394,15 +414,21 @@ export function createCharmedKubernetesAdapter(
             },
           });
         } else {
-          const started = deps.clock.now();
           const staticValidation = validateManifests(
             input.manifests,
             profile,
             deps.policy,
             input.environment,
           );
+          // Runtime policy evaluation fails closed: when a control evaluates
+          // at runtime and no observations are available, the infrastructure
+          // suite is BLOCKED, never an inferred pass (spec-k8s/03 §Identity).
+          const runtimeBlocked =
+            deps.policy !== null &&
+            observations === undefined &&
+            requiresRuntimeObservation(deps.policy, input.environment);
           const runtime =
-            deps.policy !== null
+            !runtimeBlocked && deps.policy !== null
               ? evaluatePolicy(
                   deps.policy,
                   input.environment,
@@ -411,17 +437,31 @@ export function createCharmedKubernetesAdapter(
                   deps.clock.now(),
                 )
               : { findings: [], mandatoryViolations: [] };
-          const findings = [...staticValidation.findings, ...runtime.findings];
+          const findings = [...staticValidation.findings, ...runtime.findings] as Finding[];
+          if (runtimeBlocked) {
+            findings.push({
+              id: 'ADP-006',
+              severity: 'mandatory',
+              expected: 'runtime observations',
+              observed: 'cluster access unavailable (no observations provider)',
+            });
+          }
           const mandatoryFail =
             staticValidation.classification === 'FAIL' || runtime.mandatoryViolations.length > 0;
-          const classification: GateClassification = mandatoryFail
-            ? 'FAIL'
-            : findings.length > 0
-              ? 'PASS_WITH_WARNINGS'
-              : 'PASS';
+          const classification: GateClassification = runtimeBlocked
+            ? 'BLOCKED'
+            : mandatoryFail
+              ? 'FAIL'
+              : findings.length > 0
+                ? 'PASS_WITH_WARNINGS'
+                : 'PASS';
           suites.push({
             suite: 'infrastructure',
-            outcome: { classification, findings: findings as Finding[] },
+            outcome: {
+              classification,
+              ...(runtimeBlocked ? { subcode: 'BLOCKED_CREDENTIALS' } : {}),
+              findings,
+            },
             metrics: { durationMs: 0 },
           });
         }

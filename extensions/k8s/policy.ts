@@ -445,6 +445,21 @@ interface EvaluableResource {
 }
 
 /**
+ * True when any control applicable to `environment` evaluates at runtime
+ * (`appliesTo: runtime` or `both`). Runtime evaluation fails closed when
+ * such controls exist and no observations are available (spec-k8s/03
+ * §Identity and access: missing access is BLOCKED, never an inferred pass).
+ */
+export function requiresRuntimeObservation(policy: PlatformPolicy, environment: string): boolean {
+  const controls = [
+    ...policy.mandatoryControls,
+    ...policy.advisoryControls,
+    ...(policy.environmentRules[environment] ?? []),
+  ];
+  return controls.some((c) => c.appliesTo === 'runtime' || c.appliesTo === 'both');
+}
+
+/**
  * Evaluate the policy's controls (plus environment-scoped rules) against
  * static manifest documents and/or runtime observations.
  */
@@ -515,7 +530,6 @@ export function evaluatePolicy(
 
 function evaluateRule(control: PolicyControl, res: EvaluableResource) {
   const rule = control.rule;
-  const resourceLabel = `${res.kind}/${res.name}`;
   switch (rule.type) {
     case 'field-required': {
       const { found, value } = fieldPath(res.data, rule.field);
@@ -543,16 +557,10 @@ function evaluateRule(control: PolicyControl, res: EvaluableResource) {
     }
     case 'field-allowed': {
       const { found, value } = fieldPath(res.data, rule.field);
-      if (!found) {
-        // Missing values are only a violation when the field is required to be present.
-        return {
-          id: control.id,
-          severity: control.severity,
-          expected: `${rule.field} in [${rule.values.join(', ')}]`,
-          observed: 'field absent',
-          source: res.source,
-        };
-      }
+      // An absent field is not a value-outside-the-allow-list violation —
+      // presence is `field-required`'s job. Skip absent fields, exactly as
+      // `field-max` and `field-forbidden` do.
+      if (!found) return null;
       if (rule.values.includes(String(value))) return null;
       return {
         id: control.id,
@@ -589,7 +597,6 @@ function evaluateRule(control: PolicyControl, res: EvaluableResource) {
     default:
       return null;
   }
-  void resourceLabel;
 }
 
 function valueOf(data: Record<string, unknown>, path: string): unknown {

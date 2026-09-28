@@ -56,16 +56,28 @@ export class IdempotencyStore {
   /**
    * Begin (or resume) an operation under `key`. Returns the recorded
    * outcome when identical inputs were already completed; throws when the
-   * key is reused with different inputs (spec-k8s/03).
+   * key is reused with different inputs (spec-k8s/03). When the key exists
+   * but has not completed, the result is marked `inFlight` so callers fail
+   * closed instead of replaying a missing outcome.
    */
-  begin(key: string, inputsDigest: string): { started: boolean; outcome: unknown } {
+  begin(
+    key: string,
+    inputsDigest: string,
+  ): {
+    started: boolean;
+    /** True when another caller holds the key and has not completed it. */
+    inFlight: boolean;
+    outcome: unknown;
+  } {
     const existing = this.records.get(key);
     if (existing) {
       if (existing.inputsDigest !== inputsDigest)
         throw new Error(
           `idempotency conflict: key ${key} was used with different inputs (recorded ${existing.inputsDigest}, got ${inputsDigest})`,
         );
-      return { started: false, outcome: existing.outcome };
+      return existing.outcome === undefined
+        ? { started: false, inFlight: true, outcome: undefined }
+        : { started: false, inFlight: false, outcome: existing.outcome };
     }
     const t = this.now();
     this.records.set(key, {
@@ -76,7 +88,7 @@ export class IdempotencyStore {
       createdAt: t,
       updatedAt: t,
     });
-    return { started: true, outcome: undefined };
+    return { started: true, inFlight: false, outcome: undefined };
   }
 
   /** Record the outcome for a key begun earlier. */

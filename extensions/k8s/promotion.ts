@@ -164,6 +164,14 @@ export async function promote(
   });
   const begun = deps.idempotency.begin(key, JSON.stringify(input));
   if (!begun.started) {
+    if (begun.inFlight) {
+      return {
+        classification: 'ERROR',
+        reasons: [
+          `promotion ${input.sourceEnvironment} -> ${input.targetEnvironment} for ${input.candidateRevision.slice(0, 12)} is already in flight`,
+        ],
+      };
+    }
     return begun.outcome as PromotionResult;
   }
 

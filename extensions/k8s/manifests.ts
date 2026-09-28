@@ -407,6 +407,19 @@ export function validateManifests(
       }
     };
     for (const c of PRIVILEGED_CHECKS) check(c.field, c.label);
+    // hostPath volumes are pod-level (spec.template.spec.volumes) — check
+    // once per Deployment, independent of the container count (a Deployment
+    // with zero containers still carries volumes).
+    const hostPaths = hostPathVolumes(toPlain(res.doc));
+    if (hostPaths.length > 0)
+      findings.push(
+        detectionFinding(
+          'MANIFEST-HOSTPATH',
+          'no hostPath volumes',
+          `hostPath volumes: ${hostPaths.join(', ')}`,
+          res,
+        ),
+      );
     for (const container of containersOf(res)) {
       const privileged = fieldPath(container, 'securityContext.privileged');
       if (privileged.found && privileged.value === true)
@@ -415,16 +428,6 @@ export function validateManifests(
             'MANIFEST-PRIVILEGED',
             'no privileged containers',
             'privileged container detected',
-            res,
-          ),
-        );
-      const hostPaths = hostPathVolumes(toPlain(res.doc));
-      if (hostPaths.length > 0)
-        findings.push(
-          detectionFinding(
-            'MANIFEST-HOSTPATH',
-            'no hostPath volumes',
-            `hostPath volumes: ${hostPaths.join(', ')}`,
             res,
           ),
         );

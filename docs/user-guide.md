@@ -451,22 +451,20 @@ deterministic gate, the scoring fanout, the fix loop, and the merge into
 **When it is not:** anything you intend to keep. Run the command instead; the
 gates and the scorecard are most of the value.
 
-| Agent                         | Writes                                      | Dispatched by           |
-| ----------------------------- | ------------------------------------------- | ----------------------- |
-| `holagent.concept-author`     | `.holagent/concept.md`                      | `/hol-concept`          |
-| `holagent.sizing-architect`   | `.holagent/sizing.md`                       | `/hol-concept`          |
-| `holagent.spec-author`        | `<lab-repo>/spec/*`, `lab-prep.md`          | `/hol-spec`             |
-| `holagent.lab-surveyor`       | `lab-prep.md`, `.holagent/sizing.md`        | `/hol-adopt`            |
-| `holagent.lab-builder`        | code + tests in the lab repo                | `/hol-build`            |
-| `holagent.qa-runner`          | nothing — returns findings + dry-run output | `/hol-qa`               |
-| `holagent.guide-planner`      | `.holagent/plan.md`, `lab-prep.md`          | `/hol-plan`             |
-| `holagent.module-planner`     | `.holagent/<NN-slug>/plan.md`               | `/hol-plan-module`      |
-| `holagent.guide-implementer`  | one `## Module N:` section                  | `/hol-generate-module`  |
-| `holagent.platform-reviewer`  | `.holagent/platform/<name>.json`            | `/hol-platform-check`   |
-| `holagent.launch-writer`      | `launch/*.md`                               | `/hol-launch`           |
-| `holagent.company-researcher` | `~/.holagent/companies/<slug>/*`            | `/hol-research-company` |
-| `holagent.product-researcher` | `~/.holagent/products/<co>/<prod>/*`        | `/hol-research-product` |
-| `holagent.scorer`             | nothing (read-only)                         | every scoring stage     |
+| Agent                        | Writes                                      | Dispatched by          |
+| ---------------------------- | ------------------------------------------- | ---------------------- |
+| `holagent.concept-author`    | `.holagent/concept.md`                      | `/hol-concept`         |
+| `holagent.sizing-architect`  | `.holagent/sizing.md`                       | `/hol-concept`         |
+| `holagent.spec-author`       | `<lab-repo>/spec/*`, `lab-prep.md`          | `/hol-spec`            |
+| `holagent.lab-surveyor`      | `lab-prep.md`, `.holagent/sizing.md`        | `/hol-adopt`           |
+| `holagent.lab-builder`       | code + tests in the lab repo                | `/hol-build`           |
+| `holagent.qa-runner`         | nothing — returns findings + dry-run output | `/hol-qa`              |
+| `holagent.guide-planner`     | `.holagent/plan.md`, `lab-prep.md`          | `/hol-plan`            |
+| `holagent.module-planner`    | `.holagent/<NN-slug>/plan.md`               | `/hol-plan-module`     |
+| `holagent.guide-implementer` | one `## Module N:` section                  | `/hol-generate-module` |
+| `holagent.platform-reviewer` | `.holagent/platform/<name>.json`            | `/hol-platform-check`  |
+| `holagent.launch-writer`     | `launch/*.md`                               | `/hol-launch`          |
+| `holagent.scorer`            | nothing (read-only)                         | every scoring stage    |
 
 ---
 

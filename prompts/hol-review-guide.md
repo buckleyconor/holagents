@@ -44,13 +44,6 @@ Follow the steps in order. Stop and report at the first hard failure.
 
 - Read the full `guide.md` and the `plan.md` frontmatter (objectives +
   modules list).
-- **Product/company profiles**: if the plan, research notes, or the user
-  names the product/company this guide was researched from, point the scorer
-  at the matching profile(s) under `~/.holagent`
-  (`~/.holagent/companies/<slug>/`, `~/.holagent/products/<company>/<product>/`)
-  — the scorer may read them for the `product-names` criterion. If no
-  profile applies, say so in the context ("no product profile — score
-  product-names against the guide's internal consistency").
 
 ## 4. Score the guide (scorer fanout, guide scope)
 
@@ -59,7 +52,7 @@ Follow the steps in order. Stop and report at the first hard failure.
   `analytic/terminology-consistency` (4), `holistic/guide-quality` (4).
 - Build each task from the **guide-scope template** in
   `evaluation/scorer-prompts.md` — path-based, per the Content paths by scope
-  table (full guide, plan frontmatter, profile pointer or its absence).
+  table (full guide, plan frontmatter).
 - Dispatch the whole fanout in **one** `subagent` call — a `workflowScript`
   running `runs.all([...])`, one item per rubric in the order listed above,
   each `{ key: <rubric>, agent: "holagent.scorer", task: <path-based task>,

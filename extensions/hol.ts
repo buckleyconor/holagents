@@ -23,8 +23,8 @@
  *   /hol-validate [guideDir]
  *   /hol-status [guideDir]
  *
- * Degradation: without pi-subagents the research/plan/generate/review
- * templates are inert; the tools above still work (notified at session start).
+ * Degradation: without pi-subagents the plan/generate/review templates
+ * are inert; the tools above still work (notified at session start).
  */
 import { Type } from 'typebox';
 import {
@@ -130,7 +130,6 @@ function statusMilestoneLine(m: MilestoneStatus): string {
 }
 
 function statusText(status: GuideStatus): string {
-  const research = `companies=[${status.research.companies.join(', ') || '—'}] products=[${status.research.products.join(', ') || '—'}]`;
   const lastVal = status.lastValidation
     ? `${status.lastValidation.ok ? 'ok' : 'failed'} (${status.lastValidation.errors} errors, ${status.lastValidation.warnings} warnings) at ${status.lastValidation.at}`
     : 'never recorded (run /hol-validate)';
@@ -168,7 +167,6 @@ function statusText(status: GuideStatus): string {
     'Modules:',
     ...status.modules.map(statusModuleLine),
     `Last validation: ${lastVal}`,
-    `Research: ${research}`,
     `Next: ${status.next}`,
   );
   return lines.join('\n');
@@ -222,7 +220,7 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
     name: 'hol_status',
     label: 'hol_status',
     description:
-      'Determine holagent lab state (deterministic — files + scores only): lifecycle stages (concept, sizing, spec, build, guide, ship), plan, per-module state (unplanned → planned → generated → validated → scored-passed | scored-escalated), last linter validation, research profiles, and the next recommended command. Works before guide.md exists.',
+      'Determine holagent lab state (deterministic — files + scores only): lifecycle stages (concept, sizing, spec, build, guide, ship), plan, per-module state (unplanned → planned → generated → validated → scored-passed | scored-escalated), last linter validation, and the next recommended command. Works before guide.md exists.',
     promptSnippet:
       'Read the lab-guide state machine (module states, last validation, next command)',
     parameters: Type.Object({
@@ -720,7 +718,8 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
         lines.push(result.message);
       } else {
         lines.push(`Wrote: ${result.outputFiles.join(', ') || 'none'}`);
-        if (result.deferred.length > 0) lines.push(`Deferred dialects: ${result.deferred.join(', ')}`);
+        if (result.deferred.length > 0)
+          lines.push(`Deferred dialects: ${result.deferred.join(', ')}`);
         for (const w of result.coverageWarnings) lines.push(`Coverage — ${w}`);
       }
       return { content: [{ type: 'text', text: lines.join('\n') }], details: result };
@@ -802,8 +801,7 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
   });
 
   pi.registerCommand('hol-handoff', {
-    description:
-      'Render + check the platform handoff, no LLM: /hol-handoff [guideDir]',
+    description: 'Render + check the platform handoff, no LLM: /hol-handoff [guideDir]',
     handler: async (args, ctx) => {
       try {
         const guideDir = resolveLabPath(ctx.cwd, firstArg(args));
@@ -838,16 +836,16 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
     try {
       ensureHolagentDataDir();
     } catch {
-      /* non-fatal: research features will report on first use */
+      /* non-fatal: platform-requirements features will report on first use */
     }
     // Graceful degradation without pi-subagents (spec §04 §6): the
-    // research/plan/generate/review templates need the `subagent` tool;
+    // plan/generate/review templates need the `subagent` tool;
     // the deterministic surface above does not.
     try {
       const names = new Set(pi.getAllTools().map((t) => t.name));
       if (!names.has('subagent')) {
         ctx.ui.notify(
-          'holagent: pi-subagents not detected — /hol-research-*, /hol-plan, /hol-generate-*, /hol-review-* need it (pi install npm:pi-subagents). /hol-validate and /hol-status still work.',
+          'holagent: pi-subagents not detected — /hol-plan, /hol-generate-*, /hol-review-* need it (pi install npm:pi-subagents). /hol-validate and /hol-status still work.',
           'warning',
         );
       }

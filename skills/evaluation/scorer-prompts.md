@@ -89,8 +89,6 @@ line — the scorer greps the heading and reads that section through its trailin
   delta, image checklist, success criteria — the title is mandatory,
   `title-alignment` is unverifiable without it)
 - **guide** — `«guide»/guide.md`, plus `«guide»/.holagent/plan.md` frontmatter
-  and the product/company profile path(s) under `~/.holagent` when they exist
-  (say explicitly when none does)
 - **launch** — every `«guide»/launch/*.md`, plus `«guide»/guide.md` (or the
   released `<ID>-<Title>.md`), `«guide»/.holagent/plan.md`,
   `«guide»/.holagent/sizing.md`, `«guide»/.holagent/concept.md` when it exists,

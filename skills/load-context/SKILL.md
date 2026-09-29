@@ -1,6 +1,6 @@
 ---
 name: load-context
-description: Path conventions, two-phase discovery, and per-command context matrix for holagent lab guides. Use when a /hol-* command must decide which research, plan, module, and guide files to load before doing work.
+description: Path conventions, two-phase discovery, and per-command context matrix for holagent lab guides. Use when a /hol-* command must decide which plan, module, and guide files to load before doing work.
 ---
 
 # Load Context
@@ -10,11 +10,6 @@ All cross-command knowledge lives in files, never in conversation history, so ev
 command re-discovers state from disk.
 
 ## Paths
-
-Data dir: `~/.holagent/` (override with `HOLAGENT_DATA_DIR`).
-
-- Companies: `~/.holagent/companies/<company-slug>/`
-- Products: `~/.holagent/products/<company-slug>/<product-slug>/`
 
 Per-guide state under the **guide root** — the directory holding `guide.md`
 and `.holagent/`. For a lab this is the lab's own repo (the guide lives at its
@@ -35,7 +30,8 @@ from cwd and treats any directory with `guide.md` + `.holagent/` as a guide root
 - `.holagent/scores.json` — scoring checkpoints
 - `.holagent/last-validation.json` — latest linter report
 
-Platform requirements (per platform, not per lab):
+Platform requirements (per platform, not per lab, under `~/.holagent/`,
+override with `HOLAGENT_DATA_DIR`):
 `~/.holagent/platforms/<name>/requirements.md`. Per-lab review output:
 `guides/<slug>/.holagent/platform/<name>.json` (i.e. the guide root's `.holagent/platform/<name>.json`).
 
@@ -45,12 +41,12 @@ Platform requirements (per platform, not per lab):
 
 `ls` / file-exists checks only — no file contents:
 
-- **Company**: does `companies/<company-slug>/company.md` exist? `style-guide.md`?
-- **Products**: which directories exist under `products/<company-slug>/`?
 - **Guide**: does the guide root's `.holagent/plan.md` exist?
 - **Module plans**: which `.holagent/<NN-slug>/plan.md` exist?
 - **Guide state**: do the guide root's `guide.md`, `lab-prep.md`, `scores.json`,
   `last-validation.json` exist?
+- **Platform requirements**: which `~/.holagent/platforms/<name>/requirements.md`
+  exist, and does the guide root's `.holagent/platform/<name>.json` exist?
 
 Report discovery results to the calling command. Every command runs discovery so it
 knows what is available.
@@ -58,66 +54,46 @@ knows what is available.
 ### Phase 2: Selective reading (only what the task needs)
 
 **`-` means do not read it even if it exists — it is not useful for this task.**
-"relevant only" = only the products the guide covers (see Product filtering).
 
-| Command                   | Company           | Style             | Products          | Concept/Sizing    | Plan              | Module plans | Guide.md          | Scores/State |
-| ------------------------- | ----------------- | ----------------- | ----------------- | ----------------- | ----------------- | ------------ | ----------------- | ------------ |
-| `/hol-research-company`   | existing (update) | existing (update) | -                 | -                 | -                 | -            | -                 | -            |
-| `/hol-research-product`   | for extra sources | -                 | existing (update) | -                 | -                 | -            | -                 | -            |
-| `/hol-concept`            | yes               | yes               | relevant only     | existing (extend) | -                 | -            | -                 | -            |
-| `/hol-review-concept`     | -                 | -                 | -                 | yes               | -                 | -            | -                 | yes          |
-| `/hol-spec`               | -                 | -                 | relevant only     | yes               | -                 | -            | -                 | -            |
-| `/hol-review-spec`        | -                 | -                 | -                 | yes               | -                 | -            | -                 | yes          |
-| `/hol-lab-register`       | -                 | -                 | -                 | -                 | -                 | -            | -                 | -            |
-| `/hol-adopt`              | -                 | -                 | -                 | -                 | -                 | -            | -                 | -            |
-| `/hol-platform-init`      | -                 | -                 | -                 | -                 | -                 | -            | -                 | -            |
-| `/hol-platform-check`     | -                 | -                 | -                 | yes (sizing)      | -                 | -            | -                 | yes          |
-| `/hol-build`              | -                 | -                 | relevant only     | yes (sizing)      | -                 | -            | -                 | yes          |
-| `/hol-build-all`          | -                 | -                 | relevant only     | yes (sizing)      | -                 | -            | -                 | yes          |
-| `/hol-qa`                 | -                 | -                 | -                 | -                 | yes               | -            | -                 | yes          |
-| `/hol-qa-prod`            | -                 | -                 | -                 | -                 | -                 | -            | -                 | yes          |
-| `/hol-launch`             | yes               | yes               | relevant only     | yes               | yes               | -            | yes               | -            |
-| `/hol-review-launch`      | -                 | -                 | -                 | yes               | yes               | -            | yes               | yes          |
-| `/hol-plan`               | yes               | yes               | relevant only     | yes               | existing (extend) | -            | existing (extend) | -            |
-| `/hol-plan-module`        | -                 | -                 | relevant only     | -                 | yes               | prior        | -                 | -            |
-| `/hol-generate-module`    | yes               | yes               | relevant only     | -                 | yes               | this + prior | this + prior      | -            |
-| `/hol-generate-all`       | yes               | yes               | relevant only     | -                 | yes               | all          | all               | -            |
-| `/hol-review-plan`        | yes               | yes               | relevant only     | yes               | yes               | -            | -                 | yes          |
-| `/hol-review-module-plan` | -                 | -                 | relevant only     | -                 | yes               | this         | -                 | yes          |
-| `/hol-review-module`      | yes               | yes               | relevant only     | -                 | yes               | this         | this              | yes          |
-| `/hol-review-guide`       | yes               | yes               | relevant only     | -                 | yes               | all          | all               | yes          |
+| Command                   | Concept/Sizing    | Plan              | Module plans | Guide.md          | Scores/State |
+| ------------------------- | ----------------- | ----------------- | ------------ | ----------------- | ------------ |
+| `/hol-concept`            | existing (extend) | -                 | -            | -                 | -            |
+| `/hol-review-concept`     | yes               | -                 | -            | -                 | yes          |
+| `/hol-spec`               | yes               | -                 | -            | -                 | -            |
+| `/hol-review-spec`        | yes               | -                 | -            | -                 | yes          |
+| `/hol-lab-register`       | -                 | -                 | -            | -                 | -            |
+| `/hol-adopt`              | -                 | -                 | -            | -                 | -            |
+| `/hol-platform-init`      | -                 | -                 | -            | -                 | -            |
+| `/hol-platform-check`     | yes (sizing)      | -                 | -            | -                 | yes          |
+| `/hol-build`              | yes (sizing)      | -                 | -            | -                 | yes          |
+| `/hol-build-all`          | yes (sizing)      | -                 | -            | -                 | yes          |
+| `/hol-qa`                 | -                 | yes               | -            | -                 | yes          |
+| `/hol-qa-prod`            | -                 | yes               | -            | -                 | yes          |
+| `/hol-launch`             | yes               | yes               | -            | yes               | -            |
+| `/hol-review-launch`      | yes               | yes               | -            | yes               | yes          |
+| `/hol-plan`               | yes               | existing (extend) | -            | existing (extend) | -            |
+| `/hol-plan-module`        | -                 | yes               | prior        | -                 | -            |
+| `/hol-generate-module`    | -                 | yes               | this + prior | this + prior      | -            |
+| `/hol-generate-all`       | -                 | yes               | all          | all               | -            |
+| `/hol-review-plan`        | yes               | yes               | -            | -                 | yes          |
+| `/hol-review-module-plan` | -                 | yes               | this         | -                 | yes          |
+| `/hol-review-module`      | -                 | yes               | this         | this              | yes          |
+| `/hol-review-guide`       | -                 | yes               | all          | all               | yes          |
 
 "Scores/State" covers `scores.json` and `last-validation.json`.
 
-## Product filtering
-
-Load only the product files the guide actually covers.
-
-| Stage                                                  | How to find relevant products                                                                 |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| `/hol-plan`                                            | Command args or topic. Match against available product dirs. If ambiguous, list them and ask. |
-| `/hol-plan-module`, `/hol-generate-*`, `/hol-review-*` | The plan's covered products. Load only those.                                                 |
-
-**Hard rule:** never load all product files. A user may have 15+ products — loading
-all wastes context and drags in irrelevant terminology.
-
 ## Using context
 
-- Company name: use the exact capitalization from `company.md`.
-- Terminology: substitute generic terms with company-preferred terms from `style-guide.md`.
-- Product references: use accurate feature names and descriptions from `product.md`.
-- Tone: match the formality documented in `style-guide.md`.
 - Existing content: stay consistent with what is already in the guide.
+- Tone and terminology: follow the `match-writing-style` skill — the holagent
+  house lab-guide conventions, unless the user supplied a style preference
+  during the interview.
 
 ## Fallback behavior
 
 Every context type is optional. When context is missing:
 
-- No `company.md`: neutral professional tone, no company-specific branding.
-- No `style-guide.md`: neutral professional tone.
-- No product files: rely on topic research and user input for technical accuracy.
 - No plan: the calling command handles it (may start planning interactively).
 - No existing guide: generate from scratch.
-
-If company or product context would significantly improve quality, suggest the
-relevant research command — but do not block.
+- No platform requirements: the calling command handles it (may run the
+  platform-init interview, or note §10 as a first pass).

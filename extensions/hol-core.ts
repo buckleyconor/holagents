@@ -2366,7 +2366,6 @@ export interface GuideStatus {
     /** True when the guide has been renamed and left the pipeline (ADR-005). */
     released: boolean;
   };
-  research: { companies: string[]; products: string[] };
   plan: {
     exists: boolean;
     valid: boolean;
@@ -2403,17 +2402,6 @@ function listFiles(dir: string): string[] {
   try {
     return readdirSync(dir, { withFileTypes: true })
       .filter((d) => d.isFile())
-      .map((d) => d.name)
-      .sort();
-  } catch {
-    return [];
-  }
-}
-
-function listSubdirs(dir: string): string[] {
-  try {
-    return readdirSync(dir, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
       .map((d) => d.name)
       .sort();
   } catch {
@@ -2609,15 +2597,6 @@ export function readGuideStatus(guideDir: string): GuideStatus {
     return status;
   });
 
-  const dataDir = holagentDataDir();
-  const companies = listSubdirs(join(dataDir, 'companies'));
-  const products: string[] = [];
-  for (const company of listSubdirs(join(dataDir, 'products'))) {
-    for (const product of listSubdirs(join(dataDir, 'products', company))) {
-      products.push(`${company}/${product}`);
-    }
-  }
-
   const qa = readQaSummary(guideDir);
 
   // ---- lifecycle (ADR-009) ----------------------------------------------
@@ -2718,7 +2697,6 @@ export function readGuideStatus(guideDir: string): GuideStatus {
 
   return {
     guide: { slug: basename(guideDir), id, title, file: guideFile, released },
-    research: { companies, products: products.sort() },
     plan: {
       exists: plan.exists,
       valid: plan.valid,

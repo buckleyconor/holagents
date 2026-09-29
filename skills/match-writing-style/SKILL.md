@@ -1,30 +1,31 @@
 ---
 name: match-writing-style
-description: Applies a company style guide — or the holagent house conventions when none exists — when writing lab guide content. Use when authoring or editing guide prose so tone, voice, and terminology match the target.
+description: Applies the holagent house writing conventions — or a user-supplied style preference when one was given — when authoring lab guide content. Use when authoring or editing guide prose so tone, voice, and terminology stay consistent.
 ---
 
 # Match Writing Style
 
-How to apply company tone, voice, and terminology when writing lab guide content.
+How to apply tone, voice, and terminology when writing lab guide content.
 
 ## Prerequisites
 
-Context should be loaded via the `load-context` skill (if available).
+Context should be loaded via the `load-context` skill (if available). If the
+user supplied a style preference during the interview, that preference governs;
+otherwise write in the holagent house conventions below.
 
 ## Workflow
 
-1. Read `~/.holagent/companies/<company-slug>/style-guide.md` (if available).
-2. Before writing any content, internalize: tone, voice characteristics,
-   terminology preferences.
-3. Write the content draft.
-4. Review against the style guide: does it sound like their docs?
-5. Apply terminology substitutions from the style guide table.
-6. Do a "read-aloud test" — would this fit on their documentation site?
+1. Internalize the target voice: tone, terminology, and sentence patterns.
+2. Write the content draft.
+3. Review against the conventions: does it read like a hands-on lab guide?
+4. Apply any terminology substitutions the user gave.
+5. Do a "read-aloud test" — would a lab author read this as clear, consistent
+   instructions?
 
-## House fallback (no company style guide)
+## House conventions
 
-If no style guide exists, write in the holagent house lab-guide conventions
-(see the `guide-format` skill) instead of a generic neutral tone:
+Write in the holagent house lab-guide conventions (see the `guide-format` skill)
+rather than a generic neutral tone:
 
 - Second person ("you"), active voice, imperative step phrasing.
 - One action per step; each step states an observable expected result.
@@ -35,10 +36,11 @@ If no style guide exists, write in the holagent house lab-guide conventions
 
 ## Precedence
 
-The style guide governs **tone, voice, and terminology**. The holagent house format
-(`guide-format` skill) governs **structure and mechanics** (section skeleton, TOC
-anchors, command blocks, image syntax, callout forms). Where they conflict, the house
-format wins — the linter is the arbiter and it does not know about style guides.
+A user-supplied style preference governs **tone, voice, and terminology**. The
+holagent house format (`guide-format` skill) governs **structure and mechanics**
+(section skeleton, TOC anchors, command blocks, image syntax, callout forms).
+Where they conflict, the house format wins — the linter is the arbiter and it
+does not know about style preferences.
 
 ## Verification
 

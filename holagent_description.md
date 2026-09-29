@@ -73,13 +73,11 @@ after every meeting instead of evaporating.
 
 ## 3. What it does — the lifecycle
 
-Five numbered stages (build and QA share stage 3), 24 slash commands, each ending at a
+Five numbered stages (build and QA share stage 3), 22 slash commands, each ending at a
 gate and waiting for you.
 
 ```mermaid
 flowchart TD
-    R["/hol-research-company · /hol-research-product<br/>(optional, cached in ~/.holagent/)"]
-
     S1["STAGE 1 — CONCEPT<br/>/hol-concept<br/>→ concept.md + sizing.md"]
     S2["STAGE 2 — SPEC<br/>/hol-lab-register → /hol-spec<br/>→ lab repo spec/ + lab-prep.md"]
     S3["STAGE 3 — BUILD + QA<br/>/hol-build-all → /hol-qa --env dev<br/>→ lab code, parity + smoke records"]
@@ -94,7 +92,6 @@ flowchart TD
     G4{{"gate: linter 0 errors<br/>★ you confirm the rename"}}
     G5{{"gate: hol_launch_check<br/>★ your approval"}}
 
-    R -.-> S1
     S1 --> G1 --> S2 --> G2 --> S3
     G2 --> S4
     S3 --> G3
@@ -152,13 +149,12 @@ extension carries determinism.**
 flowchart TB
     YOU(["you — interviews, approvals, the rename, production QA"])
 
-    subgraph P ["PROMPTS — 24 templates, run by the parent session"]
+    subgraph P ["PROMPTS — 22 templates, run by the parent session"]
         ORCH["interview → dispatch → gate → fix-loop → merge → report → next command"]
     end
 
-    subgraph A ["AGENTS — 14 · holagent.* · isolated, maxSubagentDepth 0"]
+    subgraph A ["AGENTS — 12 · holagent.* · isolated, maxSubagentDepth 0"]
         W["writers: concept-author, sizing-architect, spec-author,<br/>lab-builder, qa-runner, guide-planner, module-planner,<br/>guide-implementer, platform-reviewer, launch-writer, lab-surveyor"]
-        RES["researchers: company-researcher, product-researcher<br/>(local scraped files only — never fetch)"]
         SC["scorer ×N — read-only, one rubric × one content slice,<br/>parallel fanout, trailing JSON contract"]
     end
 
@@ -167,31 +163,29 @@ flowchart TB
         L["linter: line-based scanner + 25 rules + shellcheck"]
     end
 
-    subgraph K ["SKILLS — 18 · the knowledge layer"]
+    subgraph K ["SKILLS — 14 · the knowledge layer"]
         KN["formats · methods · 26 rubrics · templates · style corpus"]
     end
 
     subgraph F ["FILES — the only durable state"]
-        FS["~/.holagent/ (companies, products, platforms, scraper)<br/>guide root: guide.md, lab-prep.md, launch/, .holagent/<br/>lab repo (via lab-ref.json): spec/, src/, tests/"]
+        FS["~/.holagent/ (platforms)<br/>guide root: guide.md, lab-prep.md, launch/, .holagent/<br/>lab repo (via lab-ref.json): spec/, src/, tests/"]
     end
 
     YOU <--> P
-    ORCH -- "subagent, blocking" --> W & RES
+    ORCH -- "subagent, blocking" --> W
     ORCH -- "runs.all fanout" --> SC
     ORCH -- "deterministic gates" --> T
     W --> FS
-    RES --> FS
     T --> FS
     L --- T
     K -.-> W
-    K -.-> RES
     K -.-> SC
     FS -. "parent reads and inlines into the next payload" .-> ORCH
 ```
 
 **Key architectural decisions** (23 ADRs, indexed in `docs/adr/README.md`):
 
-- **No agent-to-agent handoff exists.** All 14 agents run with
+- **No agent-to-agent handoff exists.** All 12 agents run with
   `maxSubagentDepth: 0`, `inheritProjectContext: false`, `inheritSkills: false`. The
   parent session is the only integration point; the durable handoff medium is the
   filesystem (ADR-001).
@@ -236,11 +230,11 @@ What remains is making the workflow faster and the knowledge base compound, belo
    driving a headless browser against the dev environment — one capture per image-checklist
    item, named by module — would close the last big gap in stage 4, and the module plan
    already specifies exactly what each shot should show.
-2. **Share the knowledge base.** `~/.holagent/` is per-machine. Company profiles, product
-   profiles and especially `platforms/<name>/requirements.md` are the team's compounding
-   asset — tribal knowledge that took meetings to acquire. Backing that directory with a
-   git repo (or making it a registered second data root) would let the whole team's
-   platform reviews improve together instead of once per laptop.
+2. **Share the knowledge base.** `~/.holagent/` is per-machine, and
+   `platforms/<name>/requirements.md` is the team's compounding asset — tribal knowledge
+   that took meetings to acquire. Backing that directory with a git repo (or making it a
+   registered second data root) would let the whole team's platform reviews improve
+   together instead of once per laptop.
 3. **Cost and model tiering.** Scorer fanout is the token hot spot: 26 rubrics, several
    per scope, re-run each fix-loop round. Pinning `holagent.scorer` to a cheaper model
    (already supported via agent frontmatter or `subagentOverrides`) and recording

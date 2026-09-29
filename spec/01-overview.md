@@ -13,8 +13,8 @@
 ## Problem
 
 Authoring hands-on lab guides (HOL) for Dell AI solutions is currently manual: each guide
-requires product research, structural planning, careful module-by-module authoring, and
-quality checking against an unwritten house standard. The four existing sample guides
+requires structural planning, careful module-by-module authoring, and quality
+checking against an unwritten house standard. The four existing sample guides
 (show the drift: broken TOC numbering, stale anchors, `Module` vs `Phase` headings,
 inconsistent callouts) demonstrate that consistency depends on the individual author.
 
@@ -22,11 +22,11 @@ inconsistent callouts) demonstrate that consistency depends on the individual au
 
 ## What we are building
 
-A single installable **Pi.dev agent package** (`holagent-lab-guides`) that provides 12
+A single installable **Pi.dev agent package** (`holagent-lab-guides`) that provides 22
 `hol-*` commands running the full guide lifecycle:
 
 ```
-research (vendor/product) → plan → plan modules → generate modules →
+plan → plan modules → generate modules →
 validate (deterministic linter) → score (rubric fanout) → review → done
 ```
 
@@ -52,7 +52,6 @@ reference only**. All branding, format, and domain content is holagent's own.
 | G2  | **Generate** — `/hol-generate-module <slug>` authors one `## Module N:` section into `guide.md` that is format-conformant                                                                 | Linter: 0 errors on the guide after each module                                                                                                |
 | G3  | **Validate** — `/hol-validate` gives a deterministic pass/fail with stable rule IDs, including shellcheck on extracted inline commands                                                    | Reproducible report; rule IDs stable across runs; exit codes per `02-architecture.md` §Interfaces                                              |
 | G4  | **Score** — rubric scoring (checklist 0/1, analytic 1–5, holistic 1–5) with parent-owned parallel fanout and bounded fix loops                                                            | Every scorer returns strict JSON; scores persisted to `.holagent/scores.json`; fix loops capped (analytic 3 rounds, checklist escalation at 5) |
-| G5  | **Research** — vendor site scrape → reusable company profile + style guide; product research → product profile, cached in `~/.holagent/`                                                  | Research done once per company/product; reused by later guides                                                                                 |
 | G6  | **State** — `/hol-status` renders pipeline state; `/hol-generate-all` is idempotent and resumable                                                                                         | Re-running any command never corrupts or duplicates state                                                                                      |
 
 ## Success criteria (acceptance)
@@ -64,9 +63,7 @@ reference only**. All branding, format, and domain content is holagent's own.
    headings, missing H1/ID) — see `05-test-strategy.md` corpus tests.
 3. **Zero provenance branding**: `grep -ri instruqt` over the package returns nothing
    (CI-enforced).
-4. **Reusability**: a second guide for the same company/product reuses cached research
-   with no re-scrape.
-5. **Install**: one command (`pi install git:<repo>@<tag>`) makes all 12 commands
+4. **Install**: one command (`pi install git:<repo>@<tag>`) makes all commands
    available; no manual steps beyond optional `shellcheck`.
 
 ## Non-goals (out of scope, v1)
@@ -98,5 +95,4 @@ reference only**. All branding, format, and domain content is holagent's own.
 - Dev machine: Ubuntu 24.04.4 LTS, x86_64, Node 22 (bundled with pi 22.22.3).
 - Generated content targets: dev sandbox containers (browser + embedded terminal) and
   production Charmed Kubernetes (x86, NVIDIA RTX PRO 6000, Blackwell `sm_120`).
-- Data: demo lab credentials (deliberately weak), scraped vendor content, internal style
-  corpus; no PII.
+- Data: demo lab credentials (deliberately weak), internal style corpus; no PII.

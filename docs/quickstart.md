@@ -33,7 +33,7 @@ carries determinism.**
                        ┌─────────────────────────────────────────────┐
   you (chat)           │               PI SESSION                    │
  ────────────────────▶ │                                             │
- /hol-concept          │  PROMPT TEMPLATES (24)                      │
+ /hol-concept          │  PROMPT TEMPLATES (22)                      │
  /hol-spec /hol-build  │  the main session orchestrates:             │
  /hol-qa /hol-plan     │  interview → dispatch → gate →              │
  /hol-launch …         │  fix-loop → merge → report → next command   │
@@ -42,7 +42,7 @@ carries determinism.**
         (pi-subagents,        │                          │ (deterministic
             read-only /       ▼                          ▼  gates, no LLM)
            writer children) ┌─────────────────┐   ┌───────────────────────────┐
-                            │  AGENTS (14)    │   │  EXTENSION                │
+                            │  AGENTS (12)    │   │  EXTENSION                │
                             │  holagent.*     │   │  11 tools (hol_*) +       │
                             │                 │   │  /hol-validate            │
                             │  authors,       │   │  /hol-status (commands)   │
@@ -53,7 +53,7 @@ carries determinism.**
                                      │ read                   │ read/write
                                      ▼                        ▼
                             ┌──────────────────────────────────────────┐
-                            │  SKILLS (18) — the knowledge layer       │
+                            │  SKILLS (14) — the knowledge layer       │
                             │  formats, methods, rubrics, templates    │
                             └──────────────────────────────────────────┘
                                      files on disk = the only state
@@ -65,8 +65,6 @@ stages; every command re-detects where it is from disk and resumes.
 ## 2. How a lab flows
 
 ```
- /hol-research-company ─▶ /hol-research-product          (optional, cached to ~/.holagent/)
-                                   │
  STAGE 1  /hol-concept ──▶ .holagent/concept.md + sizing.md
                                    │  ★ YOU: approve / request changes / abort
  STAGE 2  /hol-lab-register <repo-path>        (ADR-008 — you confirm the external path)
@@ -116,7 +114,7 @@ passes (ADR-015), and passing scores never outrank a failing test.
 
 ## 3. The agents — responsibilities and dependencies
 
-Runtime names use the package scope: `holagent.<name>`. All fourteen run with
+Runtime names use the package scope: `holagent.<name>`. All twelve run with
 isolated context (`inheritProjectContext: false`, `inheritSkills: false`,
 `systemPromptMode: replace`) and **cannot spawn further subagents**
 (`maxSubagentDepth: 0`) — orchestration stays in your session (ADR-001). The
@@ -125,22 +123,20 @@ its frontmatter, plus its tool allowlist. For how the parent actually moves stat
 between them — the dispatch shape, the three handoff media, and why there is no
 flow configuration — see `docs/user-guide.md` §6.
 
-| Stage | Agent                         | Responsibility                                                                                                                    |
-| ----- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | `holagent.concept-author`     | Writes `concept.md` from your confirmed interview answers: problem, personas, beats, aha moment, non-goals.                       |
-| 1     | `holagent.sizing-architect`   | Writes `sizing.md`: production vs minimal demo footprint, what breaks if shrunk further, density math.                            |
-| 2     | `holagent.spec-author`        | Writes the ten-section spec into the lab repo **and derives `lab-prep.md`** from the sizing rather than typing it from memory.    |
-| 3     | `holagent.lab-builder`        | Implements **one** build milestone in the lab repo, code plus tests, and leaves it passing its own declared test.                 |
-| 3     | `holagent.qa-runner`          | Brings the lab up on dev, exercises the spec's flows past where parity stops, captures verbatim dry-run output.                   |
-| 4     | `holagent.guide-planner`      | Drafts `plan.md` + `lab-prep.md` from your confirmed answers. Does not interview — the parent relays.                             |
-| 4     | `holagent.module-planner`     | Writes one module plan: step outline, environment delta, commands, image checklist, success criteria.                             |
-| 4     | `holagent.guide-implementer`  | Authors exactly one `## Module N:` section. Self-checks with the linter CLI before reporting.                                     |
-| 5     | `holagent.platform-reviewer`  | Reviews the lab against one platform team's written requirements; severity-tagged, traced, actionable findings.                   |
-| 5     | `holagent.launch-writer`      | Writes the launch collateral. Every claim names its source or the sentence does not go in.                                        |
-| —     | `holagent.lab-surveyor`       | Adoption: reverse-engineers `lab-prep.md` + an observed `sizing.md` from a repo and a running dev instance.                       |
-| —     | `holagent.company-researcher` | Builds `company.md` + `style-guide.md` from **scraped local files only** — it never fetches.                                      |
-| —     | `holagent.product-researcher` | Builds `product.md`, tuned for lab authoring. Never fetches.                                                                      |
-| —     | `holagent.scorer`             | Scores **one rubric against one content slice**. Ends with exactly one fenced JSON block (ADR-006). Read-only: no bash, no write. |
+| Stage | Agent                        | Responsibility                                                                                                                    |
+| ----- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | `holagent.concept-author`    | Writes `concept.md` from your confirmed interview answers: problem, personas, beats, aha moment, non-goals.                       |
+| 1     | `holagent.sizing-architect`  | Writes `sizing.md`: production vs minimal demo footprint, what breaks if shrunk further, density math.                            |
+| 2     | `holagent.spec-author`       | Writes the ten-section spec into the lab repo **and derives `lab-prep.md`** from the sizing rather than typing it from memory.    |
+| 3     | `holagent.lab-builder`       | Implements **one** build milestone in the lab repo, code plus tests, and leaves it passing its own declared test.                 |
+| 3     | `holagent.qa-runner`         | Brings the lab up on dev, exercises the spec's flows past where parity stops, captures verbatim dry-run output.                   |
+| 4     | `holagent.guide-planner`     | Drafts `plan.md` + `lab-prep.md` from your confirmed answers. Does not interview — the parent relays.                             |
+| 4     | `holagent.module-planner`    | Writes one module plan: step outline, environment delta, commands, image checklist, success criteria.                             |
+| 4     | `holagent.guide-implementer` | Authors exactly one `## Module N:` section. Self-checks with the linter CLI before reporting.                                     |
+| 5     | `holagent.platform-reviewer` | Reviews the lab against one platform team's written requirements; severity-tagged, traced, actionable findings.                   |
+| 5     | `holagent.launch-writer`     | Writes the launch collateral. Every claim names its source or the sentence does not go in.                                        |
+| —     | `holagent.lab-surveyor`      | Adoption: reverse-engineers `lab-prep.md` + an observed `sizing.md` from a repo and a running dev instance.                       |
+| —     | `holagent.scorer`            | Scores **one rubric against one content slice**. Ends with exactly one fenced JSON block (ADR-006). Read-only: no bash, no write. |
 
 Dependency notes:
 
@@ -174,16 +170,12 @@ Dependency notes:
 | `guide-format`          | The house format standard: `SKILL.md` plus `format.json` — the executable spec the linter implements (25 rules).                       |
 | `guide-scaffolds`       | Every copy-then-fill template, plus the frontmatter subset rule (mini-YAML quoting) the parser enforces.                               |
 | `write-guides`          | Module-authoring conventions: step anatomy, expected-output discipline, checkpoints, screenshot placeholders.                          |
-| `match-writing-style`   | Applying company tone/voice/terminology from the researched profiles.                                                                  |
+| `match-writing-style`   | Applying the house writing conventions (or a user-supplied style preference).                                                          |
 | `design-modules`        | Module-design heuristics: pacing, one concept per module, verifiable success criteria, environment deltas.                             |
 | `lab-anti-patterns`     | The drift checklist (credential/host drift, jargon, fabricated outputs) plans and sections are checked against.                        |
 | `style-corpus`          | The four in-house sample guides — the style ground truth.                                                                              |
 | `evaluation`            | `scoring-guide.md`, the **26 rubrics** across ten scopes, and `scorer-prompts.md` (task templates, dispatch contract, fanout table).   |
 | `load-context`          | Path conventions, two-phase discovery, and the per-command context matrix.                                                             |
-| `scrape-website`        | Scraper CLI usage and the pinned bootstrap (version + SHA-256 from `scraper-manifest.json`).                                           |
-| `research-company`      | The company scrape/analysis workflow.                                                                                                  |
-| `research-product`      | The product-profile workflow.                                                                                                          |
-| `analyze-writing-style` | Extracts tone/voice/term-substitution rules from scraped documentation.                                                                |
 
 ## 5. The extension — the deterministic core
 
@@ -314,14 +306,13 @@ Working practices:
 
 **Environment**
 
-| Item                                | Required?                    | Notes                                                                                                               |
-| ----------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Pi + the **pi-subagents** extension | yes                          | hard peer — without it every dispatching command stops at its prerequisites step (the extension warns at start).    |
-| Node 22                             | yes (bundled with Pi)        | runs the linter/extension/tests; no build step.                                                                     |
-| `shellcheck`                        | optional                     | without it the report says `shellcheck: "skipped"`; only L014/W014 are affected.                                    |
-| Outbound network                    | only for research, first run | the scraper binary downloads once, pinned + SHA-256-verified.                                                       |
-| A **lab repository**                | stages 2, 3, and stage 5     | registered once via `/hol-lab-register` or `/hol-adopt`; the only path outside the project root anything writes to. |
-| A registered **dev** environment    | `/hol-qa`, `/hol-adopt`      | parity executes there and nowhere else. A lab with no dev environment simply cannot run automated QA (ADR-012).     |
+| Item                                | Required?                | Notes                                                                                                               |
+| ----------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Pi + the **pi-subagents** extension | yes                      | hard peer — without it every dispatching command stops at its prerequisites step (the extension warns at start).    |
+| Node 22                             | yes (bundled with Pi)    | runs the linter/extension/tests; no build step.                                                                     |
+| `shellcheck`                        | optional                 | without it the report says `shellcheck: "skipped"`; only L014/W014 are affected.                                    |
+| A **lab repository**                | stages 2, 3, and stage 5 | registered once via `/hol-lab-register` or `/hol-adopt`; the only path outside the project root anything writes to. |
+| A registered **dev** environment    | `/hol-qa`, `/hol-adopt`  | parity executes there and nowhere else. A lab with no dev environment simply cannot run automated QA (ADR-012).     |
 
 **Information**
 

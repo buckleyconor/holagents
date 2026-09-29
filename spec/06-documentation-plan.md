@@ -10,9 +10,9 @@ Required sections (in order):
    fanout without pi-subagents).
 3. **Install** — `pi install git:<repo>@v0.1.0` (and `-l` for project scope); verify
    with `/hol-status` in any guide dir.
-4. **Quickstart** — the 6-command happy path (`/hol-research-company` →
-   `/hol-research-product` → `/hol-plan` → `/hol-plan-module` →
-   `/hol-generate-module` → `/hol-review-guide`), one line each.
+4. **Quickstart** — the happy path (`/hol-concept` → `/hol-spec` → `/hol-plan` →
+   `/hol-plan-module` → `/hol-generate-module` → `/hol-review-guide` →
+   `/hol-launch`), one line each.
 5. **Command reference** — the §02 §1.1 table + the 2 extension commands, with
    prerequisites column (mirrors the reference plugin's UX).
 6. **Workflow notes** — stage separation via `/clear` (state is in files, not
@@ -23,8 +23,8 @@ Required sections (in order):
    assignments (inherit parent by default; how to pin scorers to a cheaper model via
    agent frontmatter or `subagents.agentOverrides`).
 8. **Data layout** — the §02 §3.1 tree, short.
-9. **Troubleshooting** — table: symptom → cause → fix (scraper missing; shellcheck
-   missing; `E-PATH`; scorer JSON parse retry; pi-subagents not loaded; `grep -ri
+9. **Troubleshooting** — table: symptom → cause → fix (shellcheck missing;
+   `E-PATH`; scorer JSON parse retry; pi-subagents not loaded; `grep -ri
 instruqt`-style confusion about provenance).
 10. **Provenance & license** — architecture derived from an existing Claude Code
     plugin (credit line), content/format standard is the team's own; license of the

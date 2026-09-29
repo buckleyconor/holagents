@@ -87,8 +87,8 @@ Never `**Tip!**`, `**Use Case!**`, `_Lab Tip:_`, or `**Important Note:**`.
 
 - Second person, present tense, active voice: "You will see the ASL
   classifier with platform `tensorrt_plan`."
-- Use the product's own terminology from the research profiles
-  (`~/.holagent/products/...`); expand an abbreviation once, on first use.
+- Use the product's own terminology consistently; expand an abbreviation once,
+  on first use.
 - Consistency across the guide: one spelling per concept (`Triton`,
   `TensorRT` — never "the tensor RT engine").
 - Explain the _why_ on non-obvious steps ("the ONNX is the portable

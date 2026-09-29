@@ -15,6 +15,8 @@
  *   hol_qa_script  — render the same checks as a script for a human (never executes)
  *   hol_qa_record  — validated write of an asserted smoke / prod-e2e outcome
  *   hol_launch_check — stage-5 gate: collateral is complete and agrees with the guide
+ *   hol_handoff_render — render the platform handoff into the lab repo (ADR-021)
+ *   hol_handoff_check  — gate: handoff is complete, digest-bound, secret-free
  *
  * Commands (user-invoked, LLM-bypass — checked by pi before template
  * expansion, so no prompt template may reuse these names):
@@ -50,6 +52,7 @@ import {
 } from './hol-core.ts';
 import type { GuideStatus, MilestoneStatus, ModuleStatus } from './hol-core.ts';
 import type { PiExtensionAPI, PiToolResult } from './pi-types.ts';
+import { checkHandoff, renderHandoff } from './handoff.ts';
 
 /**
  * pi-ai's `StringEnum`, inlined: it is exactly `{ type: "string", enum: [...] }`
@@ -140,6 +143,7 @@ function statusText(status: GuideStatus): string {
       const envs =
         status.labRef.environments.map((e) => `${e.name} (${e.kind})`).join(', ') || 'none';
       lines.push(`Lab repo: ${status.labRef.repo} [${status.labRef.origin}] — envs: ${envs}`);
+      lines.push(`Handoff: ${status.lifecycle.ship.handoff}`);
     }
   }
   if (status.milestones.length > 0) {
@@ -688,6 +692,66 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
     },
   });
 
+  pi.registerTool({
+    name: 'hol_handoff_render',
+    label: 'hol_handoff_render',
+    description:
+      'Deterministic ship-stage renderer: assemble the platform handoff (handoff/k8s.md) into the registered lab repo from recorded artifacts (lab-ref.json, lab-prep.md, sizing.md, deployment-profile.yaml, committed manifests, platform findings). No agent, no prose — byte-identical output (HND-003). The vCD dialect is deferred (BLOCKED for a vCD-only lab, ADR-022).',
+    promptSnippet: 'Render the platform handoff into the lab repo',
+    parameters: Type.Object({
+      guideDir: optGuideDir(GUIDE_DIR_DESC),
+      overwrite: Type.Optional(
+        Type.Boolean({
+          description:
+            'Replace an existing handoff/k8s.md that this tool did not generate (default false: BLOCKED on a hand-authored file, ADR-021).',
+        }),
+      ),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<PiToolResult> {
+      const guideDir = resolveLabPath(
+        ctx.cwd,
+        typeof params.guideDir === 'string' ? params.guideDir : undefined,
+      );
+      const result = renderHandoff(guideDir, params.overwrite === true);
+      const lines = [
+        `Handoff render ${result.classification}${result.subcode ? ` (${result.subcode})` : ''}`,
+      ];
+      if (result.classification === 'BLOCKED') {
+        lines.push(result.message);
+      } else {
+        lines.push(`Wrote: ${result.outputFiles.join(', ') || 'none'}`);
+        if (result.deferred.length > 0) lines.push(`Deferred dialects: ${result.deferred.join(', ')}`);
+        for (const w of result.coverageWarnings) lines.push(`Coverage — ${w}`);
+      }
+      return { content: [{ type: 'text', text: lines.join('\n') }], details: result };
+    },
+  });
+
+  pi.registerTool({
+    name: 'hol_handoff_check',
+    label: 'hol_handoff_check',
+    description:
+      'Deterministic gate for the platform handoff (HND-011): the rendered artifact exists, matches the declared platform set, carries no << FILL: >> markers, parses Mermaid, meets minimum content, cites the correct manifest digests, records well-formed identifiers, and is secret-free. ARC-004 classification (PASS / PASS_WITH_WARNINGS / FAIL / BLOCKED).',
+    promptSnippet: 'Check the platform handoff for completeness and digest agreement',
+    parameters: Type.Object({
+      guideDir: optGuideDir(GUIDE_DIR_DESC),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx): Promise<PiToolResult> {
+      const guideDir = resolveLabPath(
+        ctx.cwd,
+        typeof params.guideDir === 'string' ? params.guideDir : undefined,
+      );
+      const check = checkHandoff(guideDir);
+      const lines = [
+        `Handoff check ${check.classification}${check.subcode ? ` (${check.subcode})` : ''}`,
+      ];
+      for (const c of check.checks) lines.push(`${c.ok ? 'ok' : 'FAIL'} ${c.name}: ${c.detail}`);
+      if (check.deferred.length > 0) lines.push(`Deferred dialects: ${check.deferred.join(', ')}`);
+      for (const w of check.coverageWarnings) lines.push(`Coverage — ${w}`);
+      return { content: [{ type: 'text', text: lines.join('\n') }], details: check };
+    },
+  });
+
   // -------------------------------------------------------------- commands
 
   pi.registerCommand('hol-validate', {
@@ -731,6 +795,36 @@ export default function holagentExtension(pi: PiExtensionAPI): void {
       } catch (e) {
         ctx.ui.notify(
           `hol-status: ${e instanceof HolError ? e.message : (e as Error).message}`,
+          'error',
+        );
+      }
+    },
+  });
+
+  pi.registerCommand('hol-handoff', {
+    description:
+      'Render + check the platform handoff, no LLM: /hol-handoff [guideDir]',
+    handler: async (args, ctx) => {
+      try {
+        const guideDir = resolveLabPath(ctx.cwd, firstArg(args));
+        const render = renderHandoff(guideDir);
+        if (render.classification === 'BLOCKED') {
+          ctx.ui.notify(`hol-handoff: ${render.message}`, 'error');
+          return;
+        }
+        const check = checkHandoff(guideDir);
+        ctx.ui.notify(
+          `hol-handoff: render ${render.classification}, check ${check.classification}`,
+          check.classification === 'FAIL' ? 'error' : 'info',
+        );
+        ctx.ui.setWidget('holagent', [
+          `render ${render.classification} — ${render.outputFiles.join(', ') || 'none'}`,
+          `check ${check.classification}`,
+          ...check.checks.map((c) => `${c.ok ? 'ok' : 'FAIL'} ${c.name}: ${c.detail}`),
+        ]);
+      } catch (e) {
+        ctx.ui.notify(
+          `hol-handoff: ${e instanceof HolError ? e.message : (e as Error).message}`,
           'error',
         );
       }

@@ -7,7 +7,7 @@ GitOps: GitLab and Argo CD
 
 ## Purpose
 
-This package specifies an extension to HOLagents that generates, deploys, tests and promotes lab applications through Charmed Kubernetes while preserving deterministic gates, evidence and human approval.
+This package specifies an extension to HOLagents that generates, deploys, tests and promotes lab applications through Charmed Kubernetes while preserving deterministic gates, evidence and human approval. It also hosts the platform-neutral lifecycle addition — the platform handoff renderer (module 9) — with the Kubernetes extension as the first platform adapter.
 
 The design extends the existing lifecycle rather than replacing it:
 
@@ -34,6 +34,7 @@ Kubernetes deployment and promotion are introduced as operational substates with
 - `DEP-002`: The runner identity and cluster credential mechanism have not yet been selected.
 - `DEP-003`: The UAT environment and its Argo CD Application do not yet exist.
 - `DEP-004`: GitLab protection, approval and service-account rules require confirmation.
+- `DEP-005`: No GitLab runner fleet or executor exists yet; CI pipelines are generated but not executed until it does.
 
 These dependencies do not block core development. Any runtime transition requiring an unresolved dependency must return `BLOCKED` rather than assume a default.
 
@@ -47,8 +48,15 @@ These dependencies do not block core development. Any runtime transition requiri
 6. [VirtualServer testing](06-virtualserver-testing.md)
 7. [UAT and acceptance testing](07-uat-acceptance.md)
 8. [Implementation plan and ADRs](08-implementation-plan-adrs.md)
-9. [Pilot status](STATUS.md) — implementation status per milestone and the
-   outstanding external dependencies (DEP-001…DEP-004)
+9. [Platform handoff (renderer)](09-platform-handoff.md) — in progress (Draft
+   0.4). Ship scope is the [Kubernetes dialect](09-annex-kubernetes.md); the
+   [vCD dialect](09-annex-vcd.md) is specified but deferred (ADR-022). A lab
+   declares exactly one platform.
+10. [Pilot status](STATUS.md) — implementation status per milestone and the
+    outstanding external dependencies (DEP-001…DEP-005)
+
+Module 10 (GitLab CI template generator) is **dropped**; its spec file
+(`10-gitlab-ci-generator.md`) is retained for the record but is not in scope.
 
 The implementation lives in `extensions/k8s/` (contracts and adapter
 boundary) with contract/integration/E2E tests in `test/k8s/`.

@@ -1,6 +1,7 @@
 # ADR-008: the lab's code lives in its own repo, reached through `lab-ref.json`
 
-- **Status**: Accepted (2026-09-01)
+- **Status**: Accepted (2026-09-01); write confinement amended by ADR-021 (one
+  named deterministic renderer may write a fixed path into the registered repo)
 - **References**: ADR-003, ADR-012; `extensions/hol-core.ts` (`readLabRef`, `resolveConfinedRoot`)
 
 ## Context

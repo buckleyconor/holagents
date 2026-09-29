@@ -5,6 +5,7 @@
  * Contracts: spec §02 §4.1–4.3 (tools), §3.6 (state machine), §04 §3 (path
  * validation), §05 T-33…T-41.
  */
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import {
   chmodSync,
@@ -182,7 +183,7 @@ export async function validateGuide(
 // ------------------------------------------------------------- atomics
 
 /** Atomic JSON write: same-dir temp file + rename. Never leaves partial state. */
-function atomicWriteJson(filePath: string, value: unknown): void {
+export function atomicWriteJson(filePath: string, value: unknown): void {
   const dir = dirname(filePath);
   mkdirSync(dir, { recursive: true });
   const tmp = join(dir, `.${basename(filePath)}.tmp-${process.pid}-${Date.now()}`);
@@ -417,7 +418,7 @@ export interface PlanModule {
   title: string;
 }
 
-interface PlanInfo {
+export interface PlanInfo {
   exists: boolean;
   id: string | null;
   title: string | null;
@@ -547,7 +548,7 @@ export function validatePlanFrontmatter(fm: Frontmatter | null): PlanValidation 
 }
 
 /** Parse `.holagent/plan.md` frontmatter (missing file → exists:false). */
-function readPlan(guideDir: string): PlanInfo {
+export function readPlan(guideDir: string): PlanInfo {
   const path = join(guideDir, '.holagent', 'plan.md');
   if (!existsSync(path)) {
     return {
@@ -2218,7 +2219,7 @@ export function recordQaResult(
 }
 
 /** Last recorded QA outcomes, for `hol_status`. Corrupt files read as absent. */
-function readQaSummary(labDir: string): GuideStatus['qa'] {
+export function readQaSummary(labDir: string): GuideStatus['qa'] {
   const read = (file: string): Record<string, unknown> | null => {
     try {
       const raw: unknown = JSON.parse(readFileSync(join(labDir, '.holagent', 'qa', file), 'utf8'));
@@ -2256,6 +2257,43 @@ function readQaSummary(labDir: string): GuideStatus['qa'] {
 }
 
 // --------------------------------------------------------------- status
+
+/** Ship-stage handoff state (spec-k8s/09 OQ-09-4): rendered vs stale vs missing vs deferred. */
+function readHandoffState(guideDir: string, labRef: LabRef | null, engaged: boolean): HandoffState {
+  if (!engaged || !labRef) return 'n/a';
+  if (labRef.platforms.length > 0 && !labRef.platforms.includes('k8s')) return 'deferred';
+  let repoDir = false;
+  try {
+    repoDir = statSync(labRef.repo, { throwIfNoEntry: false })?.isDirectory() ?? false;
+  } catch {
+    repoDir = false;
+  }
+  if (!repoDir) return 'missing';
+  const handoffPath = join(labRef.repo, 'handoff', 'k8s.md');
+  if (!existsSync(handoffPath)) return 'missing';
+  let recorded: string | null = null;
+  try {
+    const raw = JSON.parse(
+      readFileSync(join(guideDir, '.holagent', 'handoff', 'render.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    const dialects = Array.isArray(raw.dialects) ? raw.dialects : [];
+    for (const d of dialects) {
+      if (
+        typeof d === 'object' &&
+        d !== null &&
+        (d as Record<string, unknown>).file === 'handoff/k8s.md'
+      ) {
+        const dig = (d as Record<string, unknown>).digest;
+        if (typeof dig === 'string') recorded = dig;
+      }
+    }
+  } catch {
+    recorded = null;
+  }
+  if (recorded === null) return 'rendered';
+  const current = createHash('sha256').update(readFileSync(handoffPath, 'utf8')).digest('hex');
+  return current === recorded ? 'rendered' : 'stale';
+}
 
 export type ModuleState =
   'unplanned' | 'planned' | 'generated' | 'validated' | 'scored-passed' | 'scored-escalated';
@@ -2301,6 +2339,7 @@ export interface MilestoneStatus {
 export type StageState = 'n/a' | 'missing' | 'drafted' | 'approved' | 'adopted';
 export type BuildState = 'n/a' | 'missing' | 'adopted' | 'in-progress' | 'smoke-passed';
 export type GuideStageState = 'unplanned' | 'planned' | 'generating' | 'complete';
+export type HandoffState = 'n/a' | 'missing' | 'rendered' | 'stale' | 'deferred';
 
 export interface LifecycleStatus {
   /**
@@ -2313,8 +2352,8 @@ export interface LifecycleStatus {
   spec: StageState;
   build: BuildState;
   guide: GuideStageState;
-  /** Stage 5: platform reviews on file, and the launch collateral's state. */
-  ship: { platforms: string[]; launch: StageState };
+  /** Stage 5: platform reviews on file, the launch collateral's state, and the handoff. */
+  ship: { platforms: string[]; launch: StageState; handoff: HandoffState };
 }
 
 export interface GuideStatus {
@@ -2638,6 +2677,7 @@ export function readGuideStatus(guideDir: string): GuideStatus {
   else guideStage = 'planned';
 
   const platformFindings = listPlatformFindings(guideDir);
+  const handoff = readHandoffState(guideDir, labRef, engaged);
 
   const lifecycle: LifecycleStatus = {
     engaged,
@@ -2646,7 +2686,7 @@ export function readGuideStatus(guideDir: string): GuideStatus {
     spec: stageState('spec', specExists),
     build,
     guide: guideStage,
-    ship: { platforms: platformFindings, launch: stageState('launch', launchExists) },
+    ship: { platforms: platformFindings, launch: stageState('launch', launchExists), handoff },
   };
 
   // ---- next ---------------------------------------------------------------
@@ -2667,6 +2707,13 @@ export function readGuideStatus(guideDir: string): GuideStatus {
   } else if (engaged && !plan.exists) {
     if (lifecycle.concept === 'missing' || lifecycle.sizing === 'missing') next = '/hol-concept';
     else if (lifecycle.spec === 'missing') next = '/hol-spec';
+  } else if (
+    engaged &&
+    plan.exists &&
+    platformFindings.length > 0 &&
+    (handoff === 'missing' || handoff === 'stale')
+  ) {
+    next = '/hol-handoff';
   }
 
   return {

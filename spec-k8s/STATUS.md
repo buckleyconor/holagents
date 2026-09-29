@@ -33,6 +33,16 @@ transport are the test doubles named in the spec.
   `DeploymentAdapter` implementations exist in
   `extensions/k8s/adapter-k8s.ts`; exposing them as hol tools is a
   pipeline decision once DEP-001…DEP-004 are confirmed.
+- **Platform handoff (spec-k8s/09) — in progress.** `hol_handoff_render` /
+  `hol_handoff_check` are specified at Draft 0.4 (spec-k8s/09) and implemented
+  as a platform-neutral core (`extensions/handoff.ts`) plus a Kubernetes
+  dialect renderer (`extensions/k8s/handoff-k8s.ts`), reusing `parseProfileYaml`,
+  `redactText` and `manifestSetDigest`. Both tools register with `hol.ts`; the
+  rest of the k8s extension stays unregistered. The vCD dialect is deferred
+  (ADR-022).
+- **GitLab CI generator (spec-k8s/10) — dropped.** `hol_ci_render` /
+  `hol_ci_check` are out of scope; `10-gitlab-ci-generator.md` is retained for
+  the record only.
 - **No promotion of the ADRs.** ADR-K8S-001…ADR-K8S-009 remain embedded in
   `spec-k8s/08-implementation-plan-adrs.md` until the extension is adopted.
 
@@ -44,6 +54,7 @@ transport are the test doubles named in the spec.
 | DEP-002 | Cluster credential references                         | `profile.credentials.runtimeReference` is the contract; no secret wiring exists, and absent credentials surface as `BLOCKED_CREDENTIALS`                                                                                                       |
 | DEP-003 | Argo CD Applications per environment                  | Argo readiness is a narrow observation interface; no live Application exists yet, so readiness is unobservable in a real environment until wiring is confirmed                                                                                 |
 | DEP-004 | GitLab protection/approval rules                      | `InMemoryGitLab` enforces the intended semantics (protection, candidate-bound approvals); the live rules must be confirmed before any consequential merge can be executed against a real GitLab instance                                       |
+| DEP-005 | GitLab runner fleet and executor                      | `hol_ci_render` renders a correct, image-targeted `.gitlab-ci.yml`, but no runner picks it up; execution is deferred until a runner fleet exists. `tags` stay unset rather than invented                                                       |
 
 ## Provisional naming
 

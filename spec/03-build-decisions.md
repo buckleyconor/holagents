@@ -36,14 +36,10 @@ copies under `skills/style-corpus/`.
 holagent-lab-guides/
 ├── package.json                  # name, pi manifest, keywords ["pi-package"], files[]
 ├── README.md                     # see 06-documentation-plan.md
-├── prompts/                      # 10 prompt templates (hol-plan.md, …)
-├── agents/                       # 6 agent files (frontmatter + system prompt)
+├── prompts/                      # 22 prompt templates (hol-plan.md, …)
+├── agents/                       # 12 agent files (frontmatter + system prompt)
 ├── skills/
 │   ├── load-context/SKILL.md
-│   ├── scrape-website/SKILL.md, cli.md
-│   ├── research-company/SKILL.md
-│   ├── research-product/SKILL.md
-│   ├── analyze-writing-style/SKILL.md
 │   ├── match-writing-style/SKILL.md
 │   ├── guide-format/SKILL.md, format.json
 │   ├── evaluation/SKILL.md, scoring-guide.md, scorer-prompts.md,

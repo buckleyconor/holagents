@@ -44,6 +44,14 @@ corrections and reversals — including of the original spec.
 | [019](0019-scorer-fanout-is-parallel.md)                                       | Scorer fanout is parallel    | Scorers fan out in one `runs.all` wave with path-based tasks; ADR-001's sequential consequence is superseded.               |
 | [020](0020-fix-rounds-rescore-the-scope-and-analytic-criteria-have-a-floor.md) | Fix rounds rescore the scope | Content a fix touched is in scope for every rubric of it; and an analytic mean can no longer average away a criterion at 2. |
 
+## Amendments and extensions (021–)
+
+| #                                                                   | Decision                                   | In one line                                                                                                                                                        |
+| ------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [021](0021-generated-artifacts-may-be-written-into-the-lab-repo.md) | Generated artifacts may enter the lab repo | Two named tools may write fixed paths in the registered repo — and may never overwrite a file they did not generate. ADR-008's confinement is otherwise unchanged. |
+| [022](0022-platform-handoff-is-a-deterministic-renderer.md)         | The handoff is a deterministic renderer    | One model, dialects only for declared platforms, Kubernetes bound to committed manifests by digest — no agent. vCD dialect deferred.                               |
+| [023](0023-build-milestones-declare-a-ci-runner-image.md)           | Milestones declare a CI runner image       | **Dropped** with module 10: `07-build-sequence.md` would gain `image` for CI jobs, which no longer exist.                                                          |
+
 ## The shape of these decisions
 
 Read together, they are mostly one idea applied in different places:

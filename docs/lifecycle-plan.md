@@ -30,7 +30,7 @@ A **Pi (pi.dev) agent package** — not a Claude Code `.claude/` layout. `packag
 - Zero runtime dependencies; Node 22 with `--experimental-strip-types` (erasable TypeScript, **no build step**)
 - Repo: `~/projects/holagents`, branch `main`, 17 commits mapping 1:1 onto milestones M0–M11, tagged v0.1.0
 
-**What it does:** produces production-quality hands-on lab guides end-to-end. It researches vendor/product context, interviews the author into a guide plan, generates the guide module-by-module against a **pre-provisioned** lab environment, validates it with a deterministic linter, scores it with a rubric fanout, and offers a final user-confirmed rename.
+**What it does:** produces production-quality hands-on lab guides end-to-end. It interviews the author into a guide plan, generates the guide module-by-module against a **pre-provisioned** lab environment, validates it with a deterministic linter, scores it with a rubric fanout, and offers a final user-confirmed rename.
 
 Provenance: architecture derived from the Claude Code plugin `github.com/instruqt/ai-plugins` ("track" plugin: research → plan → generate → validate → score), rebranded and re-architected for Pi. The content standard — house style, linter rules, evaluation rubrics — is the team's own, derived from four real in-house lab guides.
 
@@ -45,28 +45,24 @@ Four component types, with a deliberate separation of concerns:
 | **Skills**                   | `skills/<name>/SKILL.md` | Carry knowledge. All LLM-consumed knowledge lives here, referenced by skill-relative paths.    |
 | **Extension**                | `extensions/*.ts`        | Carry determinism. Linter, state derivation, score merging — never mediated by model judgment. |
 
-### The 6 agents
+### The agents
 
 All share: `package: holagent`, `inheritProjectContext: false`, `inheritSkills: false`, `systemPromptMode: replace`, `maxSubagentDepth: 0`. None pin a `model:` — they inherit the parent session's model.
 
-| Agent                | Writes                                                      | Notes                                                                                                                             |
-| -------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `company-researcher` | `~/.holagent/companies/<slug>/company.md`, `style-guide.md` | Local files only, never fetches. Scraped content is untrusted data.                                                               |
-| `product-researcher` | `~/.holagent/products/<co>/<prod>/product.md`               | Tuned to what a lab author needs: versions, workflows in teaching order, entry points, credentials.                               |
-| `guide-planner`      | `.holagent/plan.md`, `lab-prep.md`                          | Never interviews — the parent relays confirmed answers. Never invents machine fields.                                             |
-| `module-planner`     | `.holagent/<NN-slug>/plan.md`                               | Step outline, environment delta, commands, expected outputs, image checklist, success criteria.                                   |
-| `guide-implementer`  | one `## Module N:` section of `guide.md`                    | Does not run the lab; the parent passes captured dry-run output. Self-lints before returning.                                     |
-| `scorer`             | nothing (read-only)                                         | One rubric × one content slice. No bash/write/edit, so injected content cannot act. Emits exactly one trailing fenced JSON block. |
+| Agent               | Writes                                   | Notes                                                                                                                             |
+| ------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `guide-planner`     | `.holagent/plan.md`, `lab-prep.md`       | Never interviews — the parent relays confirmed answers. Never invents machine fields.                                             |
+| `module-planner`    | `.holagent/<NN-slug>/plan.md`            | Step outline, environment delta, commands, expected outputs, image checklist, success criteria.                                   |
+| `guide-implementer` | one `## Module N:` section of `guide.md` | Does not run the lab; the parent passes captured dry-run output. Self-lints before returning.                                     |
+| `scorer`            | nothing (read-only)                      | One rubric × one content slice. No bash/write/edit, so injected content cannot act. Emits exactly one trailing fenced JSON block. |
 
-### The 13 skills
+### The skills
 
-`guide-format` (house Markdown standard + `format.json`, the linter's rule config) · `guide-scaffolds` (7 copy-then-fill templates + the mini-YAML frontmatter rules) · `evaluation` (scoring system + 13 rubrics) · `design-modules` (sequencing, pacing, environment deltas) · `write-guides` (prose craft) · `lab-anti-patterns` (format drift + content traps the linter can't see) · `style-corpus` (4 real guides as the executable style spec) · `match-writing-style` · `analyze-writing-style` · `research-company` · `research-product` · `scrape-website` (pinned-binary bootstrap, verify-or-refuse SHA-256) · `load-context` (two-phase discovery + per-command context matrix).
+`guide-format` (house Markdown standard + `format.json`, the linter's rule config) · `guide-scaffolds` (copy-then-fill templates + the mini-YAML frontmatter rules) · `evaluation` (scoring system + 13 rubrics) · `design-modules` (sequencing, pacing, environment deltas) · `write-guides` (prose craft) · `lab-anti-patterns` (format drift + content traps the linter can't see) · `style-corpus` (4 real guides as the executable style spec) · `match-writing-style` · `load-context` (two-phase discovery + per-command context matrix).
 
-### The 10 slash commands + 2 extension commands
+### The slash commands + 2 extension commands
 
 ```
-/hol-research-company [url: slug:]      → company-researcher
-/hol-research-product <product>         → product-researcher
 /hol-plan [topic]                       → interview → guide-planner → 4-rubric score → approve
 /hol-plan-module <module>               → module-planner → 2-rubric score
 /hol-generate-module <module> [--fresh] → dry-run capture → guide-implementer → lint → 4-rubric score → capped fix loop
@@ -81,10 +77,8 @@ Plus LLM-callable tools over the same pure core: `hol_validate`, `hol_status`, `
 ## Data layout
 
 ```
-~/.holagent/                          # research cache ($HOLAGENT_DATA_DIR), mode 0700
-├── companies/<slug>/                 # company.md, style-guide.md, manifest.json, website/
-├── products/<co>/<prod>/             # product.md, manifest.json, website/
-└── bin/scraper                       # pinned binary, SHA-256 verified
+~/.holagent/                          # platform requirements cache ($HOLAGENT_DATA_DIR), mode 0700
+└── platforms/<name>/                 # requirements.md — grown by interview (ADR-014)
 
 guides/<slug>/
 ├── guide.md                          # canonical during the pipeline; final: "<ID>-<Title>.md"
@@ -185,7 +179,7 @@ Labs run in either a **VMware Cloud Director (vCD) cloud** or a **Kubernetes clo
 
 | #   | Step                                                                                                                                                                           | Coverage                                                                                              |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| 1   | Brainstorm the solution: research what it does, what business use-cases it solves, how to build a **story** around demonstrating that use-case                                 | ⚠️ Partial — researchers gather facts; nothing produces a narrative                                   |
+| 1   | Brainstorm the solution: research what it does, what business use-cases it solves, how to build a **story** around demonstrating that use-case                                 | ❌ Gap — nothing produces a narrative (Stage 1 in Part 2 closes this)                                 |
 | 2   | Research deployment environment and **footprint** (GPUs, RAM, storage, products, SW stack), then design a **minimal** demo environment — as small as possible while functional | ❌ Gap — `lab-prep.md` _records_ an environment; nothing _designs_ one                                |
 | 3   | Populate `spec-generator-prompt.md`, feed to a frontier model, get spec documents for build / docs / lab guide                                                                 | ❌ Gap in the harness — manual copy-paste                                                             |
 | 4   | Build the lab code                                                                                                                                                             | ❌ Gap                                                                                                |
@@ -197,7 +191,7 @@ Labs run in either a **VMware Cloud Director (vCD) cloud** or a **Kubernetes clo
 
 **Assessment: the repo covers step 5 of 9.** Its own boundary says so explicitly — `skills/guide-scaffolds/lab-prep.md:3` reads _"Handoff artifact for the **(out-of-scope)** environment provisioning team."_ ADR-003 and the declared non-goals draw the same line.
 
-**Nothing existing is redundant.** All 6 agents and 13 skills earn their place. The only files that change role are the two root spec prompts, which become a skill.
+**Nothing existing is redundant.** All agents and skills earn their place. The only files that change role are the two root spec prompts, which become a skill.
 
 ## Existing lab repos (the shape of the missing stages)
 
@@ -314,7 +308,7 @@ This turns "the guide matches the lab" from a rubric opinion (`analytic/environm
 
 ### A1. Stage 1 — `/hol-concept`
 
-- **Command** `prompts/hol-concept.md` — parent-conducted interview, same shape as `prompts/hol-plan.md` (prerequisites → state check → cheap context load → batched interview → dispatch → validate → score → approval loop). Interview covers: solution + Dell pillar (Cyber Resilience / Storage / Networking / AI / Client), target persona, business problem, the "aha" moment, research to reuse.
+- **Command** `prompts/hol-concept.md` — parent-conducted interview, same shape as `prompts/hol-plan.md` (prerequisites → state check → cheap context load → batched interview → dispatch → validate → score → approval loop). Interview covers: solution + Dell pillar (Cyber Resilience / Storage / Networking / AI / Client), target persona, business problem, the "aha" moment.
 - **Agent** `agents/concept-author.md` → `.holagent/concept.md`: business problem, who cares and why, demo story arc and its beats, the aha moment, differentiation, success criteria, explicit non-goals.
 - **Agent** `agents/sizing-architect.md` → `.holagent/sizing.md`: production footprint vs **minimal demo footprint** per component (GPU/vRAM, RAM, vCPU, storage, network), the reduction decisions and what breaks if shrunk further, software stack + versions + licensing, **density math** (N concurrent instances on vCD / K8s), candidate deployment target.
 - **Skills** `solution-story` (use-case → narrative → demo beats; anti-patterns: feature tours, unverifiable claims) and `lab-sizing` (minimisation playbook — quantisation, model/replica sizing, shared vs per-tenant services, ephemeral vs persistent; a worked density example).

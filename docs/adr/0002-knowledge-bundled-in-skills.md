@@ -5,9 +5,8 @@
 
 ## Context
 
-Rubrics, the format spec, plan/module scaffolds, the style corpus, and the
-research workflows must be reachable from the main session and from child
-agents. Pi resolves relative paths in a SKILL.md against the skill's own
+Rubrics, the format spec, plan/module scaffolds, and the style corpus must be
+reachable from the main session and from child agents. Pi resolves relative paths in a SKILL.md against the skill's own
 directory, and a package's install path varies (npm vs git; user vs project
 scope).
 
@@ -16,9 +15,8 @@ scope).
 All LLM-consumed knowledge lives inside the package's skill directories and
 is referenced by skill-relative paths (e.g. `evaluation/rubrics/analytic/
 step-clarity.md` from the evaluation skill). Code that needs a package file
-at runtime (the linter's `format.json`, the bootstrap's
-`scraper-manifest.json`) resolves it package-relative from the extension,
-not from the conversation.
+at runtime (the linter's `format.json`) resolves it package-relative from the
+extension, not from the conversation.
 
 ## Consequences
 

@@ -8,43 +8,39 @@ the extension carries determinism**.
 
 | Component                         | Count         | Runs in                               | Responsibility                                                                                                                          |
 | --------------------------------- | ------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Prompt templates (`prompts/*.md`) | 10            | Main session                          | User entry points. Parse args, check state (via `hol_status`), dispatch subagents, run fix loops, present results, suggest next command |
-| Subagents (`agents/*.md`)         | 6             | Child sessions (pi-subagents)         | Focused workers: planning, module authoring, research, scoring                                                                          |
-| Skills (`skills/*/SKILL.md`)      | 13            | On demand (main or child)             | Procedural + domain knowledge: format spec, rubrics, style corpus, research workflows, templates                                        |
-| Extension (`extensions/hol.ts`)   | 1 module      | Pi runtime                            | 3 tools + 2 commands: deterministic lint, state detection, atomic score persistence                                                     |
+| Prompt templates (`prompts/*.md`) | 22            | Main session                          | User entry points. Parse args, check state (via `hol_status`), dispatch subagents, run fix loops, present results, suggest next command |
+| Subagents (`agents/*.md`)         | 12            | Child sessions (pi-subagents)         | Focused workers: planning, module authoring, scoring                                                                                    |
+| Skills (`skills/*/SKILL.md`)      | 14            | On demand (main or child)             | Procedural + domain knowledge: format spec, rubrics, style corpus, templates                                                            |
+| Extension (`extensions/hol.ts`)   | 1 module      | Pi runtime                            | 11 tools + 2 commands: deterministic lint, state detection, atomic score persistence                                                    |
 | Linter (`extensions/linter/`)     | library + CLI | Node (called by extension, CI, tests) | The executable format spec: line-based Markdown checks + shellcheck on extracted commands                                               |
 
-### 1.1 Prompt templates (10)
+### 1.1 Prompt templates
 
-| Command                   | Arg                          | What it does                                                                                                                                    |
-| ------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/hol-plan`               | `[topic]`                    | Interview (ID, audience, objectives, environment) → `guide-planner` → scoring fanout (plan rubrics) → approval loop → `plan.md` + `lab-prep.md` |
-| `/hol-plan-module`        | `<module>`                   | `module-planner` → module plan file → light scoring (module-plan rubrics)                                                                       |
-| `/hol-generate-module`    | `<module>`                   | `guide-implementer` writes the module section → linter loop → scoring fanout (module rubrics) → fix loop via resume (capped) → merge scores     |
-| `/hol-generate-all`       | `[--fresh]`                  | Detect state, resume in module order; runs the per-module pipeline sequentially; checkpoint report after each module                            |
-| `/hol-research-company`   | `[url:<u> slug:<s>]`         | Scrape via `scrape-website` skill + scraper binary → `company-researcher` → `company.md` + `style-guide.md` in `~/.holagent/companies/<slug>/`  |
-| `/hol-research-product`   | `<product> [company:<slug>]` | Product research (product profile docs + company context) → `product-researcher` → `product.md` in `~/.holagent/products/<company>/<product>/`  |
-| `/hol-review-plan`        | —                            | Scorer fanout over plan rubrics → merge → scorecard                                                                                             |
-| `/hol-review-module-plan` | `<module>`                   | Scorer fanout over module-plan rubrics → merge → scorecard                                                                                      |
-| `/hol-review-module`      | `<module>`                   | Scorer fanout over module rubrics (single module) → merge → scorecard                                                                           |
-| `/hol-review-guide`       | —                            | Scorer fanout over guide-wide rubrics → merge → scorecard; on pass, offers final rename `guide.md → <ID>-<Title>.md` (user confirms)            |
+| Command                   | Arg         | What it does                                                                                                                                    |
+| ------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/hol-plan`               | `[topic]`   | Interview (ID, audience, objectives, environment) → `guide-planner` → scoring fanout (plan rubrics) → approval loop → `plan.md` + `lab-prep.md` |
+| `/hol-plan-module`        | `<module>`  | `module-planner` → module plan file → light scoring (module-plan rubrics)                                                                       |
+| `/hol-generate-module`    | `<module>`  | `guide-implementer` writes the module section → linter loop → scoring fanout (module rubrics) → fix loop via resume (capped) → merge scores     |
+| `/hol-generate-all`       | `[--fresh]` | Detect state, resume in module order; runs the per-module pipeline sequentially; checkpoint report after each module                            |
+| `/hol-review-plan`        | —           | Scorer fanout over plan rubrics → merge → scorecard                                                                                             |
+| `/hol-review-module-plan` | `<module>`  | Scorer fanout over module-plan rubrics → merge → scorecard                                                                                      |
+| `/hol-review-module`      | `<module>`  | Scorer fanout over module rubrics (single module) → merge → scorecard                                                                           |
+| `/hol-review-guide`       | —           | Scorer fanout over guide-wide rubrics → merge → scorecard; on pass, offers final rename `guide.md → <ID>-<Title>.md` (user confirms)            |
 
 `<module>` accepts `NN` (e.g. `2`), `NN-slug` (e.g. `02-upload-documents`), or an
 unambiguous title fragment; the template resolves it against `plan.md` and lists
 available modules on ambiguity.
 
-### 1.2 Subagents (6)
+### 1.2 Subagents
 
 Runtime names use the package scope `holagent` (frontmatter `package: holagent`):
 
-| Agent                         | Tools (strict allowlist)                | Skills injected                                                                                          | Notes                                                                                                             |
-| ----------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `holagent.guide-planner`      | read, write, edit, bash, grep, find, ls | guide-format, guide-scaffolds, evaluation, design-modules, load-context, lab-anti-patterns, style-corpus | Drafts plan + `lab-prep.md`; does **not** interview (parent relays); writes files; returns draft + open questions |
-| `holagent.module-planner`     | read, write, edit, bash, grep, find, ls | guide-format, guide-scaffolds, evaluation, design-modules, load-context                                  | Writes `.holagent/<NN-slug>/plan.md` incl. image checklist                                                        |
-| `holagent.guide-implementer`  | read, write, edit, bash, grep, find, ls | guide-format, write-guides, match-writing-style, load-context, style-corpus, lab-anti-patterns           | Authors one module section; runs `hol_validate` itself for a self-check; never rewrites other modules             |
-| `holagent.company-researcher` | read, write, edit, bash, grep, find, ls | research-company, analyze-writing-style, load-context                                                    | Analyzes scraped files only (never fetches)                                                                       |
-| `holagent.product-researcher` | read, write, edit, bash, grep, find, ls | research-product, load-context                                                                           | Same                                                                                                              |
-| `holagent.scorer`             | read, grep, find, ls                    | evaluation (rubric content is inlined in the task anyway)                                                | Read-only, no bash. One scorer = one rubric × one content slice. Output contract: fenced JSON (§Interfaces)       |
+| Agent                        | Tools (strict allowlist)                | Skills injected                                                                                          | Notes                                                                                                             |
+| ---------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `holagent.guide-planner`     | read, write, edit, bash, grep, find, ls | guide-format, guide-scaffolds, evaluation, design-modules, load-context, lab-anti-patterns, style-corpus | Drafts plan + `lab-prep.md`; does **not** interview (parent relays); writes files; returns draft + open questions |
+| `holagent.module-planner`    | read, write, edit, bash, grep, find, ls | guide-format, guide-scaffolds, evaluation, design-modules, load-context                                  | Writes `.holagent/<NN-slug>/plan.md` incl. image checklist                                                        |
+| `holagent.guide-implementer` | read, write, edit, bash, grep, find, ls | guide-format, write-guides, match-writing-style, load-context, style-corpus, lab-anti-patterns           | Authors one module section; runs `hol_validate` itself for a self-check; never rewrites other modules             |
+| `holagent.scorer`            | read, grep, find, ls                    | evaluation (rubric content is inlined in the task anyway)                                                | Read-only, no bash. One scorer = one rubric × one content slice. Output contract: fenced JSON (§Interfaces)       |
 
 Design note (deliberate deviation from the reference plugin): the reference plugin's
 review agents dispatched their own scorer subagents (grandchildren). pi-subagents
@@ -52,23 +48,19 @@ policy keeps orchestration in the parent session, so **review commands are pure
 prompt templates** that fan out `holagent.scorer` directly via `workflowScript`
 `runs.all`. This removes one agent layer and makes fanout parallel with stable keys.
 
-### 1.3 Skills (13)
+### 1.3 Skills
 
-| Skill                   | Origin                     | Purpose                                                                                                                                                     |
-| ----------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `load-context`          | rewritten                  | Path conventions (`~/.holagent`, `guides/<slug>/.holagent`), two-phase discovery (cheap `ls` first), per-command context matrix                             |
-| `scrape-website`        | ported + `cli.md`          | Scraper binary usage; bootstrap to `~/.holagent/bin/scraper` (pinned version + SHA-256); sitemap/llms.txt flow                                              |
-| `research-company`      | ported                     | Company scrape workflow (primary domain, external-domain confirmation, docs sites)                                                                          |
-| `research-product`      | ported                     | Product profile workflow                                                                                                                                    |
-| `analyze-writing-style` | ported                     | Distill style guide from corpus                                                                                                                             |
-| `match-writing-style`   | ported                     | Apply style guide to authored content                                                                                                                       |
-| `guide-format`          | **new**                    | The house format standard in prose (single source for LLMs); carries `format.json` — machine-readable rule config consumed by the linter                    |
-| `evaluation`            | rewritten                  | `scoring-guide.md`, `scorer-prompts.md` (task templates), rubrics under `checklist/`, `analytic/`, `holistic/` for scopes: plan, module-plan, module, guide |
-| `style-corpus`          | **new**                    | The four sample guides (committed copies) + guidance on using them as the style reference                                                                   |
-| `lab-anti-patterns`     | rewritten                  | Lab-guide-specific anti-patterns (drift classes + authoring traps; replaces the reference plugin's script anti-patterns)                                    |
-| `design-modules`        | ported (design-challenges) | Learning arc, pacing, checkpoint placement, module design guidance                                                                                          |
-| `write-guides`          | ported (write-content)     | Prose conventions: steps, bolded UI actions, command blocks, expected-result wording                                                                        |
-| `guide-scaffolds`       | **new**                    | Templates: `guide-plan.md`, `module-plan.md`, `lab-prep.md`, `company.md`, `product.md`, `style-guide.md`, `guide-scaffold.md`                              |
+| Skill                 | Origin                     | Purpose                                                                                                                                                     |
+| --------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `load-context`        | rewritten                  | Path conventions (`~/.holagent`, `guides/<slug>/.holagent`), two-phase discovery (cheap `ls` first), per-command context matrix                             |
+| `match-writing-style` | ported                     | Apply style guide to authored content                                                                                                                       |
+| `guide-format`        | **new**                    | The house format standard in prose (single source for LLMs); carries `format.json` — machine-readable rule config consumed by the linter                    |
+| `evaluation`          | rewritten                  | `scoring-guide.md`, `scorer-prompts.md` (task templates), rubrics under `checklist/`, `analytic/`, `holistic/` for scopes: plan, module-plan, module, guide |
+| `style-corpus`        | **new**                    | The four sample guides (committed copies) + guidance on using them as the style reference                                                                   |
+| `lab-anti-patterns`   | rewritten                  | Lab-guide-specific anti-patterns (drift classes + authoring traps; replaces the reference plugin's script anti-patterns)                                    |
+| `design-modules`      | ported (design-challenges) | Learning arc, pacing, checkpoint placement, module design guidance                                                                                          |
+| `write-guides`        | ported (write-content)     | Prose conventions: steps, bolded UI actions, command blocks, expected-result wording                                                                        |
+| `guide-scaffolds`     | **new**                    | Templates: `guide-plan.md`, `module-plan.md`, `lab-prep.md`, `guide-scaffold.md`                                                                            |
 
 Why knowledge lives inside skill dirs (not a loose `references/` tree): pi resolves
 relative paths in a SKILL.md against the skill directory, and a package's install path
@@ -121,8 +113,6 @@ flowchart LR
     GP[guide-planner]
     MP[module-planner]
     GI[guide-implementer]
-    CR[company-researcher]
-    PR[product-researcher]
     SC[scorer xN — parallel fanout]
   end
   subgraph ext[Extension tools]
@@ -130,19 +120,14 @@ flowchart LR
     HS[hol_status]
     HO[hol_scores]
   end
-  WEB((public web))
   subgraph data[Filesystem]
-    CACHE[("~/.holagent/ companies, products, bin/scraper")]
+    PLAT[("~/.holagent/ platforms/<name>/requirements.md")]
     GUIDE[("guides/<slug>/ guide.md, lab-prep.md, .holagent/ (plan, module plans, scores.json)")]
   end
 
   CMD --> MAIN
   MAIN -->|dispatch / resume| GP & MP & GI
   MAIN -->|runs.all| SC
-  MAIN -->|research stage| CR & PR
-  CR -. scraper binary .-> WEB
-  CR --> CACHE
-  PR --> CACHE
   GP --> GUIDE
   MP --> GUIDE
   GI --> GUIDE
@@ -151,11 +136,12 @@ flowchart LR
   MAIN --> HO --> GUIDE
   MAIN --> HV --> GUIDE
   MAIN --> HS
-  CACHE -. read context .-> GP & GI & SC
+  PLAT -. read context .-> GP & GI & SC
 ```
 
 Stage separation: each stage reads only the files previous stages produced (plans,
-profiles), so the user may `/clear` between stages without losing state. All
+contracts, platform requirements), so the user may `/clear` between stages without
+losing state. All
 cross-stage knowledge is in files, never in conversation history.
 
 ## 3. Data model
@@ -163,17 +149,8 @@ cross-stage knowledge is in files, never in conversation history.
 ### 3.1 File layout
 
 ```
-~/.holagent/                          # research cache (HOLAGENT_DATA_DIR overrides)
-├── companies/<company-slug>/
-│   ├── company.md                    # mission, products, terminology, branding
-│   ├── style-guide.md                # tone, voice, term substitutions, callout usage
-│   ├── manifest.json                 # scraper metadata: domains, external_urls, urls[]
-│   └── website/                      # scraped pages (markdown), sitemaps/
-├── products/<company-slug>/<product-slug>/
-│   ├── product.md                    # capabilities, architecture, concepts, gotchas
-│   ├── manifest.json
-│   └── website/
-└── bin/scraper                       # pinned scraper binary + scraper/manifest.json (version, sha256)
+~/.holagent/                          # platform requirements cache (HOLAGENT_DATA_DIR overrides)
+└── platforms/<name>/requirements.md  # grown by interview, appended after each review
 
 guides/<slug>/                        # one guide
 ├── guide.md                          # canonical working file (final: <ID>-<Title>.md after user-confirmed rename)
@@ -191,17 +168,14 @@ validation) and in skill/agent instructions.
 
 ### 3.2 Entities
 
-| Entity           | Location                                      | Key fields                                                                                      |
-| ---------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| CompanyProfile   | `~/.holagent/companies/<slug>/company.md`     | name (exact case), industry, mission, products[], terminology map, brand notes                  |
-| StyleGuide       | `style-guide.md`                              | tone, formality, sentence patterns, term substitutions, callout conventions, sample excerpts    |
-| ProductProfile   | `~/.holagent/products/<co>/<prod>/product.md` | summary, capabilities[], architecture, key concepts, common pitfalls, doc sources[]             |
-| GuidePlan        | `guides/<slug>/.holagent/plan.md`             | see §3.3                                                                                        |
-| ModulePlan       | `.holagent/<NN-slug>/plan.md`                 | see §3.4                                                                                        |
-| LabPrep          | `guides/<slug>/lab-prep.md`                   | env baseline, pods/containers, pre-loaded paths, credentials, ports/URLs, timing notes, cleanup |
-| GuideFile        | `guides/<slug>/guide.md`                      | the deliverable (§3.5 format)                                                                   |
-| ValidationReport | `.holagent/last-validation.json`              | see §Interfaces                                                                                 |
-| ScoreEntry       | `.holagent/scores.json`                       | see §Interfaces                                                                                 |
+| Entity           | Location                          | Key fields                                                                                      |
+| ---------------- | --------------------------------- | ----------------------------------------------------------------------------------------------- |
+| GuidePlan        | `guides/<slug>/.holagent/plan.md` | see §3.3                                                                                        |
+| ModulePlan       | `.holagent/<NN-slug>/plan.md`     | see §3.4                                                                                        |
+| LabPrep          | `guides/<slug>/lab-prep.md`       | env baseline, pods/containers, pre-loaded paths, credentials, ports/URLs, timing notes, cleanup |
+| GuideFile        | `guides/<slug>/guide.md`          | the deliverable (§3.5 format)                                                                   |
+| ValidationReport | `.holagent/last-validation.json`  | see §Interfaces                                                                                 |
+| ScoreEntry       | `.holagent/scores.json`           | see §Interfaces                                                                                 |
 
 ### 3.3 Guide plan (`plan.md` frontmatter — machine-readable source of truth)
 
@@ -297,7 +271,7 @@ unplanned → planned → generated → validated → scored-passed
 - `validated`: latest linter run (this module's sections) has 0 errors.
 - `scored-passed` / `scored-escalated`: per `scores.json` entry status.
 
-Guide level: `research? → planned → modules(in progress) → reviewed`. `/hol-generate-all`
+Guide level: `planned → modules(in progress) → reviewed`. `/hol-generate-all`
 resumes at the first module not in `scored-passed`, re-validates existing modules
 first, and stops with a report on any module it cannot complete.
 
@@ -336,7 +310,6 @@ Errors: `E-PATH` (no guide root resolvable — cwd has no `guide.md` and no arg)
 // output
 {
   "guide": { "slug": "nvidia-enterprise-rag-2-3", "id": "HOL-1345-01", "title": "…", "file": "guide.md" },
-  "research": { "companies": ["dell"], "products": ["dell/nvidia-enterprise-rag"] },
   "plan": { "exists": true, "moduleCount": 5, "objectives": 4 },
   "modules": [
     { "n": 1, "slug": "create-collections", "state": "scored-passed",
@@ -486,8 +459,6 @@ used — noted in `guide-format`.)
 ### 4.8 Command argument conventions
 
 - Single positional args as defined per command in §1.1.
-- `/hol-research-company`: optional labeled args `url:<u>` and/or `slug:<s>`
-  (parse from `$@`; `url:` triggers scrape, `slug:` alone loads/edits existing).
 - `--fresh` flag only on `/hol-generate-all` (ignore `scored-*` states, regenerate
   from `planned`).
 - Unknown flags → the template asks the user (no hard parse in the extension).

@@ -27,9 +27,9 @@ committing to it" scores high.
 ### claims-are-defensible
 
 Every claim survives "compared to what?". Comparative and competitive
-claims are either supported by something in the research context or
-softened to what can be shown. Nothing rests on scraped vendor marketing
-treated as neutral evidence.
+claims are either supported by something the author supplied or softened
+to what can be shown. Nothing rests on vendor marketing treated as
+neutral evidence.
 
 ### claims-are-demonstrable
 

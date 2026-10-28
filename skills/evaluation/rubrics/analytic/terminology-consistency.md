@@ -14,9 +14,8 @@ criterion 1–5.
 
 ### product-names
 
-Product and feature names are spelled the same way everywhere and
-match the product profile in ~/.holagent (first mention may expand,
-subsequent use stays constant).
+Product and feature names are spelled the same way everywhere (first
+mention may expand, subsequent use stays constant).
 
 ### no-synonym-drift
 

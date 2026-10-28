@@ -7,10 +7,9 @@ threshold: 4
 
 # Technical accuracy (module level)
 
-Is the module technically sound against the loaded context (the
-research docs under ~/.holagent, plus the plan, lab-prep, and
-Lab Credentials/environment notes the task provides)? Score each
-criterion 1–5.
+Is the module technically sound against the loaded context (the plan,
+lab-prep, and Lab Credentials/environment notes the task provides)?
+Score each criterion 1–5.
 
 ## Criteria
 
@@ -33,11 +32,11 @@ is a finding, not a rounding error).
 ### no-fabrication
 
 No invented UI paths, console menu names, CLI flags, endpoints, or
-output that the loaded research context does not support. When the
-context is silent, the correct text is conservative — flag confident
-specific claims with no context basis. Environment capabilities the
-task context states the lab lacks (e.g., a GPU line in a CPU-only lab)
-count as fabrication.
+output that the loaded context does not support. When the context is
+silent, the correct text is conservative — flag confident specific
+claims with no context basis. Environment capabilities the task context
+states the lab lacks (e.g., a GPU line in a CPU-only lab) count as
+fabrication.
 
 ### expected-output-plausible
 

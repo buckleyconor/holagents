@@ -71,6 +71,8 @@ test('extension loads and registers the deterministic surface', async () => {
 
   assert.deepEqual(tools.map((t) => t.name).sort(), [
     'hol_build_test',
+    'hol_handoff_check',
+    'hol_handoff_render',
     'hol_launch_check',
     'hol_parity',
     'hol_platform_findings',
@@ -82,7 +84,7 @@ test('extension loads and registers the deterministic surface', async () => {
     'hol_status',
     'hol_validate',
   ]);
-  assert.deepEqual(Object.keys(commands).sort(), ['hol-status', 'hol-validate']);
+  assert.deepEqual(Object.keys(commands).sort(), ['hol-handoff', 'hol-status', 'hol-validate']);
   assert.equal(typeof onHandlers.session_start, 'function');
   for (const t of tools) {
     assert.equal(
